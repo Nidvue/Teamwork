@@ -19601,33 +19601,58 @@ def detect_agent_host(env=None) -> str:
     return "unknown"
 
 
-def host_default_model(env=None) -> str:
-    """The model the host is already configured with, if it advertises one."""
+HOST_MODEL_VARS = (
+    "TEAMWORK_MODEL_STRONG",
+    "ANTHROPIC_MODEL",
+    "PI_MODEL",
+    "OPENCODE_MODEL",
+    "CODEX_MODEL",
+    "CURSOR_MODEL",
+    "GEMINI_MODEL",
+    "OPENAI_MODEL",
+)
+
+NAMED_MODEL_VARS = (
+    "TEAMWORK_MODEL_STRONG",
+    "TEAMWORK_MODEL_ECONOMY",
+    "TEAMWORK_MODEL_ALT",
+)
+
+
+def host_default(env=None) -> tuple:
+    """``(variable, model)`` the host is already configured with, if any."""
     env = os.environ if env is None else env
-    for var in (
-        "TEAMWORK_MODEL_STRONG",
-        "ANTHROPIC_MODEL",
-        "PI_MODEL",
-        "OPENCODE_MODEL",
-        "CODEX_MODEL",
-        "CURSOR_MODEL",
-        "GEMINI_MODEL",
-        "OPENAI_MODEL",
-    ):
+    for var in HOST_MODEL_VARS:
         value = (env.get(var) or "").strip()
         if value:
-            return value
-    return ""
+            return var, value
+    return "", ""
+
+
+def host_default_model(env=None) -> str:
+    """The model the host is already configured with, if it advertises one."""
+    return host_default(env)[1]
 
 
 def resolve_model_plan(root: Path, env=None) -> dict:
-    """Route every staffed role to a model: strong lanes first, cost last."""
+    """Route every staffed role to a model: strong lanes first, cost last.
+
+    Every assignment carries the variable its model came from, so a caller can
+    tell a model the operator named from one the host happened to configure.
+    """
     env = os.environ if env is None else env
     host = detect_agent_host(env)
-    strong = (env.get("TEAMWORK_MODEL_STRONG") or "").strip() or host_default_model(env)
-    economy = (env.get("TEAMWORK_MODEL_ECONOMY") or "").strip() or (
-        env.get("TEAMWORK_MODEL_STRONG") or ""
-    ).strip()
+    host_var, host_value = host_default(env)
+    strong_named = (env.get("TEAMWORK_MODEL_STRONG") or "").strip()
+    economy_named = (env.get("TEAMWORK_MODEL_ECONOMY") or "").strip()
+    strong = strong_named or host_value
+    economy = economy_named or strong
+    strong_source = "TEAMWORK_MODEL_STRONG" if strong_named else host_var
+    economy_source = (
+        "TEAMWORK_MODEL_ECONOMY"
+        if economy_named
+        else ("TEAMWORK_MODEL_STRONG" if strong_named else host_var)
+    )
     provider = (env.get("TEAMWORK_MODEL_PROVIDER") or "").strip() or (
         env.get("PI_PROVIDER") or ""
     ).strip()
@@ -19641,9 +19666,11 @@ def resolve_model_plan(root: Path, env=None) -> dict:
     for role in sorted(list_roles(root)):
         tier = LANE_TIER.get(role, "economy")
         model = strong if tier == "strong" else (economy or strong)
+        source = strong_source if tier == "strong" else (economy_source or strong_source)
         if not model:
             missing.append(role)
             continue
+        named = source in NAMED_MODEL_VARS
         lanes = instances_of(root, role)
         if role in COORD_VERIFICATION_ROLES and len(lanes) > 1 and alternate:
             for index, lane in enumerate(lanes):
@@ -19652,12 +19679,16 @@ def resolve_model_plan(root: Path, env=None) -> dict:
                     "model": alternate if index % 2 else model,
                     "tier": tier + ("-alt" if index % 2 else ""),
                     "scope": "agent",
+                    "source": "TEAMWORK_MODEL_ALT" if index % 2 else source,
+                    "named": True if index % 2 else named,
                 }
         assignments[role] = {
             "provider": provider,
             "model": model,
             "tier": tier,
             "scope": "role",
+            "source": source,
+            "named": named,
         }
     notes = [f"host: {host}"]
     if len(instances_of(root, "reviewer")) > 1 and not alternate:
@@ -19695,7 +19726,8 @@ def cmd_model_auto(args) -> int:
     else:
         print(f"# model auto (host: {plan['host']})")
         for role, entry in sorted(plan["assignments"].items()):
-            print(f"- {role:18s} {entry['tier']:8s} {entry['model']}")
+            origin = entry["source"] or "nowhere"
+            print(f"- {role:18s} {entry['tier']:8s} {entry['model']}  (from {origin})")
         for note in plan["notes"]:
             print(f"# {note}")
     if not getattr(args, "apply", False):
@@ -19704,6 +19736,20 @@ def cmd_model_auto(args) -> int:
         return 0
     if not plan["assignments"]:
         die("nothing to apply: no model found in the environment")
+    unnamed = [
+        (role, entry)
+        for role, entry in sorted(plan["assignments"].items())
+        if not entry.get("named")
+    ]
+    if unnamed:
+        die(
+            "refusing to apply a model nobody named: "
+            + ", ".join(f"{role}={entry['model']}" for role, entry in unnamed)
+            + " came from the host default ("
+            + (host_default()[0] or "no host variable")
+            + ") and nobody priced it. Name it in TEAMWORK_MODEL_STRONG, "
+            "TEAMWORK_MODEL_ECONOMY or TEAMWORK_MODEL_ALT, or use `model set`"
+        )
     config = load_model_config(root)
     for role, entry in plan["assignments"].items():
         target = config["agents"] if entry.get("scope") == "agent" else config["roles"]
