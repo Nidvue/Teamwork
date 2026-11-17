@@ -5,14 +5,14 @@ Related: [Board.md](../Board.md), [M26-test-audit.md](M26-test-audit.md), [Testi
 
 ## 1. What was measured
 
-`teamwork.py tests plan` at `a978c6b2` reported 41 GAP rows: 40 `missing` plus 2
+`teamwork.py tests plan` at `a978c6b2` reported 41 GAP rows: 39 `missing` plus 2
 `failing` acceptance rows (TS-0117/TS-0118, Reviewer-owned). This matrix assigns
 every row one owner and one decision. No area was renamed, no layer narrowed with
 `--layers`, and no requirement was edited to make a row disappear.
 
 ## 2. Integration rows recorded now (owner: Tester)
 
-14 of the 17 integration rows now have a passing record. Each command was run in
+13 of the 17 integration rows now have a passing record. Each command was run in
 the T-0009 worktree; the full log is `Agents/Tester/Reports/T-0009-integration-runs.log`
 and is bound as the record artifact.
 
@@ -25,7 +25,6 @@ and is bound as the record artifact.
 | design | integration | TS-0128 | tests/integration/test_ui_refresh_flow.py | 5 passed in 0.83s |
 | docs-audit | integration | TS-0129 | tests/integration/test_docs_pipeline_flow.py | 6 passed in 5.90s |
 | docs-audit-citations | integration | TS-0130 | tests/integration/test_links_flow.py | 9 passed in 1.81s |
-| pi-package | integration | TS-0131 | tests/integration/test_refresh_flow.py | 4 passed in 0.38s |
 | pr-merge | integration | TS-0132 | tests/integration/test_merge_identity_flow.py | 3 passed in 0.09s |
 | privacy-scan | integration | TS-0133 | tests/integration/test_makefile_flow.py | 9 passed in 3.58s |
 | release-consistency | integration | TS-0137 | tests/integration/test_release_consistency_integration.py | 19 passed in 21.37s |
@@ -35,12 +34,14 @@ and is bound as the record artifact.
 
 ## 3. Integration rows that need a test, not a record (owner: Tester)
 
-These three rows are a real coverage gap: no integration test asserts the area.
-Recording them now would be a fabricated pass, so they are queued as **T-0011**
-(tester queue) with the assertion each must make.
+These four rows are a real coverage gap: no integration test asserts the area.
+Recording them now would be a fabricated pass, so `pi-package` is queued as
+**T-0010** and the other three as **T-0011** (tester queue), each with the
+assertion it must make.
 
 | area | layer | owner | decision | evidence it is missing |
 |---|---|---|---|---|
+| pi-package | integration | Tester | queued T-0010 - the integration test exists on `tester/t-0010` at `8e99ff0b`, not at this revision | `rg -l 'pi[-_]package' tests/integration/` -> one hit, `test_status_contract.py:28`, the build-script path only; `tests/unit/test_pi_package.py` is the unit layer |
 | widget | integration | Tester | queued T-0011 - write the assertion | `pytest tests/integration/test_status_contract.py -k widget` -> 6 deselected |
 | widget-header | integration | Tester | queued T-0011 - write the assertion | `pytest tests/integration/test_status_contract.py -k header` -> 6 deselected |
 | security-audit | integration | Tester | queued T-0011 - write the assertion | `rg -l security-audit tests/` -> only unit files, no integration file |
@@ -82,7 +83,7 @@ requirement record, so no row is retired here and no requirement was deleted.
 
 ## 8. Proof
 
-- `teamwork.py tests plan` -> 41 GAP rows at `a978c6b2`; after the 14 records the
-  integration column of those areas reads passing (`TS-0124`..`TS-0140`).
-- The 14 pytest commands in section 2 each exited 0 (log bound as the artifact).
-- The remaining 27 rows name their new task id above, so none is unowned.
+- `teamwork.py tests plan` -> 41 GAP rows at `a978c6b2`; after the 13 records the
+  integration column of those areas reads passing (`TS-0124`..`TS-0130`, `TS-0132`, `TS-0133`, `TS-0137`..`TS-0140`).
+- The 13 pytest commands in section 2 each exited 0 (log bound as the artifact).
+- The remaining 28 rows name their new task id above, so none is unowned.
