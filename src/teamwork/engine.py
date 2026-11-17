@@ -13421,7 +13421,21 @@ def coordination_report(root: Path) -> dict:
 
     for role in COORD_VERIFICATION_ROLES:
         lanes = instances_of(root, role)
-        if len(lanes) < 2:
+        if not lanes:
+            continue
+        if len(lanes) == 1:
+            findings.append(
+                _coord_finding(
+                    "C-DIV-SINGLE",
+                    "diversity",
+                    "high" if role == "reviewer" else "medium",
+                    lanes[0],
+                    f"{role} is staffed with one lane ({lanes[0]}): the two-stage gate "
+                    "has one stage and no cross-check",
+                    f"add a second lane with `teamwork.py instance add {role} --count 1`, "
+                    "then fan the verdicts across both",
+                )
+            )
             continue
         labels = {lane: _model_label(root, lane) for lane in lanes}
         known = {label for label in labels.values() if label}
@@ -13467,12 +13481,13 @@ def coordination_report(root: Path) -> dict:
             verdicts.items(), key=lambda item: item[1]["pass"] + item[1]["fail"]
         )
         top_total = top_row["pass"] + top_row["fail"]
-        if top_total / total_verdicts >= COORD_VERDICT_SHARE:
+        share = top_total / total_verdicts
+        if share >= COORD_VERDICT_SHARE:
             findings.append(
                 _coord_finding(
                     "C-TRUST-MONOCULTURE",
                     "trust",
-                    "medium",
+                    "high" if top_total == total_verdicts else "medium",
                     top_lane,
                     f"{top_total} of {total_verdicts} verdicts came from one Reviewer lane",
                     "fan the review queue across the Reviewer lanes (`pulse --commit` "

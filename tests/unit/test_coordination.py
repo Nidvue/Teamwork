@@ -128,6 +128,56 @@ def test_reviewer_monoculture_and_no_finding_lane_are_flagged(cli, project: Path
     assert "C-TRUST-NOFAIL" in found
 
 
+def verdicts(root: Path, lane: str, count: int) -> None:
+    for index in range(count):
+        engine.ledger_append(root, "review.pass", lane, f"T-{index:04d}", "pytest -> ok")
+
+
+def test_a_single_reviewer_lane_fails_strict_and_names_the_missing_stage(
+    cli, project: Path
+) -> None:
+    root = init(cli, project, "ceo,developer-1,reviewer-1")
+    verdicts(root, "Reviewer-1", 10)
+
+    report = engine.coordination_report(root)
+    single = next(f for f in report["findings"] if f["code"] == "C-DIV-SINGLE")
+    assert single["severity"] == "high"
+    assert "instance add reviewer --count 1" in single["fix"]
+    assert "TEAMWORK_MODEL_ALT" not in single["fix"]
+    monoculture = next(f for f in report["findings"] if f["code"] == "C-TRUST-MONOCULTURE")
+    assert monoculture["severity"] == "high"
+    assert monoculture["detail"].startswith("10 of 10 verdicts")
+
+    assert cli("--project", project, "coordination", "--strict") == 1
+
+
+def test_two_reviewer_lanes_splitting_the_verdicts_pass_strict(cli, project: Path) -> None:
+    root = init(cli, project)
+    verdicts(root, "Reviewer-1", 5)
+    verdicts(root, "Reviewer-2", 5)
+
+    report = engine.coordination_report(root)
+    assert not [
+        f for f in report["findings"] if f["code"] == "C-DIV-SINGLE" and "Reviewer" in f["subject"]
+    ]
+    assert "C-TRUST-MONOCULTURE" not in codes(report)
+    assert cli("--project", project, "coordination", "--strict") == 0
+
+
+def test_a_concentrated_lane_below_the_floor_and_a_single_tester_stay_medium(
+    cli, project: Path
+) -> None:
+    root = init(cli, project, "ceo,developer-1,tester-1,reviewer-1,reviewer-2")
+    verdicts(root, "Reviewer-1", engine.COORD_VERDICT_FLOOR - 1)
+
+    report = engine.coordination_report(root)
+    assert "C-TRUST-MONOCULTURE" not in codes(report)
+    single = [f for f in report["findings"] if f["code"] == "C-DIV-SINGLE"]
+    assert [f["severity"] for f in single] == ["medium"]
+    assert "Tester" in single[0]["subject"]
+    assert cli("--project", project, "coordination", "--strict") == 0
+
+
 def test_merge_rate_below_half_is_a_merge_health_finding(cli, project: Path) -> None:
     root = init(cli, project)
     prs = [
