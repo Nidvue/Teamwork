@@ -437,6 +437,7 @@ def test_a_lane_alive_but_silent_dies_at_a_third_of_its_budget(
     record["minutes"] = 3
     record["created"] = silent_since
     record["deadline"] = time.time() + 600
+    record["activity_cpu"] = (lanes.child_cpu(record["pid"]) or 0.0) + 1000
     lanes.write_run(root, record)
     os.utime(record["log"], (silent_since, silent_since))
     assert cli("--project", project, "lane", "status", "L-0001") == 0
@@ -449,6 +450,61 @@ def test_a_lane_alive_but_silent_dies_at_a_third_of_its_budget(
     items = engine.open_attention(engine.parse_attention(engine.attention_path(root)))
     assert [item["task"] for item in items] == ["T-0001"]
     assert "silent" in items[0]["text"]
+
+
+def test_a_buffered_log_is_not_silence_while_the_child_burns_cpu(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 0-byte log is what pi leaves all run: CPU activity is the liveness signal."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a unit whose transcript pi buffers")
+    launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        == 0
+    )
+    record = runs(root)[0]
+    silent_since = time.time() - lanes.silence_seconds(3) - 1
+    record["minutes"] = 3
+    record["created"] = silent_since
+    record["deadline"] = time.time() + 600
+    record["activity_cpu"] = 1.0
+    lanes.write_run(root, record)
+    os.utime(record["log"], (silent_since, silent_since))
+    monkeypatch.setattr(lanes, "child_cpu", lambda pid: 2.0)
+    assert cli("--project", project, "lane", "status", "L-0001") == 0
+    time.sleep(0.2)
+    still = runs(root)[0]
+    assert still["state"] in lanes.LIVE, still
+    assert not still.get("cause"), still
+
+
+def test_a_tick_burned_in_an_earlier_poll_is_not_silence_now(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tick that proves liveness lands on one poll, not on every poll (T-0098)."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a unit waiting on provider I/O")
+    launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        == 0
+    )
+    record = runs(root)[0]
+    silent_since = time.time() - lanes.silence_seconds(3) - 1
+    record["minutes"] = 3
+    record["created"] = silent_since
+    record["deadline"] = time.time() + 600
+    record["activity_cpu"] = 2.0
+    record["activity_at"] = time.time()
+    lanes.write_run(root, record)
+    os.utime(record["log"], (silent_since, silent_since))
+    monkeypatch.setattr(lanes, "child_cpu", lambda pid: 2.0)
+    assert cli("--project", project, "lane", "status", "L-0001") == 0
+    time.sleep(0.2)
+    still = runs(root)[0]
+    assert still["state"] in lanes.LIVE, still
+    assert not still.get("cause"), still
 
 
 def test_a_lane_that_writes_keeps_its_budget(cli, project: Path, tmp_path: Path) -> None:
