@@ -85,6 +85,7 @@ under two roles is two tasks.
 | architect | T-0002 | architecture | done | P-0024 | eea0824 |
 | architect | T-0003 | architecture | doing | P-0129 | - |
 | architect | T-0004 | lanes | review | P-0131 | - |
+| architect | T-0005 | lanes | todo | - | - |
 | ceo | T-0001 | - | dropped | - | - |
 | ceo | T-0002 | throughput | done | - | - |
 | ceo | T-0003 | context | done | P-0001 | 2fcd9fd |
@@ -215,7 +216,7 @@ under two roles is two tasks.
 | developer | T-0084 | widget | done | P-0112 | 7e085c95 |
 | developer | T-0085 | unit-coverage | done | P-0117 | 85a94e26 |
 | developer | T-0086 | model-cost-policy | done | P-0118 | 47d6a6fa |
-| developer | T-0087 | model-cost-policy | doing | P-0120 | - |
+| developer | T-0087 | model-cost-policy | selfcheck | P-0120 | - |
 | developer | T-0088 | lanes | review | P-0130 | - |
 | developer | T-0089 | lanes | done | P-0123 | f37cf990 |
 | developer | T-0090 | lanes | done | P-0121 | 2fcf72ec |
@@ -226,7 +227,7 @@ under two roles is two tasks.
 | developer | T-0095 | lanes | dropped | - | - |
 | developer | T-0096 | lanes | done | - | - |
 | developer | T-0097 | lanes | done | - | - |
-| developer | T-0098 | lanes | review | P-0132 | - |
+| developer | T-0098 | lanes | done | P-0132 | 834c92bf |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | done | - | - |
@@ -283,11 +284,11 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | architect | T-0003 · Freeze the lane-runtime contract so a team leader can own the reliability stream | P0 | doing | - |
 | architect | T-0004 · Root cause: T-0003 timed out (silent) on Architect | P1 | review | - |
-| developer | T-0087 · New team and model auto must not silently pick the host premium default | P2 | doing | - |
+| architect | T-0005 · Root cause: T-0003 timed out (silent) on Architect | P1 | todo | - |
+| developer | T-0087 · New team and model auto must not silently pick the host premium default | P2 | selfcheck | - |
 | developer | T-0088 · A finished or lost lane leaves its worktree, its merged branch and its temp files behind, and a stalled lane is only killed when someone runs reap | P1 | review | - |
 | developer | T-0091 · pulse pins a review claim that swarm run will not adopt, so a review sits idle for its whole lease | P1 | review | - |
 | developer | T-0094 · model auto must refuse a premium host default even when only part of the config is named | P1 | review | - |
-| developer | T-0098 · The silent-lane watchdog measures log bytes that pi buffers until exit, so every lane past 1/3 of its budget is killed as silent | P1 | review | - |
 | reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | blocked | - |
 | reviewer | T-0010 · Encode L-0058 as a tw- skill: reviewing a destructive path (enumerate what it deletes and the key, run terminal+live on the same key before trusting the concurrency paragraph) | P2 | todo | - |
 | reviewer | T-0011 · Root cause: T-0090 timed out (silent) on Reviewer-2 | P1 | todo | - |
