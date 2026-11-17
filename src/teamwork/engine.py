@@ -2088,7 +2088,7 @@ def _criteria_mutate(args, root: Path, path: Path, items: list) -> int:
     if args.criteria_cmd == "verify":
         idx = find_criterion(items, args.id)
         if idx is None:
-            die(f"no criterion '{args.id}'")
+            die(f"no criterion '{args.id}'", 2)
         c = items[idx]
         who, wrole = validate_actor(root, args.by, "verifier")
         if args.test:
@@ -2146,7 +2146,7 @@ def _criteria_mutate(args, root: Path, path: Path, items: list) -> int:
     if args.criteria_cmd == "reopen":
         idx = find_criterion(items, args.id)
         if idx is None:
-            die(f"no criterion '{args.id}'")
+            die(f"no criterion '{args.id}'", 2)
         actor, _r = validate_actor(root, args.by, "actor")
         items[idx].update(
             {"status": "open", "verified_by": "", "verified": "", "evidence": "", "rev": ""}
@@ -2163,7 +2163,7 @@ def _criteria_mutate(args, root: Path, path: Path, items: list) -> int:
         return 0
     idx = find_criterion(items, args.id)
     if idx is None:
-        die(f"no criterion '{args.id}'")
+        die(f"no criterion '{args.id}'", 2)
     actor, arole = validate_actor(root, args.by, "actor")
     if arole != "ceo":
         args.force = require_reason(args.force, "removing a criterion that is not yours to remove")
@@ -2536,7 +2536,7 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
     if args.tests_cmd == "run":
         idx = find_test(records, args.id)
         if idx is None:
-            die(f"no test record '{args.id}'")
+            die(f"no test record '{args.id}'", 2)
         rec = records[idx]
         actor, arole = validate_actor(root, args.by, "test runner")
         want = owner_for_layer(root, rec["layer"])
@@ -2680,7 +2680,7 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
     if args.tests_cmd == "rm":
         idx = find_test(records, args.id)
         if idx is None:
-            die(f"no test record '{args.id}'")
+            die(f"no test record '{args.id}'", 2)
         actor, arole = validate_actor(root, args.by, "actor")
         if arole != owner_for_layer(root, records[idx]["layer"]) and not force:
             die(
