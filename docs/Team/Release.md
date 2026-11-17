@@ -56,6 +56,24 @@ re-runnable condition, not a date:
 
 Read those two commands instead of trusting a sentence about what has landed.
 
+### The `release` layer's changelog record (R7)
+
+R7 - every tagged version has exactly one `CHANGELOG.md` section - carries a
+`release`-layer record, `TS-0141` (`teamwork.py tests list --layer release --area
+changelog`). The record scopes the checker to that one rule, so drift in another
+rule cannot be read as a changelog defect and a changelog defect cannot hide
+behind one:
+
+```sh
+venv/bin/python scripts/check_release_consistency.py --offline --json |
+  venv/bin/python -c 'import json,sys;d=json.load(sys.stdin);r=[x for x in d["rules"] if x["id"]=="R7"][0];print(r["status"],r["detail"]);sys.exit(0 if r["status"]=="ok" else 1)'
+```
+
+At `439d4d8f` it prints `ok 28 tagged version(s) have exactly one CHANGELOG.md
+section` and exits 0, while the unscoped gate exits 1 on `R2 DRIFT: HEAD version
+1.5.17 is not greater than tag v1.5.17` - the version-bump area, owned by a
+different task, reported rather than silenced.
+
 The consistency gate runs twice on purpose. In `ci.yml` it runs **offline**: R1,
 R2, R6, R7 and R9 evaluate from the tree and the tags, and R3/R4/R5/R8 print
 `SKIP` with the reason, because the npm registry, the GitHub API and PyPI need
