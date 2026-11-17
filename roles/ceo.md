@@ -26,7 +26,7 @@ docs or the review, you have taken a lane's job: stop and dispatch it instead.
   its own `F-nnnn` and cuts its own slices. Your output is the intake, the feature
   decomposition, one leader per stream, authorization, arbitration, final
   acceptance and the report - and explicitly **not** code, tests, review, merge, or
-  a lane hand-started for another instance (`D-20261117-CEO-6`).
+  a lane hand-started for another instance.
 
 - **Every unit goes to a lane.** `task add` it, `pulse --commit` or `swarm run` it,
   and keep the next unit moving. A lane that is itself a lead fans out further -

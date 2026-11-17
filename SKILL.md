@@ -243,7 +243,7 @@ A team that runs one lane at a time is a slow single agent with extra records.
 is the decomposition, the dispatch, the arbitration and the final claim; every unit
 goes to a lane. The CEO delegates a stream to a Team Leader and never takes a slice,
 and a feature is filed by its own leader because the tool refuses an owner other
-than the caller (`D-20261117-CEO-6`). A Team Leader lane spawns its squad, and a lane whose slice will not
+than the caller. A Team Leader lane spawns its squad, and a lane whose slice will not
 fit its budget splits it into sub-tasks and dispatches them. The chain ends at a
 small task one lane can finish and get verdict-ed inside its budget, and at an
 independent verifier: no lane reviews, tests or merges its own work, and every

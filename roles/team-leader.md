@@ -91,7 +91,7 @@ meant to run in parallel.
 
 ## How you run a squad
 
-- **Own the feature end to end** (`D-20261117-CEO-6`). Decompose it into squad
+- **Own the feature end to end**. Decompose it into squad
   slices, each sized to finish and be verdict-ed inside one profile lease (fast 10 /
   standard 20 / deep 40 min); staff the squad with
   `instance add <role> --under <you>`; dispatch with `pulse --commit` and
