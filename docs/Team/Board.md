@@ -228,7 +228,7 @@ under two roles is two tasks.
 | developer | T-0096 | lanes | done | - | - |
 | developer | T-0097 | lanes | done | - | - |
 | developer | T-0098 | lanes | done | P-0132 | 834c92bf |
-| developer | T-0099 | lanes | review | P-0138 | - |
+| developer | T-0099 | lanes | done | P-0138 | 7b9e098a |
 | developer | T-0100 | harness | done | P-0136 | f33b74d1 |
 | developer | T-0101 | - | doing | - | - |
 | developer | T-0102 | identity | review | P-0140 | - |
@@ -297,7 +297,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0087 · New team and model auto must not silently pick the host premium default | P2 | doing | - |
 | developer | T-0091 · pulse pins a review claim that swarm run will not adopt, so a review sits idle for its whole lease | P1 | doing | - |
 | developer | T-0094 · model auto must refuse a premium host default even when only part of the config is named | P1 | doing | - |
-| developer | T-0099 · An open feature does not protect its team leader or squad from being folded | P1 | review | - |
 | developer | T-0101 · Measure where work waits: queue wait, claim wait, lane duration and finish-to-verdict in throughput | P1 | doing | - |
 | developer | T-0102 · A commit is authored by the operator's personal identity and the identity gate accepts it | P0 | review | - |
 | developer | T-0103 · Root cause: T-0087 timed out (budget) on Developer-1 | P1 | review | - |
