@@ -3,7 +3,7 @@
 Owner: Project Manager. One row per task; `deps` must be `done` before it runs.
 Priority: P0 code, P1 tests, P2 docs.
 
-Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md) | [Throughput](Throughput.md) · [Evolution](Evolution.md) · [Memory](Memory.md)
+Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md) | [Throughput](Throughput.md) · [Evolution](Evolution.md) · [Memory](Memory.md) | [M26 test audit](reports/M26-test-audit.md) | T-0085 unit records (reports/T-0085-unit-layer-records.md) | [test-layer gap matrix](reports/gap-matrix.md)
 
 ## Status summary
 
