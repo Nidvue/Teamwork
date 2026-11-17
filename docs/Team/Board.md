@@ -213,9 +213,11 @@ under two roles is two tasks.
 | developer | T-0084 | widget | done | P-0112 | 7e085c95 |
 | developer | T-0085 | unit-coverage | done | P-0117 | 85a94e26 |
 | developer | T-0086 | model-cost-policy | done | P-0118 | 47d6a6fa |
-| developer | T-0087 | - | doing | - | - |
+| developer | T-0087 | model-cost-policy | review | - | - |
 | developer | T-0088 | - | doing | - | - |
-| developer | T-0089 | - | todo | - | - |
+| developer | T-0089 | - | doing | - | - |
+| developer | T-0090 | - | doing | - | - |
+| developer | T-0091 | - | todo | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | done | - | - |
@@ -233,7 +235,7 @@ under two roles is two tasks.
 | security-auditor | T-0001 | security-audit | done | P-0102 | a9b0ef95 |
 | security-auditor | T-0002 | security-audit | done | P-0111 | e5cfb54b |
 | technical-writer | T-0001 | docs-audit | done | P-0101 | c1a0ca82 |
-| technical-writer | T-0002 | docs-links | review | P-0119 | - |
+| technical-writer | T-0002 | docs-links | done | P-0119 | d1845257 |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
@@ -263,11 +265,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0087 · New team and model auto must not silently pick the host premium default | P2 | doing | - |
+| developer | T-0087 · New team and model auto must not silently pick the host premium default | P2 | review | - |
 | developer | T-0088 · A finished or lost lane leaves its worktree, its merged branch and its temp files behind, and a stalled lane is only killed when someone runs reap | P1 | doing | - |
-| developer | T-0089 · A stalled seat is never reconciled: a claimed task whose lane ended renders stalled until a human starts a lane | P1 | todo | - |
+| developer | T-0089 · A stalled seat is never reconciled: a claimed task whose lane ended renders stalled until a human starts a lane | P1 | doing | - |
+| developer | T-0090 · Timeout policy: a silent lane must die early, and every timeout must open its own root-cause record | P1 | doing | - |
+| developer | T-0091 · pulse pins a review claim that swarm run will not adopt, so a review sits idle for its whole lease | P1 | todo | - |
 | reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | blocked | - |
-| technical-writer | T-0002 · Link health on main: 10 pre-existing broken/one-way links from tracked docs/Team/reports/* | P2 | review | - |
 | tester | T-0011 · integration-layer tests missing for widget, widget-header, security-audit: -k widget and -k header on tests/integration/test_status_contract.py select 0 tests and no integration file names security-audit - write the assertions and record with tests run --layer integration --area <a> | P2 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
