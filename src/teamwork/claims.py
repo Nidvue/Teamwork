@@ -25,24 +25,17 @@ so a dead session never blocks a live one and no daemon is needed.
 from __future__ import annotations
 
 import json
-import os
 import time
 from pathlib import Path
 
 from .io import atomic_write, lock
 from .layout import project_of
+from .messages import bus_root
 
 DIR_CLAIMS = "claims"
 TTL_DEFAULT = 120
 KINDS = ("path", "task", "area")
 STAMP = "%Y-%m-%dT%H:%M:%S"
-
-
-def bus_root(root: Path) -> Path:
-    override = os.environ.get("TEAMWORK_BUS")
-    if override:
-        return Path(override).expanduser()
-    return project_of(root) / ".pi" / "Teamwork" / "Bus"
 
 
 def claims_dir(root: Path) -> Path:

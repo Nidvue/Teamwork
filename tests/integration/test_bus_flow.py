@@ -58,6 +58,17 @@ def tree(tmp_path: Path, name: str, bus: Path | None) -> Path:
     return project
 
 
+def two_teams(tmp_path: Path) -> Path:
+    """One repository, two team trees: the case the repo-rooted bus exists for."""
+    project = tmp_path / "Repo"
+    project.mkdir()
+    _git(project)
+    for name in (ALPHA, BETA):
+        cli(project, name, None, "init", "--agents", "tester,developer")
+        assert (project / ".pi" / "Teamwork" / "Teams" / name).is_dir()
+    return project
+
+
 def run(project: Path, team: str, bus: Path | None, *args: str) -> subprocess.CompletedProcess:
     env = _env(bus, team)
     return subprocess.run(
@@ -270,12 +281,6 @@ def test_the_bus_override_moves_the_store_off_the_project(tmp_path: Path, bus: P
     assert not default.is_dir() or not any(default.rglob("M-*.json"))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="T-0133 defect: the CLI hands the team tree to bus_root, so the default bus is "
-    "team-rooted (<team>/.pi/Teamwork/Bus); the frozen interface and "
-    "test_the_default_bus_is_repo_rooted say project_of(root)/.pi/Teamwork/Bus",
-)
 def test_the_default_bus_is_repo_rooted(tmp_path: Path) -> None:
     plain = tree(tmp_path, BETA, None)
     cli(
@@ -292,3 +297,40 @@ def test_the_default_bus_is_repo_rooted(tmp_path: Path) -> None:
         "rooted",
     )
     assert (plain / ".pi" / "Teamwork" / "Bus" / f"team-{BETA}" / "M-0001.json").is_file()
+
+
+def test_two_teams_in_one_repository_share_one_bus(tmp_path: Path) -> None:
+    project = two_teams(tmp_path)
+    cli(
+        project,
+        ALPHA,
+        None,
+        "message",
+        "send",
+        "--from",
+        "tester",
+        "--to",
+        f"team:{BETA}",
+        "--subject",
+        "same repository",
+    )
+    shared = project / ".pi" / "Teamwork" / "Bus"
+    assert (shared / f"team-{BETA}" / "M-0001.json").is_file()
+    for name in (ALPHA, BETA):
+        assert not (project / ".pi" / "Teamwork" / "Teams" / name / ".pi").exists()
+    seen = rows(project, BETA, None, "--for", "tester")
+    assert [row["subject"] for row in seen] == ["same repository"]
+
+
+def test_a_claim_in_one_team_refuses_an_overlapping_claim_in_the_other(tmp_path: Path) -> None:
+    project = two_teams(tmp_path)
+    first = cli(project, ALPHA, None, "claim", "add", "--by", "tester-1", "--path", "src/shared.py")
+    assert "C-0001" in first
+    refused = run(
+        project, BETA, None, "claim", "add", "--by", "tester-2", "--path", "src/shared.py"
+    )
+    assert refused.returncode != 0
+    assert "tester-1" in (refused.stdout + refused.stderr)
+    assert (project / ".pi" / "Teamwork" / "Bus" / "claims" / "C-0001.json").is_file()
+    again = cli(project, ALPHA, None, "claim", "add", "--by", "tester-1", "--path", "src/shared.py")
+    assert "C-0001" in again

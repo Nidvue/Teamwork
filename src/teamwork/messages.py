@@ -43,8 +43,9 @@ import os
 import time
 from pathlib import Path
 
-from .config import DIR_RUNTIME
+from .config import DIR_RUNTIME, TEAMS_SUBDIR
 from .io import atomic_write, lock
+from .layout import project_of
 from .names import pascal, safe_component
 
 DIR_MAILBOX = "Mailbox"
@@ -74,11 +75,17 @@ def mailbox_lock(root: Path) -> Path:
 
 
 def bus_root(root: Path) -> Path:
-    """Where a non-local address lands: ``$TEAMWORK_BUS`` or ``<repo>/.pi/Teamwork/Bus``."""
+    """Where a non-local address lands: ``$TEAMWORK_BUS`` or ``<repo>/.pi/Teamwork/Bus``.
+
+    The CLI hands in the team tree, so the default bus is rooted at the project
+    that owns it: two teams in one repository share one bus, which is the only
+    way a second session in that repository can see the first one's mail.
+    """
     override = os.environ.get(BUS_ENV, "").strip()
     if override:
         return Path(override).expanduser()
-    return root.joinpath(*BUS_PATH)
+    base = project_of(root) if root.parent.name == TEAMS_SUBDIR else root
+    return base.joinpath(*BUS_PATH)
 
 
 def bus_lock(root: Path) -> Path:
