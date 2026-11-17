@@ -165,7 +165,7 @@ def test_a_bus_message_is_taken_and_closed_through_its_session_key(root):
     assert messages.inbox(root, "Developer-1", bus_keys=keys) == []
     assert [
         m["id"] for m in messages.inbox(root, "Developer-1", states=("done",), bus_keys=keys)
-    ] == [record["id"]]
+    ] == [f"{keys[0]}:{record['id']}"]
 
 
 def test_bus_keys_are_the_session_and_the_team_only():
@@ -175,6 +175,27 @@ def test_bus_keys_are_the_session_and_the_team_only():
         messages.bus_key("session", "s1"),
         messages.bus_key("team", "Teamwork"),
     )
+
+
+def test_a_local_and_a_bus_row_with_the_same_id_are_both_addressable(root):
+    local = messages.send(
+        root, sender="CEO", recipient="developer-1", subject="local", roster=ROSTER
+    )
+    bus = messages.send(root, sender="Tester-1", recipient="session:s1", subject="bus")
+    assert (local["id"], bus["id"]) == ("M-0001", "M-0001")
+    keys = messages.bus_keys_for("s1")
+    rows = messages.inbox(root, "Developer-1", bus_keys=keys)
+    assert [r["id"] for r in rows] == ["M-0001", f"{keys[0]}:M-0001"]
+    assert f"{keys[0]}:M-0001" in "\n".join(messages.packet_lines(root, "Developer-1", keys))
+    messages.take(root, "Developer-1", f"session:s1:{bus['id']}", "Developer-1", keys)
+    assert [r["id"] for r in messages.inbox(root, "Developer-1", bus_keys=keys)] == ["M-0001"]
+    done = messages.finish(
+        root, "Developer-1", f"{keys[0]}:{bus['id']}", "Developer-1", "closed", bus_keys=keys
+    )
+    assert done["state"] == "done"
+    assert [r["id"] for r in messages.inbox(root, "Developer-1", bus_keys=keys)] == ["M-0001"]
+    assert messages.take(root, "Developer-1", "M-0001", "Developer-1", keys)["subject"] == ("local")
+    assert messages.inbox(root, "Developer-1", bus_keys=keys) == []
 
 
 def test_packet_lines_open_with_the_bus_urgent_first(root):

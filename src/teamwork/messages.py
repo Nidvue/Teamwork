@@ -334,7 +334,7 @@ def inbox(
     """Team rows then bus rows, in one (priority, created) order."""
     out = _folder_rows(instance_dir(root, instance), states)
     for key in bus_keys:
-        out.extend(_folder_rows(bus_root(root) / key, states))
+        out.extend(_qualified(key, row) for row in _folder_rows(bus_root(root) / key, states))
     out.sort(
         key=lambda r: (PRIORITY_RANK.get(r.get("priority", "normal"), 9), r.get("created_ts", 0))
     )
@@ -350,8 +350,31 @@ def counts(root: Path, instance: str, *, bus_keys: tuple = ()) -> dict:
     return tally
 
 
+def _qualified(key: str, record: dict) -> dict:
+    """A bus row carries its key in the id: a bare ``M-0001`` names two messages."""
+    record = dict(record)
+    record["id"] = f"{key}:{record['id']}"
+    return record
+
+
+def _split_ref(message_id: str, bus_keys: tuple) -> tuple:
+    """``session-s1:M-0001`` or ``session:s1:M-0001`` -> (bus key, bare id); ('' , id) local."""
+    parts = message_id.split(":")
+    if len(parts) > 2:
+        key = bus_key(parts[0], parts[1])
+        if key in bus_keys:
+            return (key, ":".join(parts[2:]))
+    if len(parts) > 1 and parts[0] in bus_keys:
+        return (parts[0], ":".join(parts[1:]))
+    return ("", message_id)
+
+
 def _locate(root: Path, instance: str, message_id: str, bus_keys: tuple) -> tuple:
     """(record path, lock path) for one id: the mailbox first, then the bus keys."""
+    key, bare = _split_ref(message_id, bus_keys)
+    if key:
+        candidate = bus_root(root) / key / f"{bare}.json"
+        return (candidate, bus_lock(root)) if candidate.is_file() else (None, None)
     local = instance_dir(root, instance) / f"{message_id}.json"
     if local.is_file():
         return (local, mailbox_lock(root))
