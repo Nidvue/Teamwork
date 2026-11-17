@@ -8356,4 +8356,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 4ec145c0
 - reviewer evidence: venv/bin/python scripts/check_release_consistency.py --offline --json | python3 -c import_json_sys @4ec145c0 -> R7 ok: 28 tagged versions have exactly one CHANGELOG.md section, exit 0; TS-0141 release/changelog passing; TS-0168 acceptance/changelog passing
 - findings history: 
-- branch / merge: releaseengineer/t-0005-release-layer-record-for-area-changelog / pending
+- branch / merge: releaseengineer/t-0005-release-layer-record-for-area-changelog / c08da898
