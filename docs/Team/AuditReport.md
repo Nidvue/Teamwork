@@ -934,3 +934,31 @@ Owner: Security Auditor. Related: [Risks](Risks.md) · F1, F2.
   start line and the `worktree:` record, so a fresh lane cannot reintroduce an
   absolute host path. Until it lands, every lane launch adds 4 such lines and
   the count above is stale the moment the next lane starts.
+
+## 10. M26 S-1..S-4 closure - the security layer (2026-11-17, `a978c6b2`)
+
+The verdict on the fixes, not the fixes: each row is the Security Auditor's run
+of the command that already covers the case, so no layer is duplicated.
+
+| Record | Layer | Command | Result at `a978c6b2` |
+|---|---|---|---|
+| TS-0134 | unit | `pytest -q tests/unit/test_instance_add_name.py tests/unit/test_privacy_scan.py` | 191 passed in 1.24s |
+| TS-0135 | integration | `pytest -q tests/integration/test_docs_pipeline_flow.py tests/integration/test_release_workflow_flow.py -k 'privacy or gate'` | 16 passed, 30 deselected in 6.53s |
+| TS-0136 | acceptance | `pytest -q tests/acceptance/test_operator_contracts.py -k privacy`; `privacy_scan.py --tree --allow .github/privacy-allow.txt` | 1 passed; PASS - 0 finding(s) in tree, exit 0 |
+
+- S-1 (path traversal on `instance add --name`) stays closed: a traversing name
+  is refused bare and inside its own role, and a legal name still creates the seat.
+- S-3/S-4 (`refs=`, `allow=`) stay closed: the parsers are exercised with
+  `allow=[]` and crafted entries, and a FAIL without an allowlist says `allow=none`.
+- The planted-credential control bites: a `ghp_` token in a scratch tree makes the
+  real scanner subprocess FAIL and the matched value is never printed.
+- **Not green in history scope, and the gate is not green as the release runs it:**
+  `privacy_scan.py --tree --history --allow .github/privacy-allow.txt` at
+  `a978c6b2` -> FAIL - 4 finding(s), exit 1. The findings are
+  `[high/personal-email]` and `[high/private-domain]` on the **committer** email
+  of `c6506157` and `eebcb3df`: authored as the role mailbox, committed by the
+  host account. TS-0115 recorded the same command PASS at `b62ca71c`.
+  Disposition is the CEO's and CTO's, tracked as A-0041: grant the history rule
+  the host-committer exemption `teamwork.py identity --audit` already applies
+  (`34a365d8`), or rewrite the history (a red line). Until then every release
+  gate run exits 1 on two commits, and `--tree` alone stays green.
