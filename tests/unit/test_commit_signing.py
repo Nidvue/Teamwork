@@ -122,3 +122,10 @@ def test_ensure_repo_threads_the_signature_args_into_its_initial_commit(tmp_path
     commits = [line.split() for line in invocations if "commit" in line.split()]
     assert commits, invocations
     assert all("-S" in argv for argv in commits), commits
+
+
+def test_an_unreadable_team_setting_never_refuses_a_commit(tmp_path):
+    repo = _repo(tmp_path / "repo", "true")
+    (tmp_path / "Settings.json").write_text("{not json", encoding="utf-8")
+    (repo / "Settings.json").write_text("{not json", encoding="utf-8")
+    assert engine._sign_args(repo) == ["-S"]
