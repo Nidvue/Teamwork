@@ -8344,3 +8344,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: ./venv/bin/python -m pytest -q tests/acceptance @59aa1c8c -> 3 failed, 74 passed, 1 skipped; TS-0117/TS-0118 fail (M26-docs-audit.md missing at HEAD, # issues: 10); TS-0160/TS-0161/TS-0164 fail (no acceptance probe for board/ci-shard-matrix/widget); TS-0162 pass (privacy 1 passed); TS-0163 pass (release 13 passed); security-audit: TS-0136 credited SecurityAuditor @12d2c398
 - findings history: 
 - branch / merge: - / pending
+
+## T-0005 · release-layer record for area changelog: venv/bin/python scripts/check_release_consistency.py --offline -> then tests add --layer release --area changelog and record the run  (release-engineer)
+- date: 2026-11-17
+- priority: P2
+- owner: release-engineer role (work by: ReleaseEngineer)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: changelog
+- self-check: [pass] Record + doc only, no production code. Boundary: the release test layer's changelog area (was GAP in tests plan) and its home in docs/Team/Release.md. Contract surface: R7 of the frozen section 11 contract - every tagged version has exactly one CHANGELOG.md section - verified through the checker's own --json output; no rule weakened, no release-exceptions.json entry added, no gate softened. Empty/duplicate/second-call: the record is keyed (layer=release, area=changelog); a duplicate add would double-cover it, so I reused TS-0141 and re-ran it instead of adding a second; the checker is read-only and idempotent (--offline opens no socket), so a second run prints the same result. Concurrency/shared writes: no shared file written; the only state is the local .pi test record written through the CLI. Scope touched: docs/Team/Release.md + TS-0141. Scope NOT touched: CHANGELOG.md, release-exceptions.json, scripts/check_release_consistency.py, version.py, the git repository state, any workflow. Out of this area and reported not silenced: the unscoped gate exits 1 from R2 DRIFT (HEAD 1.5.17 not greater than tag v1.5.17), the version-bump area owned by another task. | test: cd .pi/Teamwork/Teams/Teamwork/Runtime/Worktrees/ReleaseEngineer/T-0005 && venv/bin/python scripts/check_release_consistency.py --offline --json @4ec145c0 -> R7 ok: 28 tagged version(s) have exactly one CHANGELOG.md section, scoped assertion exit 0; teamwork.py tests run TS-0141 -> pass; tests plan -> changelog rel+ | preflight: PF-446762e86991 @4ec145c0f815 (8 checks, 0 failed)
+- author evidence: commit 4ec145c0
+- reviewer evidence: venv/bin/python scripts/check_release_consistency.py --offline --json | python3 -c import_json_sys @4ec145c0 -> R7 ok: 28 tagged versions have exactly one CHANGELOG.md section, exit 0; TS-0141 release/changelog passing; TS-0168 acceptance/changelog passing
+- findings history: 
+- branch / merge: releaseengineer/t-0005-release-layer-record-for-area-changelog / pending
