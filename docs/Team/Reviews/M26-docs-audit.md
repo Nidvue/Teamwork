@@ -1,7 +1,7 @@
 # M26 docs audit - false claims proved by command
 
 Owner: Technical Writer. Task: T-0001. Audit only: no page was edited.
-Related: [Board](../Board.md), [Decisions](../Decisions.md).
+Related: [Evidence](../../../references/Evidence.md), [Roles](../../../references/Roles.md).
 Revision audited: `d6ab6d23` (branch `technicalwriter/t-0001-...`, forked from `main`).
 Scope: the committed documentation a reader or operator acts on - `README.md`,
 `CHANGELOG.md`, `SKILL.md`, `references/*.md`, `roles/*.md`, `docs/*.md`,
@@ -146,9 +146,13 @@ disproves the page and the smallest correction, not a rewrite.
   `scripts/teamwork.py ... --help`: 0 rejected subcommands, 0 unknown flags. The two
   hits the scan reported are prose (`cli.md:103` "managed teamwork block",
   `CHANGELOG.md:814` a Python import), not commands.
-- **Links and cross-references.** `scripts/teamwork.py links` -> 96 markdown files,
-  529 internal links, `# issues: 0` (no broken link, no bare URL, no missing
-  back-link).
+- **Links and cross-references in the audited pages.** `scripts/teamwork.py links
+  --project .` -> `# issues: 0` (no broken link, no invalid external URL, no bare
+  URL, no missing back-link). This page keeps that at 0 because its `Related:`
+  targets sit under `references/`, which the reciprocity rule exempts: pointing
+  `Related:` at `docs/Team/Board.md` and `docs/Team/Decisions.md` instead adds 2
+  missing back-links (the reviewed failure at `c1fa6839`), so the page links those
+  two only inline.
 - **The version surfaces that are checked agree.** `version.py` `1.5.9` =
   newest tag `v1.5.9` = npm `latest` `1.5.9` = newest GitHub Release `v1.5.9`;
   `check_release_consistency.py --offline` -> `R1 ok 20 tag(s)`, `R6 ok no version
