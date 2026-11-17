@@ -19,6 +19,7 @@ next wave.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import sys
@@ -393,15 +394,113 @@ def test_a_lane_past_its_deadline_is_killed_by_the_supervisor(
     cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = init(cli, project)
+    add_task(cli, project, "developer", "the unit that overran its clock")
     launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
-    assert cli("--project", project, "lane", "start", "--agent", "developer-1") == 0
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        == 0
+    )
     record = runs(root)[0]
     record["deadline"] = time.time() - 1
     lanes.write_run(root, record)
     assert cli("--project", project, "lane", "status", "L-0001") == 0
     time.sleep(0.2)
-    assert runs(root)[0]["state"] == lanes.TIMEOUT
+    finished = runs(root)[0]
+    assert finished["state"] == lanes.TIMEOUT
+    assert finished["cause"] == "budget"
     assert not lanes.live_runs(root)
+    causes = [
+        t
+        for t in engine.parse_tasks(engine.task_file(root, "developer"))
+        if "Root cause" in t["title"]
+    ]
+    assert len(causes) == 1, causes
+    assert causes[0]["priority"] == "P1"
+    assert "T-0001" in causes[0]["title"] and "budget" in causes[0]["title"]
+    items = engine.open_attention(engine.parse_attention(engine.attention_path(root)))
+    assert [item["task"] for item in items] == ["T-0001"]
+    assert "L-0001" in items[0]["text"] and "timed out" in items[0]["text"]
+
+
+def test_a_lane_alive_but_silent_dies_at_a_third_of_its_budget(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a unit that says nothing")
+    launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        == 0
+    )
+    record = runs(root)[0]
+    silent_since = time.time() - lanes.silence_seconds(3) - 1
+    record["minutes"] = 3
+    record["created"] = silent_since
+    record["deadline"] = time.time() + 600
+    lanes.write_run(root, record)
+    os.utime(record["log"], (silent_since, silent_since))
+    assert cli("--project", project, "lane", "status", "L-0001") == 0
+    time.sleep(0.2)
+    finished = runs(root)[0]
+    assert finished["state"] == lanes.TIMEOUT
+    assert finished["cause"] == "silent"
+    assert "silent" in finished["error"]
+    assert finished["cause_opened"] is True
+    items = engine.open_attention(engine.parse_attention(engine.attention_path(root)))
+    assert [item["task"] for item in items] == ["T-0001"]
+    assert "silent" in items[0]["text"]
+
+
+def test_a_lane_that_writes_keeps_its_budget(cli, project: Path, tmp_path: Path) -> None:
+    """A lane whose log is fresh is not silent, however long it has been alive."""
+    root = init(cli, project)
+    record = {
+        "id": "L-0001",
+        "agent": "Developer-1",
+        "role": "developer",
+        "task": "T-0001",
+        "state": lanes.RUNNING,
+        "pid": 999999,
+        "minutes": 3,
+        "created": time.time() - 3600,
+        "deadline": time.time() + 60,
+        "log": str(lanes.log_path(root, "Developer-1", "L-0001")),
+    }
+    assert lanes.silence_seconds(3) == 60
+    assert lanes.last_activity(record) >= record["created"]
+    record["log"] = str(tmp_path / "fresh.log")
+    Path(record["log"]).write_text("still working\n", encoding="utf-8")
+    assert time.time() - lanes.last_activity(record) < 60
+
+
+def test_a_timed_out_unit_is_not_retried_with_the_same_shape(cli, project: Path) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "developer", "unfinished work")
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["status"] = "doing"
+    tasks[0]["claimed_by"] = "Developer-1"
+    tasks[0]["review_status"] = "failed"
+    tasks[0]["review_fails"] = "1"
+    engine.write_tasks(path, tasks, "developer")
+    record = {
+        "id": "L-0001",
+        "agent": "Developer-1",
+        "role": "developer",
+        "task": tasks[0]["id"],
+        "attempt": 1,
+        "attempts": 2,
+        "state": lanes.TIMEOUT,
+        "minutes": 25,
+        "created": time.time(),
+        "log": str(lanes.log_path(root, "Developer-1", "L-0001")),
+    }
+    lanes.write_run(root, record)
+    assert lanes.retry_plan(root) == [], "a timeout is a root-cause job, not a retry"
+    assert lanes.adopted_plan(root) == [], "the rework round is not adopted again"
+    record["state"] = lanes.FAILED
+    lanes.write_run(root, record)
+    assert [a.task for a in lanes.retry_plan(root)] == [tasks[0]["id"]]
 
 
 def test_a_lane_that_died_without_an_outcome_is_reconciled_and_its_slot_released(
