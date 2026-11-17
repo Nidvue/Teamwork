@@ -496,7 +496,9 @@ def test_swarm_retries_unfinished_work_once_and_then_leaves_it_to_the_ceo(
     assert attempts == [(1, lanes.EXITED), (2, lanes.EXITED)], attempts
     assert lanes.load_runs(root)[0]["retried"] is True
     task = engine.parse_tasks(engine.task_file(root, "developer"))[0]
-    assert task["status"] == "doing", "an exhausted lane leaves the claim for the CEO"
+    assert task["status"] == "blocked", "an exhausted claim is released, never left stalled"
+    assert task["claimed_by"] == ""
+    assert "released by reconcile" in task["findings"]
 
 
 def test_swarm_hands_a_ready_review_to_a_reviewer_lane(
@@ -830,17 +832,66 @@ def test_the_dry_run_reports_the_adopted_claim(cli, project: Path, capsys) -> No
     assert "nothing runnable" not in out, out
 
 
-def test_a_stalled_claim_is_still_not_adopted(cli, project: Path) -> None:
-    """The exhaustion bound stays: a claim with no fail behind it is not re-planned."""
-    root = init(cli, project)
-    add_task(cli, project, "developer", "alpha")
-    _review_failed_claim(root)
+def _stalled_claim(root: Path, runs: int = 2) -> None:
     path = engine.task_file(root, "developer")
     tasks = engine.parse_tasks(path)
-    tasks[0]["review_status"] = "pending"
-    tasks[0]["review_fails"] = "0"
+    tasks[0].update(status="doing", claimed_by="Developer-1")
+    for field in ("self_check", "pr", "review_status", "review_fails"):
+        tasks[0].pop(field, None)
     engine.write_tasks(path, tasks, "developer")
+    for index in range(runs):
+        lanes.write_run(
+            root,
+            {
+                "id": f"L-{index + 1:04d}",
+                "agent": "Developer-1",
+                "role": "developer",
+                "task": "T-0001",
+                "attempt": index + 1,
+                "state": "failed",
+                "profile": "standard",
+            },
+        )
+
+
+def test_a_stalled_claim_is_restarted_while_an_attempt_remains(cli, project: Path) -> None:
+    """T-0089: a doing claim whose lane died was skipped and stayed stalled."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    _stalled_claim(root, runs=1)
+    assert [(item.instance, item.task, item.attempt) for item in lanes.adopted_plan(root)] == [
+        ("Developer-1", "T-0001", 2)
+    ]
+
+
+def test_a_stalled_claim_is_released_once_the_attempts_are_spent(cli, project: Path) -> None:
+    """The other outcome of a reconcile: the task goes back to todo, the claim clears."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    _stalled_claim(root, runs=2)
     assert lanes.adopted_plan(root) == []
+    assert lanes.reconcile_stalled(root) == ["Developer-1/T-0001"]
+    task = engine.parse_tasks(engine.task_file(root, "developer"))[0]
+    assert task["status"] == "blocked"
+    assert task["claimed_by"] == ""
+    assert "2 lane attempt(s) spent" in task["findings"]
+    ledger = (root / "Ledger.jsonl").read_text(encoding="utf-8")
+    assert '"action": "task.release"' in ledger or "task.release" in ledger
+    assert lanes.reconcile_stalled(root) == []
+
+
+def test_a_live_lane_is_never_reconciled(cli, project: Path) -> None:
+    """A seat with a running lane keeps its claim: reconcile touches only dead ones."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    _stalled_claim(root, runs=2)
+    run = lanes.load_runs(root)[0]
+    run["state"] = "running"
+    lanes.write_run(root, run)
+    assert lanes.reconcile_stalled(root) == []
+    task = engine.parse_tasks(engine.task_file(root, "developer"))[0]
+    assert task["status"] == "doing"
+    assert task["claimed_by"] == "Developer-1"
 
 
 def test_one_round_is_adopted_per_fail(cli, project: Path) -> None:

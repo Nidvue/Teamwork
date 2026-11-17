@@ -2884,6 +2884,7 @@ LEDGER_ACTIONS = (
     "task.claim",
     "task.duplicate",
     "task.reclaim",
+    "task.release",
     "task.rm",
     "task.status",
     "tests.add",
@@ -6674,6 +6675,7 @@ def _foldable_instances(root: Path, keep_required: bool) -> tuple:
     from . import lanes as lane_runtime
 
     lane_runtime.settle(root)
+    lane_runtime.reconcile_stalled(root)
     reap_slots(root)
     ready_by_role = {role: _ready_for_role(root, role) for role in list_roles(root)}
     open_reviews = open_review_items(root)
