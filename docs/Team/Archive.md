@@ -8689,4 +8689,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit a58514d9
 - reviewer evidence: Artifact read first: git diff main..a58514d9 -> one file, 6 insertions and 5 deletions, all inside test_repo_bootstrap_preserves_a_name_only_local_identity. THE PIN MOVED, THE INTENT DID NOT: the assertion 'resolved == preset' becomes 'resolved == the role mailbox', and the two lines that carry the test's actual purpose - ensure_repo leaves a name-only local user.name alone - are byte-identical before and after, which is what the test was written for. A DECLARED PAIR STILL WINS: the declared branch above it is untouched and the integrity suite exercises both. GATE: preflight 9 checks 0 failed; pytest -q tests/unit/test_integrity_fixes.py -> 48 passed. No blocking finding.
 - findings history: 
-- branch / merge: dev-1/t-0149-the-last-pin-of-the-superseded-identity / pending
+- branch / merge: dev-1/t-0149-the-last-pin-of-the-superseded-identity / d6276c7c
