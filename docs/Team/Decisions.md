@@ -2944,3 +2944,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: gh release create v1.5.10 --verify-tag -> releases/tag/v1.5.10; gh workflow run release.yml -f tag=v1.5.11 -> run 43925639545 success (gate, build, provenance, npm); npm view @nidvue/teamwork version -> 1.5.11; gh release create v1.5.11 with wheel, sdist, SHA256SUMS, both SBOMs -> 5 assets; check_release_consistency.py --online -> 0 problems
 - falsified by: if a later --online gate run reports an R5 drift, the backfill did not cover the tag set
 - consequences: -
+
+## D-20261118-CEO - The archive's merge revisions and main's history are two different lines
+
+- date: 2026-11-18
+- kind: governance
+- status: proposed
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: row-by-row archive repair; widen the guard to backup refs; record as a known limitation
+- decision: Record the divergence and hold it for the owner's ruling (Q-0002) instead of repairing 588 archived revisions unilaterally; meanwhile the widget layers are landed, the CI shard partition is whole, and every other guard in the suite is green at e6c09c25+.
+- why: Rewriting the accepted-results record is the same class of act as rewriting history: it changes what the team's evidence says happened. The repair is mechanically possible for 236 rows and needs a per-row judgement for 320 more, and the alternative (widening the guard to the preserved backup line) is a gate change. Both are the owner's call, and neither blocks the work that was outstanding.
+- evidence: main 34384c63 and origin/main 2afe09f0: pytest -q tests/unit/test_archive_merge_revisions.py -> 2 failed, 4 passed on both (588 rows name a revision: 2 on-main, 560 ancestors only of backup/local-main-20251117, 26 objects missing); pytest -q tests/unit/test_identity_legacy.py -> 2 failed, 7 passed on origin/main; git merge-base main backup/local-main-20251117 -> 73c2620 (the initial commit), so the two lines are disjoint from the root; every one of the 560 orphan rows has an identical subject on main but only 236 of those subjects are unique; the rest of the suite at the branch head -> 3302 passed, 13 skipped with only those 4 reds.
+- falsified by: a row whose identical-subject commit on main is a different change-set would make the mechanical repair wrong - measured: 320 rows have 2 or more subject matches, 4 have 525
+- consequences: -
