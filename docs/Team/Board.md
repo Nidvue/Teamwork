@@ -320,6 +320,7 @@ under two roles is two tasks.
 | developer | T-0144 | widget | done | P-0241 | 7f6d332d |
 | developer | T-0145 | identity | done | P-0245 | 2cb1ed12 |
 | developer | T-0146 | identity | done | P-0246 | d0090de4 |
+| developer | T-0147 | identity | done | P-0247 | ffa7ff92 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
