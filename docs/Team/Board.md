@@ -317,6 +317,7 @@ under two roles is two tasks.
 | developer | T-0142 | coordination | done | P-0237 | a20e5bb5 |
 | developer | T-0143 | bus | done | P-0239 | c5c5e341 |
 | developer | T-0144 | widget | done | P-0241 | 7f6d332d |
+| developer | T-0145 | identity | done | P-0245 | 2cb1ed12 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
