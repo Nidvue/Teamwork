@@ -2992,3 +2992,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: in a pristine worktree at 3f76623d with the old boundary patched in: audit_commit_identities -> rc 1, 1659 FAIL, 0 ancestors of 22a6edf, 1659 ancestors of 34384c63; with the shipped constant -> rc 0 and 13 commits after the boundary audited; the full suite -> 3309 passed, 13 skipped, 0 failed.
 - falsified by: a commit after the boundary with an operator pair or a mismatched 'Acting role:' trailer must still fail - covered by the untouched test_commit_identity.py cases and by the new property assertion
 - consequences: -
+
+## D-20261118-CEO-4 - Push of the 41-commit stage at 5d2d3e47 bypassed the remote's PR rule
+
+- date: 2026-11-18
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: The owner authorized the push; the Release Engineer pushed 2afe09f0..5d2d3e47 to origin/main after every local gate was green on exactly that revision. The forge answered 'Bypassed rule violations for refs/heads/main: Changes must be made through a pull request; 23 of 23 required status checks are expected', which is recorded as a governance fact: the push account can bypass branch protection, so the local gates are the only gate on a direct push.
+- why: The team's policy is reviewer-only merge plus required checks; a bypassing account makes that policy advisory for whoever holds it. Recording it is how the team sees the drift instead of assuming the forge enforces the rule.
+- evidence: git push origin main -> 2afe09f0..5d2d3e47 main -> main, remote: Bypassed rule violations (PR rule, 23 required checks); before the push at 5d2d3e47: make lint links identity release-consistency -> 0 problems, make selftest verify -> release verified, make docs -> built, make privacy --tree --history --stores -> PASS 0 finding(s), full suite -> 3316 passed, 6 skipped, 0 failed
+- falsified by: -
+- consequences: CI still runs on the SHA; a red run must be routed to its owner. If the forge rule is meant to bind, the bypass list needs the Release Engineer's account removed - that is the owner's call on the host, not a code change.
