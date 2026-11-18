@@ -1057,7 +1057,7 @@ def retire_worktree(root: Path, project: Path, task: dict | None = None, branch:
 
 
 def _rebase_branch_onto_base(
-    root: Path, project: Path, here: Path, base: str, branch: str, task: dict
+    root: Path, project: Path, here: Path, base: str, branch: str, task: dict, producer: str = ""
 ) -> tuple[bool, str]:
     """Rebase the task branch onto the base it is about to join; (moved, error).
 
@@ -1076,7 +1076,7 @@ def _rebase_branch_onto_base(
         where = here
     if where is None:
         return False, f"no worktree holds {branch}, so the rebase is the owner's step"
-    r = run_git(where, "rebase", base, branch)
+    r = run_git(where, "rebase", base, branch, env=_merge_commit_env(where, producer or "reviewer"))
     if r.returncode != 0:
         run_git(where, "rebase", "--abort")
         return False, (r.stderr.strip() or r.stdout.strip() or "git rebase failed")
@@ -1943,7 +1943,9 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     )
                 merged = r
             else:
-                moved, why = _rebase_branch_onto_base(root, project, here, base, branch, t)
+                moved, why = _rebase_branch_onto_base(
+                    root, project, here, base, branch, t, producer
+                )
                 if why:
                     die(
                         f"refusing to merge {pr['id']}: {base} has moved and {branch} "

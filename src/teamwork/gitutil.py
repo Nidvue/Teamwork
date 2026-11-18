@@ -188,7 +188,7 @@ def sign_args(project, setting: str = "") -> list:
     return ["-S"] if repo_signs_commits(project) else []
 
 
-def run_git(project: Path, *argv: str, timeout: float | None = None):
+def run_git(project: Path, *argv: str, timeout: float | None = None, env: dict | None = None):
     """Run git in ``project`` with a bounded wall clock.
 
     ``refresh`` (``fetch``/``clone``), ``push`` and every other git call goes
@@ -219,7 +219,7 @@ def run_git(project: Path, *argv: str, timeout: float | None = None):
         tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as out,
         tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as err,
     ):
-        process = _spawn(command, out, err)
+        process = _spawn(command, out, err, env)
         try:
             process.wait(timeout=limit)
         except subprocess.TimeoutExpired:
@@ -228,7 +228,7 @@ def run_git(project: Path, *argv: str, timeout: float | None = None):
         return subprocess.CompletedProcess(command, process.returncode, _drain(out), _drain(err))
 
 
-def _spawn(command: list[str], out, err) -> subprocess.Popen:
+def _spawn(command: list[str], out, err, env: dict | None = None) -> subprocess.Popen:
     """Start ``git`` in its own process group, with no stdin and file output.
 
     Its own group is what makes the timeout killable as a tree: a git call that
@@ -242,6 +242,7 @@ def _spawn(command: list[str], out, err) -> subprocess.Popen:
         stdout=out,
         stderr=err,
         start_new_session=True,
+        env=env,
     )
 
 
