@@ -121,7 +121,7 @@ function readStatus(engine: string): Promise<Payload | null> {
     execFile(
       python,
       [engine, "status", "--json"],
-      { timeout: 4_000, maxBuffer: 4 << 20 },
+      { cwd: dirname(dirname(engine)), timeout: 4_000, maxBuffer: 4 << 20 },
       (error, stdout) => {
         if (error) return settle(null);
         try {
@@ -496,6 +496,7 @@ export default function teamworkStatus(pi: ExtensionAPI): void {
   pi.registerCommand("teamwork-status", {
     description: "toggle the live teamwork agent widget",
     handler: async (_args: string, ctx: ExtensionContext) => {
+      if (!live(ctx)) return;
       context = ctx;
       enabled = !enabled;
       if (enabled) {
