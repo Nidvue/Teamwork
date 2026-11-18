@@ -177,6 +177,13 @@ written only through the commands, never committed:
   `--no-check '<why>'` records that the class is gone by design. A `tw-` skill is
   the third rung, for a fix that is a flow and never runs by itself.
 
+  **Take the highest rung that works, and prove the rung.** Order the rungs by how
+  hard they are to undo - one owner in the architecture, then a type, then a lint
+  whose error names the fix, then a test, then a skill - and put prose last,
+  because nothing fails when an agent skips a paragraph. A new check is shown
+  failing on a real past mistake before it counts, and a rule whose mistake can no
+  longer happen is deleted rather than kept.
+
 - **Project knowledge** - `Knowledge.md`, one `K-` record per durable fact, rule,
   command or measured behaviour, with evidence, tags and importance 1-5. Supersede,
   never contradict; search before asking.

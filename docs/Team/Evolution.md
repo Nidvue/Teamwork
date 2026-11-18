@@ -129,6 +129,8 @@ new high-severity defect appears, or two cuts pass with no re-measurement.
 | no pinned census in prose | repeated review findings | doc-contract tests + `measured_at` |
 | a failed review cap is tool-enforced | round 8 still exists in the archive | the third fail must open a dispute |
 | a T-class defect has a failing-before test | the archive render recurred | `tests repro` on the fixing task |
+| a rebase does not re-run a green gate | R5, pstack `shipping` on `git patch-id` | `preflight` accepts a named revision whose patch equals the head's |
+| a correction is a check, not a paragraph | R10, pstack `correct` | `lesson fix` refuses prose; `--check` must exit 0 |
 | know the existing issue before filing a new one | the always-on overage was re-found in 2026-11 | `audit` maps to §9 |
 
 A rule with no command that enforces it is a wish and cannot be a close

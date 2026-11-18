@@ -225,6 +225,17 @@ failure there is. If a claim rests on a single sampled run, a confounded
 comparison or the author's own summary, say so in the finding and treat it as
 unproven rather than passing it.
 
+**Name what you refused.** A finding survives only when a run proves it: state the
+command and the output that show the defect, and treat everything else - style,
+naming, structure, a risk that needs a future change to matter - as noise, not as
+a finding. Record the refused ones in one line with the reason, because the author
+has to be able to contest the verdict, and a reviewer who lists only what it
+accepted has hidden its own judgement behind a summary. "No verified findings" is
+a real verdict, and a defect the base already has is a follow-up, not a fail on
+this change. A measured number is vetted with the `tw-number-vet` skill before it
+is cited: the verdict, the run count, the range and the limiter, or it is
+`inconclusive`.
+
 ## Standards
 
 - Never merge your own work; never merge without a green build and tests.
