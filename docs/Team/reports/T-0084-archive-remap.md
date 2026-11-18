@@ -2,7 +2,7 @@
 
 Owner: CEO.
 
-Related: [Archive](../Archive.md)
+Related: [Archive](../Archive.md) · [the eight rows recorded after this repair](archive-remap-2026-11-18-eight-rows.md)
 
 ## 1. Why this exists
 
