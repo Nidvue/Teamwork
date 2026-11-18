@@ -19,7 +19,6 @@ IDENTITY = [
     "-c",
     "commit.gpgsign=false",
 ]
-LEGACY = "a5e31d4e2e4c9d6a7f4f3c518ffbfae4533a45aa"
 OUTSIDE = [
     "-c",
     "user.name=Outside Contributor",
@@ -111,11 +110,30 @@ def test_every_shipped_exemption_is_one_full_object_id_with_a_reason() -> None:
 
 
 def test_the_whole_history_is_clean() -> None:
-    """No published commit needs an exemption any more: the rewrite fixed them."""
+    """Every commit the audit reads passes, and nothing after the boundary is skipped.
+
+    The boundary is the reconciliation merge that joined the two published lines,
+    so the replayed commits before it are exempt by the rule that already covered
+    pre-policy history. The pin is the property that matters, not one object id:
+    at least one commit is skipped as predating the rule (the exemption is
+    exercised and prints its reason) and at least one commit after the boundary is
+    audited rather than skipped (the exemption cannot spread to new work).
+    """
     code, output = audit(REPO_ROOT, "HEAD")
 
     assert code == 0, output
-    assert LEGACY[:12] in output
+    assert "skipped: predates the role-mailbox rule" in output, output[:2000]
+    boundary = engine.LEGACY_IDENTITY_BEFORE
+    after = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-list", f"{boundary}..HEAD"],
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    assert after, f"{boundary} is HEAD: no commit is held to the rule"
+    audited = [
+        line for line in output.splitlines() if line.startswith("- ") and "skipped" not in line
+    ]
+    assert len(audited) >= len(after), (len(audited), len(after), output[-2000:])
 
 
 def strict_audit(project: Path, rev_range: str) -> tuple[int, str]:
@@ -172,8 +190,11 @@ def test_the_repository_history_needs_no_exemption() -> None:
 
     Published history before ``LEGACY_IDENTITY_BEFORE`` is exempt with a printed
     reason: it predates the role-mailbox merge rule, the default branch is
-    protected, and rewriting it is a red line. Every commit after that revision
-    is held to the rule, which is what keeps the exemption from spreading.
+    protected, and rewriting it is a red line. The boundary is the reconciliation
+    merge ``34384c63`` because the tree carries two published lines joined there:
+    a boundary on one line alone left 1659 replayed commits on the other line
+    failing an audit they predate. Every commit after the boundary is held to the
+    rule, which is what keeps the exemption from spreading.
     """
     code, output = strict_audit(REPO_ROOT, "HEAD")
 
