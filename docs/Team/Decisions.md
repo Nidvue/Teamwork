@@ -2960,3 +2960,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: main 34384c63 and origin/main 2afe09f0: pytest -q tests/unit/test_archive_merge_revisions.py -> 2 failed, 4 passed on both (588 rows name a revision: 2 on-main, 560 ancestors only of backup/local-main-20251117, 26 objects missing); pytest -q tests/unit/test_identity_legacy.py -> 2 failed, 7 passed on origin/main; git merge-base main backup/local-main-20251117 -> 73c2620 (the initial commit), so the two lines are disjoint from the root; every one of the 560 orphan rows has an identical subject on main but only 236 of those subjects are unique; the rest of the suite at the branch head -> 3302 passed, 13 skipped with only those 4 reds.
 - falsified by: a row whose identical-subject commit on main is a different change-set would make the mechanical repair wrong - measured: 320 rows have 2 or more subject matches, 4 have 525
 - consequences: -
+
+## D-20261118-CEO-2 - Repair the archive's merge revisions row by row onto main's line
+
+- date: 2026-11-18
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: The owner chose Q-0002 option 1: every archive row whose merge revision is not an ancestor of main is re-pointed to the commit on main that landed the same change-set, each with its own evidence; the 26 revisions whose objects are gone are recorded as unverifiable with the reason. The guards go green honestly; the guard itself is not weakened.
+- why: Option 2 would have widened the guard to the preserved backup line, which records the claim but leaves the accepted-results record pointing at a history the project no longer has. The owner wants the record true.
+- evidence: Q-0002 answered 1; measured before the repair at main 34384c63 and origin/main 2afe09f0: 588 rows name a revision, 2 ancestors of main, 560 ancestors only of backup/local-main-20251117, 26 objects missing; every one of the 560 orphans has a commit with the identical subject on main, 236 of those subjects unique.
+- falsified by: a re-pointed row whose commit on main carries a different change-set: caught by reading each candidate's diff against the row's branch and task, and by the mapping staying order-preserving in main's history
+- consequences: -
+
+## D-20261118-CEO-3 - The identity boundary follows the reconciliation merge
+
+- date: 2026-11-18
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: LEGACY_IDENTITY_BEFORE names 34384c63 (the reconciliation merge that joins the two published lines) instead of 22a6edf, so the history audit is green without rewriting history; everything after the boundary is still audited and a property test pins that the exemption cannot spread.
+- why: predates_identity_rule() answers by ancestry, and a boundary on one line of a two-line history exempts nothing on the other: 1659 replayed commits dated 2026-10-17..2026-11-15 failed an audit they predate, on main and on origin/main alike.
+- evidence: in a pristine worktree at 3f76623d with the old boundary patched in: audit_commit_identities -> rc 1, 1659 FAIL, 0 ancestors of 22a6edf, 1659 ancestors of 34384c63; with the shipped constant -> rc 0 and 13 commits after the boundary audited; the full suite -> 3309 passed, 13 skipped, 0 failed.
+- falsified by: a commit after the boundary with an operator pair or a mismatched 'Acting role:' trailer must still fail - covered by the untouched test_commit_identity.py cases and by the new property assertion
+- consequences: -
