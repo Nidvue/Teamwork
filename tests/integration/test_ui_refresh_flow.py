@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SYNC = REPO_ROOT / "scripts" / "sync_skill.py"
 SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 RENDERER = "teamwork-status.ts"
+BUS = "teamwork-bus.ts"
 
 
 def agent(tmp_path: Path) -> Path:
@@ -54,7 +55,7 @@ def test_the_script_installs_the_renderer_and_registers_it(tmp_path: Path) -> No
     assert result.returncode == 0, result.stdout + result.stderr
     assert (root / "extensions" / RENDERER).is_file()
     settings = json.loads((root / "settings.json").read_text(encoding="utf-8"))
-    assert settings["extensions"] == [f"extensions/{RENDERER}"]
+    assert set(settings["extensions"]) == {f"extensions/{RENDERER}", f"extensions/{BUS}"}
     assert "lane display" in result.stdout
 
 

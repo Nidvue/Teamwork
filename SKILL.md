@@ -112,9 +112,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 305 kB |
-| `standard` | 10 | 419 kB |
-| `full` | 17 | 677 kB |
+| `slim` (default) | 7 | 295 kB |
+| `standard` | 10 | 410 kB |
+| `full` | 17 | 668 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 2.2x what `slim` costs. A role earns a seat only if it owns a deliverable, a test

@@ -193,6 +193,8 @@ def payload(activity: str = "implementing the review gate") -> dict:
 
 WIDTHS = (80, 100, 140, 180)
 
+BUSY_GLYPHS = {"●", "◐", "▲"}
+
 
 @pytest.mark.parametrize("width", WIDTHS)
 def test_the_widget_keeps_its_columns_apart_at_every_width(width: int) -> None:
@@ -205,7 +207,7 @@ def test_the_widget_keeps_its_columns_apart_at_every_width(width: int) -> None:
         assert line == line.rstrip(), f"{width}: trailing whitespace: {line!r}"
         assert "\t" not in line, f"{width}: a tab is not a column gap: {line!r}"
 
-    busy = [line for line in lines[1:] if line.startswith("● ")]
+    busy = [line for line in lines[1:] if line[:1] in BUSY_GLYPHS]
     assert len(busy) == 2, f"expected two busy rows at {width}: {lines!r}"
     for line in busy:
         cells = [cell for cell in re.split(r"\s{2,}", line.strip()) if cell]
