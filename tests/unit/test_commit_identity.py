@@ -226,6 +226,56 @@ def test_a_redaction_placeholder_identity_fails_the_audit(repo):
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
 
 
+def test_the_machine_pair_never_authors_a_commit(tmp_path: Path) -> None:
+    """The tool must not produce the commit its own gate rejects.
+
+    A repository that configures the operator's personal pair - the shape every
+    checkout has - used to make ``commit_identity`` return that pair, so six
+    commits were authored as the operator and the CI strict audit refused them
+    while a local audit stayed green. The role mailbox is the answer, and a
+    declared ``teamwork.identity`` pair still wins when a repository wants one.
+    """
+    from teamwork import names
+
+    project = tmp_path / "repo"
+    project.mkdir()
+    _git(project, "init", "-q", "-b", "main", ".")
+    _git(project, "config", "user.name", "<redacted-personal-name>")
+    _git(project, "config", "user.email", "<redacted-personal-email>")
+
+    assert names.commit_identity("developer", project) == names.role_identity("developer")
+    assert names.commit_identity("ceo", project) == names.role_identity("ceo")
+
+    _git(project, "config", "teamwork.identity.name", "Nidvue")
+    _git(project, "config", "teamwork.identity.email", "team@example.org")
+    assert names.commit_identity("developer", project) == ("Nidvue", "team@example.org")
+
+
+def test_an_in_domain_personal_pair_is_not_a_canonical_identity(tmp_path: Path) -> None:
+    """A local audit must agree with CI about a personal in-domain author.
+
+    ``canonical_identities`` accepted the machine's pair, so a commit authored
+    ``<redacted-personal-name> <<redacted-personal-email>>`` passed ``identity --audit`` locally and
+    failed the same audit on the pushed revision. An address on the project's own
+    domain has to be a role mailbox; an outside contributor is still accepted.
+    """
+    from teamwork import engine
+
+    project = tmp_path / "repo"
+    project.mkdir()
+    _git(project, "init", "-q", "-b", "main", ".")
+    _git(project, "config", "user.name", "<redacted-personal-name>")
+    _git(project, "config", "user.email", "<redacted-personal-email>")
+
+    canonical = engine.canonical_identities(project)
+    assert "<redacted-personal-email>" not in canonical
+    assert "developer@agents.nidvue.com" in canonical
+
+    _git(project, "config", "user.name", "Outside Contributor")
+    _git(project, "config", "user.email", "outside@example.org")
+    assert "outside@example.org" in engine.canonical_identities(project)
+
+
 def test_bot_dependency_update_is_allowed(repo):
     _commit(
         repo,
@@ -814,7 +864,13 @@ def _commit_args(project: Path) -> list:
 def test_a_hostile_exported_identity_never_authors_the_commit(
     tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The repository's configured pair wins over an exported GIT_AUTHOR_* pair."""
+    """Neither an exported GIT_AUTHOR_* pair nor the machine's config authors it.
+
+    The repository here configures ``Hostile Operator <hostile@example.invalid>``
+    and the environment carries a second pair; the commit is still the acting
+    role's mailbox, because that is what the identity audit accepts and the tool
+    must not produce a commit its own gate refuses.
+    """
     project = _committable(tmp_path)
     monkeypatch.setenv("GIT_AUTHOR_NAME", "Wrapper Person")
     monkeypatch.setenv("GIT_AUTHOR_EMAIL", "wrapper@example.invalid")
@@ -822,22 +878,29 @@ def test_a_hostile_exported_identity_never_authors_the_commit(
     monkeypatch.setenv("GIT_COMMITTER_EMAIL", "wrapper@example.invalid")
 
     assert cli(*_commit_args(project)) == 0
-    expected = f"{HOSTILE_IDENTITY[0]} <{HOSTILE_IDENTITY[1]}>"
+    expected = f"Developer <developer@{engine.IDENTITY_DOMAIN}>"
     assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == expected
     assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
     printed = capsys.readouterr().out
     assert "committed " in printed and f"as {expected}" in printed
 
 
-def test_the_role_mailbox_authors_only_when_opted_in(
+def test_the_role_mailbox_is_the_default_and_the_opt_in_agrees(
     tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    project = _committable(tmp_path)
-    monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", "role")
-    assert cli(*_commit_args(project)) == 0
+    """``TEAMWORK_COMMIT_IDENTITY=role`` and no flag produce the same identity."""
     expected = f"Developer <developer@{engine.IDENTITY_DOMAIN}>"
-    assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == expected
-    assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
+    for value in ("role", None):
+        case = tmp_path / (value or "unset")
+        case.mkdir()
+        project = _committable(case)
+        if value is None:
+            monkeypatch.delenv("TEAMWORK_COMMIT_IDENTITY", raising=False)
+        else:
+            monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", value)
+        assert cli(*_commit_args(project)) == 0
+        assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == expected
+        assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
 
 
 def test_the_message_carries_the_subject_and_seven_fields() -> None:

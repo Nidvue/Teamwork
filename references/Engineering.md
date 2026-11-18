@@ -8,11 +8,14 @@ operating procedure.
 Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.md) | [State](State.md) | [Concurrency](Concurrency.md) | [Roles](Roles.md) | [Testing](Testing.md) | [Audit](Audit.md) | [Coordination](Coordination.md)
 
 
-## Commit identity - the repository's pair by default, the role mailbox on request
+## Commit identity - the acting role's mailbox, or a declared pair
 
-A commit is authored **and** committed by the repository's own configured pair, so
-published history belongs to the project and no commit names the agent that typed
-it. The role mailbox is the opt-in, for a workflow that wants one mailbox per role:
+A commit is authored **and** committed by the acting role's mailbox. A repository
+that wants its history under one name declares a pair once, and that pair wins; the
+machine's ambient `user.name`/`user.email` never does, because it is whatever host a
+lane happens to run on and the identity audit refuses it after the published
+boundary - the 2026-11-18 push landed six commits authored as the operator and CI
+refused them while a local audit stayed green:
 
 ```text
 Developer <developer@agents.nidvue.com>
@@ -28,13 +31,14 @@ CEO <ceo@agents.nidvue.com>   CTO <cto@agents.nidvue.com>   COO <coo@agents.nidv
 
 Rules:
 
-- **Default:** the repository's own configured pair authors a commit - its
-  `user.name`/`user.email`, or an explicit `teamwork.identity.name`/
-  `teamwork.identity.email` pair.
-- **Opt-in:** `TEAMWORK_COMMIT_IDENTITY=role` selects the role mailbox for one
-  command; it is the author of last resort only when the repository configures no
-  identity at all. Under that policy, display name is the role and email is the
-  lowercase role id at `agents.nidvue.com`.
+- **Default:** the acting role's mailbox authors and commits - the display name is
+  the role and the email is the lowercase role id at `agents.nidvue.com`.
+- **Declared pair:** `teamwork.identity.name` + `teamwork.identity.email` authors a
+  commit when a repository sets both. The ambient `user.name`/`user.email` is not a
+  declaration and is never used: an identity on the project's own domain has to be
+  a role mailbox, and `identity --audit` says so on every commit after the boundary.
+- **Opt-in:** `TEAMWORK_COMMIT_IDENTITY=role` still selects the role mailbox
+  explicitly, so the flag and the default now agree.
 - **Never** use an instance-numbered identity: no `Developer-1`, no
   `developer-1@agents.nidvue.com`.
 - The product identity `Teamwork <teamwork@agents.nidvue.com>` is **never** a valid

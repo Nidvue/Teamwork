@@ -324,19 +324,19 @@ def role_mailbox_opted_in() -> bool:
 def commit_identity(role: str, project=None) -> tuple:
     """(name, email) a commit is authored with.
 
-    The repository's configured pair - a declared ``teamwork.identity`` pair when
-    set, else its own ``user.name``/``user.email`` - authors the commit, so the
-    author of a published commit is the project, not the agent that wrote it. The
-    role mailbox is opt-in (``TEAMWORK_COMMIT_IDENTITY=role``), and it is the last
-    resort in a repository that configures no identity at all, because a commit
-    needs some author.
+    A declared ``teamwork.identity`` pair authors the commit when the repository
+    sets one; otherwise it is the acting role's mailbox. The machine's ambient
+    ``user.name``/``user.email`` is never the answer: it is whatever host the lane
+    happens to run on, and the identity audit rejects that pair on every commit
+    after the published boundary, so falling back to it made the tool produce the
+    exact commits its own gate fails (A-0012, and the 2026-11-18 push where six
+    commits were authored as the operator and CI refused them). The role mailbox
+    is also what ``TEAMWORK_COMMIT_IDENTITY=role`` selects, so the opt-in and the
+    default now agree.
     """
     if role_mailbox_opted_in():
         return role_identity(role)
-    declared = declared_identity(project)
-    if declared:
-        return declared
-    return preset_identity(project) or role_identity(role)
+    return declared_identity(project) or role_identity(role)
 
 
 def git_identity_args(role: str, project=None) -> list:

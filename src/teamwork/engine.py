@@ -5837,16 +5837,35 @@ _RE_FORGE_COMMITTER_EMAIL = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\
 def canonical_identities(project=None) -> dict:
     """email -> display name for every identity the team may commit as.
 
-    The role mailboxes are the portable set. The operator's preset identity is
-    accepted as well, but only by ``identity --audit``, which judges history
-    already on the branch: ``names.commit_identity`` never reads that ambient
-    pair, so no new commit is authored as whoever owns the machine (A-0012).
+    The role mailboxes are the portable set. An identity from outside the
+    project's own domain is accepted too, because a public repository receives
+    outside contributions and a policy cannot apply to a commit older than it:
+    ``identity --audit`` judges history already on the branch, and
+    ``names.commit_identity`` never reads that ambient pair (A-0012).
+
+    An identity *inside* the project's domain must be a role mailbox. Accepting a
+    personal in-domain pair here made a local audit green on the very commits the
+    CI strict audit refuses - six commits authored as the operator passed locally
+    and failed the pushed revision on 2026-11-18 - so the two gates now agree.
     """
     out = {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
     preset = preset_identity(project) if project else preset_identity()
-    if preset:
+    if preset and outside_project_domain(preset[1]):
         out[preset[1]] = preset[0]
     return out
+
+
+def outside_project_domain(email: str) -> bool:
+    """True when ``email`` is not on the role-mailbox domain or its parent.
+
+    The role mailboxes live on ``IDENTITY_DOMAIN`` (``agents.<project>``); the
+    parent is the project's own domain. An address on either is the project
+    talking about itself, so it has to be a role mailbox rather than a person.
+    """
+    domain = email.rsplit("@", 1)[-1].strip().lower()
+    role_domain = IDENTITY_DOMAIN.strip().lower()
+    parent = role_domain.split(".", 1)[-1]
+    return domain != role_domain and domain != parent and not domain.endswith("." + parent)
 
 
 def audit_repository(root: Path, args) -> Path:

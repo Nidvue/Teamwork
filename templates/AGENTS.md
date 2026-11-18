@@ -428,12 +428,12 @@ tracked, uncommitted or evidence-bearing files, and never `git clean -fdx`. Keep
 
 ## Engineering policy
 
-- **COMMIT IDENTITY** - the repository's own configured pair authors the commit:
-  its `user.name`/`user.email`, or an explicit `teamwork.identity.name`/
-  `teamwork.identity.email` pair. No commit names an agent role, an instance or a
-  mailbox. The role mailbox is opt-in per command with
-  `TEAMWORK_COMMIT_IDENTITY=role`, e.g. `Developer <developer@agents.nidvue.com>`,
-  never instance-numbered.
+- **COMMIT IDENTITY** - the acting role's mailbox authors and commits, e.g.
+  `Developer <developer@agents.nidvue.com>`, never instance-numbered. A repository
+  that wants one name declares `teamwork.identity.name`/`teamwork.identity.email`
+  and that pair wins; the machine's ambient `user.name`/`user.email` is never used,
+  because the identity audit refuses it on every commit after the published
+  boundary. `TEAMWORK_COMMIT_IDENTITY=role` selects the mailbox explicitly.
 - **COMMIT MESSAGE STYLE** - the subject is `<type>(<area>): <summary>`, at most
   72 characters, then the seven fields: `Role`, `Producers`, `Goal`,
   `Deliverable`, `Why`, `Status`, `Result`. The fields are the record the commit

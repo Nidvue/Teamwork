@@ -390,11 +390,10 @@ def _first_file(root: Path, directory: str) -> str:
 
 
 FORBIDDEN_IDENTITY_CLAUSES = (
-    r"commit\s+as\s+your\s+role\s+mailbox",
-    r"author\s*==\s*committer\s*==\s*<?\s*role",
-    r"never\s+(?:use|set)[^.]{0,160}(?:--author|GIT_AUTHOR_|GIT_COMMITTER_)",
-    r"team\s+commit\s+is\s+authored",
-    r"committed\s+by\s+the\s+(?:acting\s+)?role",
+    r"repository'?s\s+own\s+configured\s+pair\s+authors",
+    r"user\.name/user\.email\s+authors\s+the\s+commit",
+    r"role\s+mailbox\s+is\s+the\s+opt-in",
+    r"ambient\s+pair\s+authors",
 )
 
 
@@ -418,17 +417,17 @@ def identity_findings(paths: list[Path], root: Path) -> list[str]:
 def test_the_identity_guard_catches_the_declarative_form(root, tmp_path):
     """The guard catches the statement form of the superseded rule, not only the order.
 
-    A previous finding quoted "Every team commit is authored and committed by the
-    role:" from the reference every charter points at and the guard passed it,
-    because only the imperative wording was forbidden. The rule the decision
-    replaced could therefore return as a statement, so each sentence is a mutant.
+    A previous finding quoted a statement of the superseded policy from the
+    reference every charter points at and the guard passed it, because only the
+    imperative wording was forbidden. The rule the decision replaced could
+    therefore return as a statement, so each sentence is a mutant.
     """
     mutated = tmp_path / "references"
     mutated.mkdir()
     for index, sentence in enumerate(
         (
-            "Every team commit is authored and committed by the role:",
-            "The commit is committed by the acting role.",
+            "The repository's own configured pair authors every commit.",
+            "The role mailbox is the opt-in, not the default.",
         )
     ):
         path = mutated / f"Reference{index}.md"
@@ -439,15 +438,17 @@ def test_the_identity_guard_catches_the_declarative_form(root, tmp_path):
 
 
 def test_the_charters_quote_the_constitution_on_commit_identity(root):
-    """One rule for commit identity: the repository's configured pair, role opt-in.
+    """One rule for commit identity: the acting role's mailbox, or a declared pair.
 
     The contradiction is expensive rather than theoretical - three PRs in one
     engagement failed on a lane that followed a charter telling it to use the
-    repository's own configured identity while the gate demanded the mailbox.
-    Decision 2026-11-11 settled it the other way: the configured pair authors a
-    commit and the role mailbox is opt-in, so the old wording may not reappear in
-    any charter or reference and the reference every charter points at must carry
-    the constitution.
+    repository's own configured identity while the gate demanded the mailbox, and
+    the 2026-11-18 push landed six commits authored as the operator that CI then
+    refused. Decision 2026-11-18 supersedes 2026-11-11: the role mailbox authors a
+    commit, a declared ``teamwork.identity`` pair may override it, and the machine's
+    ambient pair never does. The superseded wording may not reappear in any charter
+    or reference, and the reference every charter points at must carry the
+    constitution.
     """
     scanned = [root / "roles" / f"{role}.md" for role in ROLES]
     scanned += sorted((root / "references").glob("*.md"))
@@ -459,7 +460,7 @@ def test_the_charters_quote_the_constitution_on_commit_identity(root):
 
     engineering = identity_prose(root / "references" / "Engineering.md")
     for phrase in (
-        "repository's own configured pair",
+        "acting role's mailbox",
         "author == committer",
         "TEAMWORK_COMMIT_IDENTITY=role",
         "teamwork.py commit --role",
