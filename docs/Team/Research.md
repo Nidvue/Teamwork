@@ -87,8 +87,15 @@ the first screen of the README.
 
 Source set: pstack 0.15.9 (`cursor/plugins`, commit `e43c7ee`), Tan's two-part
 guide (2026-08-31, 2026-09-10) and the 2026-10-05 synthesis of her talk, all
-read as secondary sources. The 2,500-PR/month figure is self-reported and has no
-independent benchmark, so it is treated as operational experience, not a KPI.
+read as secondary sources, plus a **primary-source read of the plugin itself**
+at `cursor/plugins` `35a9094` on 2026-11-18: 290-line README, guides 01-10,
+the 24 principle skills, `poteto-mode` with its 22 playbooks, and the arena,
+swarm, interrogate, eval, correct, tdd, no-comments, benchmark-checklist,
+verification-skill and show-me-your-work skills. Section 6.4 is what that read
+added; no pstack file was copied into this repository, every row restates a rule
+in our own words and points at the file it came from (MIT, read-only).
+The 2,500-PR/month figure is self-reported and has no independent benchmark, so
+it is treated as operational experience, not a KPI.
 
 **The delta is not the thesis.** Both systems say "no claim without evidence".
 The difference is *what counts as evidence* and *what the gate is bound to*:
@@ -150,6 +157,64 @@ degrades to a service verifier (doctor, fixtures, observable state, cleanup) or 
 nothing. Our differentiator - independent second review, hash-chained ledger,
 role-shared memory - is not in pstack and must not be traded away for throughput.
 
+### 6.4 Rules the guides do not state (primary-source read, `35a9094`)
+
+Everything here is a rule the source states and the secondary write-ups did not
+carry. The "changes here" column is the delta against `AGENTS.md` as it stands.
+
+| # | Rule the source states | Evidence | What it changes here |
+|---|---|---|---|
+| R1 | The kickoff is the only channel to a child agent: every spawned agent's first line is `Read <path>/worker.md before anything else.`, because operator rules live in skills that load only from a slash command and reach a child no other way | `skills/poteto-mode/SKILL.md:20`, `worker.md:3` | our `AGENTS.md` block is auto-loaded so we get this free, but a lane packet sent as a bare goal loses it; a packet names its constitution by path, first line |
+| R2 | The bar in the kickoff is the whole bar, and no check, gate or sign-off is added above it; with no bar stated, "no worse than its base and passes its own tests"; no is an acceptable answer, candor over sycophancy, and never hand the human a check you could run | `worker.md`, `SKILL.md` (Autonomy, Writing the reply) | our self-check note answers four named questions and nothing more; gold-plating a packet is a defect, and a reviewer may decline a deliverable instead of validating it |
+| R3 | Fresh subagent per round: a fix round, a retry or the next queue item goes to a new agent with the original brief, every later directive and the prior report; resume only when state lives in it (checkout, uncommitted changes, a running process) | `skills/poteto-mode/SKILL.md:100` | we resume instances by default; the rule names the only three reasons a resume is legitimate, so a re-review delta is a fresh lane on the same branch |
+| R4 | Drift is a gap in the record, not a stall: each supervisor tick fixes an unreported head or an unrecorded agent by having its owner record it; stuck means errors, cannot start turns, or nothing new past its stuck-after runtime; probe down to leaf lanes and judge by side effects, because status text hides a stuck child | `playbooks/autopilot-full.md:22` | `lane status` reads records; add the age test (no new record past the unit's budget = stuck) and judge a lane by its writes, never its summary |
+| R5 | A verdict covers a **patch**, not a head: compare `git patch-id` at the verdict SHA with the current head, and a restack that leaves the patch unchanged keeps the verdict; noise is a difference that also appears between two builds of the verdict SHA | `playbooks/shipping.md:7` | our evidence is bound to `@<sha>`, so a pure rebase re-runs a green gate. The cheapest throughput win available that does not lower the gate: `preflight` compares patch-ids |
+| R6 | Block a change only for what you can show: a failing run at the head, or a doc line the change made wrong. A problem the base already has does not block, it is a follow-up | `playbooks/autopilot-full.md` step 4 | cuts review churn on pre-existing debt, and removes the incentive to fail a deliverable for a defect it did not introduce |
+| R7 | Only verified findings survive a challenge: an adversary must prove each finding with a run against the real code, and the report names what each adversary dropped and why | `skills/interrogate/SKILL.md` | our Reviewer records findings but not refusals; a finding with no run behind it is noise, and the dropped list is what lets the author contest a verdict |
+| R8 | The cross-judge is never from the parent's vendor, and when no other vendor can run the check is skipped and said to be skipped | `skills/arena/SKILL.md:28` | `TEAMWORK_MODEL_ALT` gives a different model; the rule asks for a different family and for an explicit "the vendor check did not run" |
+| R9 | Blinding has a word list: no `eval`, `test`, `judge`, `rubric`, `score`, `compare`, `benchmark`, `candidate` or `arena` in anything the candidate sees; chain-following is graded from the transcript and the code shape, never self-report; one judge scores both sets in a single pass | `playbooks/eval.md` | turns A6 from prose into an executable protocol; self-report is already refused as `noise` evidence here, and this extends it to the eval itself |
+| R10 | Fix a mistake class at the highest level that works: architecture, then types, then a lint whose error names the fix, then a test, and docs last because nothing fails when an agent skips them; prove each new check fails on a real past mistake; keep a rule table pairing each rule with what enforces it, and drop a rule once its mistake cannot happen | `skills/correct/SKILL.md` | orders our `lesson fix` ladder, adds the "prove the check fails on a real mistake" step, and adds the enforcement table (`AGENTS.md` rules with the command that catches each) |
+| R11 | A check you have never seen fail proves nothing: a generated verifier is proven once end to end before handover, and a formal check is shown failing on a broken variant of the code | `skills/create-verification-skill/SKILL.md` step 4, `create-formal-verification-skill` | `tests repro` already demands a failing run before a fix; extend the same rule to any **new gate**, which is why a gate can be added but not lowered |
+| R12 | A verification map has a maintenance contract with three outcomes - `clean`, `changed` (one PR confined to the verification directory), `blocked` - and it never edits product code: a live pass that finds a regression reports it instead of hiding it behind a doc edit | `skills/maintain-verification-skill/SKILL.md:15-17,37` | A1 adopted the map and not the decay contract; a map nobody audits is the part that rots, and "the doc was wrong" must not be how a product regression disappears |
+| R13 | Vet a number before it is reported: name the limiter ("why not double?") from a profile taken in a run you do not report, run every side tuned, check the arithmetic against a physical limit, count errors, alternate at least five runs per side and report median and range, measure the end-to-end path, and confirm the work happened inside the timed region; the verdict is `inconclusive` when the limiter cannot be named | `skills/benchmark-checklist/SKILL.md:21,27` | replaces A12's "demand baseline, method and variance" with seven questions a reviewer can read off the record |
+| R14 | Idempotency is a design test, not a retry policy: derive each step from the state that exists rather than from what the previous run meant to do, make anything a run leaves behind recognizable as stale by evidence that holds wherever it stopped, and write to a temporary path then rename | `skills/principle-make-operations-idempotent/SKILL.md` | the question to ask of every lease, claim, slot and lock we own: what happens if this runs twice, and if the previous run crashed at every point |
+| R15 | Two workers writing their own field into one state file is still shared mutation; instructions are not concurrency control, and "we need a lock" is a smell to check first | `skills/principle-separate-before-serializing-shared-state/SKILL.md` | sharpens "one writer per file" to "one owner per file, merged only where it is read", which is the rule our board, queue and memory-pen design already half-implements |
+| R16 | The playbook's steps are copied into the todo list verbatim, so a step cannot be silently dropped or reordered | `skills/poteto-mode/SKILL.md` step 1 | a lane packet lists the steps it must execute, not only the goal; the self-check answers the same numbered steps |
+| R17 | No planning skill, on purpose: "the best spec is code"; a plan is written only after the design settles and prototypes answer the open questions | `README.md` ("why are there no planning skills?") | a real disagreement with our bootstrap, which writes a brief and a plan before any code. Their argument is that a plan of an untested design invents risks; ours is that parallel lanes need a frozen interface. Resolution: keep the brief, and freeze the interface from a prototype or from existing code, never from prose alone |
+
+### 6.5 What the deep read corrects in 6.1
+
+- **A4 is restated.** The mechanism is not sampling. It is one full verification at
+the code-ready revision, one fresh verifier for a later head, and patch-id
+survival across a restack (R5). Sampling without those is just less review.
+- **A6 is executable** (R9): the word list, the transcript grading and the
+single-pass judge remove every judgement call that made it "adopt later".
+- **A12 is replaced** by the seven-question vet (R13).
+- **A5 is ordered and proved** by R10/R11: highest level first, and a new check is
+shown failing on a real past mistake.
+- **A1 is incomplete** without R12: the map needs its own audit or it decays into a
+wrong document that a regression can hide behind.
+
+**Added by the deep read, in this order:** R5 (small, one command in `preflight`,
+cuts a re-run per rebase without lowering a gate); R4 (small, `lane status`
+already reads records, add the age test); R10 + R11 (process: the enforcement
+table and "a new gate is shown failing once"); R7 (the review record names the
+refused findings); R1 (a lane packet carries its constitution by path); R13 as a
+`tw-` skill candidate, since it is a flow the Reviewer can run.
+
+**Landed from that list (2026-11-18):** R5 is in `preflight` - `gitutil.patch_id`
+reads the branch's own patch from its merge base with the task's base, and a
+recorded revision carrying the same patch as the head now passes the evidence gate
+(reachable or not), because a rebase moves the commit and not the change;
+`tests/unit/test_preflight_patch_id.py` pins both halves, the same patch passing
+and a changed patch, a different change, an unknown base or a missing revision
+still failing. R4 was **already present** - adoption, the attempt bound and
+`reconcile_stalled` cover a dead lane, so no second mechanism was added. R10 and
+R11 are one rule in `AGENTS.md` and `templates/AGENTS.md` ("take the highest rung
+that works, and prove the rung"), with the two enforcement rows in
+`Evolution.md` 8. R7 is in the Reviewer charter ("name what you refused"). R13 is
+the `tw-number-vet` skill. Still proposals: R1, R6, R8, R9, R12, R14-R17.
+
 ## 7. Sources
 
 - [Agentic Framework Showdown: We Tested 8 AI Agent Frameworks - TELUS Digital](https://www.telusdigital.com/insights/data-and-ai/article/8-agentic-frameworks-tested) - accessed 2026-10-17
@@ -164,6 +229,7 @@ role-shared memory - is not in pstack and must not be traded away for throughput
 - [On pstack: the skills behind 2,500 PRs a month, and the mental models behind the skills - Barnaby Robson](https://barnabyrobson.org/on-pstack/) - accessed 2026-10-19
 - [How Lauren Tan Ships Thousands of PRs a Month - Intelligent Artifact](https://intelligentartifact.com/posts/how-lauren-tan-ships-thousands-of-prs-a-month/) - accessed 2026-10-19
 - [pstack source, cursor/plugins at e43c7ee - Cursor](https://github.com/cursor/plugins/tree/e43c7ee/pstack) - accessed 2026-10-19
+- [pstack source, cursor/plugins at 35a9094 (primary-source read for 6.4) - Cursor](https://github.com/cursor/plugins/tree/35a9094/pstack) - accessed 2026-11-18
 - [Harness^2: Recursive Agent Harnessing for an Open World - arXiv:2610.14224](https://arxiv.org/abs/2610.14224) - accessed 2026-10-20
 - [google-research/harness2 - Google Research](https://github.com/google-research/harness2) - accessed 2026-10-20
 - [Measuring multiagent systems - Anthropic](https://www.anthropic.com/research/multiagent-systems) - accessed 2026-10-27
