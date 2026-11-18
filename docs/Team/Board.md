@@ -173,6 +173,7 @@ under two roles is two tasks.
 | ceo | T-0082 | changelog | done | P-0224 | 7d36b7ff |
 | ceo | T-0083 | audit | done | P-0225 | 525b3c07 |
 | ceo | T-0084 | records | done | P-0244 | 3bd000e8 |
+| ceo | T-0085 | - | todo | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -318,6 +319,7 @@ under two roles is two tasks.
 | developer | T-0143 | bus | done | P-0239 | c5c5e341 |
 | developer | T-0144 | widget | done | P-0241 | 7f6d332d |
 | developer | T-0145 | identity | done | P-0245 | 2cb1ed12 |
+| developer | T-0146 | identity | done | P-0246 | d0090de4 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -380,6 +382,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0085 · CI on the pushed stage is red: the local stage's commits carry the operator pair, not a role mailbox | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
