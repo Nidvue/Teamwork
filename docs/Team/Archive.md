@@ -8677,3 +8677,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: Artifact read first: git diff main..0fd98dc2 -> 3 files, 12 insertions and 8 deletions across tests/unit/test_names.py, SKILL.md, references/Roles.md. THE REVIEWER'S OWN MEASUREMENT, not the note's: computed the tier cost from the tree the way the roster test does - agents_md plus each charter, over expand_roster(slim|standard|full) -> 295883 / 410466 / 668952 bytes, which rounds to 296 / 410 / 669 kB, exactly what both tables now say; the old rows said 295 / 410 / 668, so the two that changed are the two that moved. THE NAMES TEST now asserts the role mailbox while the fixture still configures Ops Person <ops@example.com>, so it fails if the fallback ever returns - the pin is live, not inverted. THE TWO DOCUMENTS both carry the table and the test reads both, so a one-sided edit would leave the test red; that is why both moved in one commit. GATE: preflight 9 checks 0 failed; pytest -q tests/unit/test_names.py tests/unit/test_roster_tiers.py tests/unit/test_skill_contracts.py tests/unit/test_commit_identity.py -> 210 passed; ruff format --check clean. No blocking finding.
 - findings history: 
 - branch / merge: dev-1/t-0148-align-the-identity-policy-s-other-pins-t / 43bdf955
+
+## T-0149 · The last pin of the superseded identity fallback in test_integrity_fixes  (developer)
+- date: 2026-11-18
+- priority: P0
+- owner: developer role (work by: Dev-1)
+- reviewer: Reviewer
+- task / issue: -
+- area: identity
+- self-check: [pass] Re-read the one-function diff at this revision: the assertion that the configured pair authors the commit is replaced by the role mailbox, and the two lines that carry the test's real intent - the local user.name survives ensure_repo - are untouched before and after. Boundary: a declared pair still wins (the branch above it is unchanged); the empty case now names the mailbox, which is what commit_identity returns. Scope: one test file. | test: pytest -q tests/unit/test_integrity_fixes.py -> 48 passed; preflight -> 0 failed | preflight: PF-1760a6a4b9c8 @a58514d944a9 (9 checks, 0 failed)
+- author evidence: commit a58514d9
+- reviewer evidence: Artifact read first: git diff main..a58514d9 -> one file, 6 insertions and 5 deletions, all inside test_repo_bootstrap_preserves_a_name_only_local_identity. THE PIN MOVED, THE INTENT DID NOT: the assertion 'resolved == preset' becomes 'resolved == the role mailbox', and the two lines that carry the test's actual purpose - ensure_repo leaves a name-only local user.name alone - are byte-identical before and after, which is what the test was written for. A DECLARED PAIR STILL WINS: the declared branch above it is untouched and the integrity suite exercises both. GATE: preflight 9 checks 0 failed; pytest -q tests/unit/test_integrity_fixes.py -> 48 passed. No blocking finding.
+- findings history: 
+- branch / merge: dev-1/t-0149-the-last-pin-of-the-superseded-identity / pending
