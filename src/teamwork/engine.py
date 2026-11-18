@@ -206,6 +206,7 @@ from .gitutil import (
     is_git_repo,
     lfs_text_mismatch,
     lfs_tracked,
+    patch_id,
     run_git,
     sign_args,
 )
@@ -16492,6 +16493,10 @@ def _preflight_evidence(
     that measured an older revision is refused, because the tree moved after the run
     and its counts no longer reproduce. A record naming both an old and the head (a
     repro's before/after) passes; one naming no revision is left to the Reviewer.
+    A named revision that carries the **same patch** as the head against the task's
+    base is the head for this purpose: a rebase, a restack or a `--amend` that only
+    moves the commit leaves the diff byte-identical, so the run reproduces and
+    re-running it would only re-measure the same change at a new SHA.
 
     The note is append-only, so the LAST segment is the only authoritative one: an
     earlier round's ``--test`` line names the revision that round measured, and a
@@ -16515,15 +16520,28 @@ def _preflight_evidence(
     if not named:
         return PreflightCheck(name, PREFLIGHT_OK, "the task names no @<rev> revision yet")
 
-    evidence_missing = [sha for sha in evidence_revs if not _rev_commit_exists(project, sha)]
+    base = (task.get("base") or "").strip() or DEFAULT_BASE
+    equivalent = _same_patch_revs(project, base, named, head_rev)
+
+    evidence_missing = [
+        sha
+        for sha in evidence_revs
+        if sha not in equivalent and not _rev_commit_exists(project, sha)
+    ]
     evidence_dangling = [
         sha
         for sha in evidence_revs
-        if sha not in evidence_missing and not _rev_reachable(project, sha)
+        if sha not in equivalent
+        and sha not in evidence_missing
+        and not _rev_reachable(project, sha)
     ]
-    note_missing = [sha for sha in note_revs if not _rev_commit_exists(project, sha)]
+    note_missing = [
+        sha for sha in note_revs if sha not in equivalent and not _rev_commit_exists(project, sha)
+    ]
     note_dangling = [
-        sha for sha in note_revs if sha not in note_missing and not _rev_reachable(project, sha)
+        sha
+        for sha in note_revs
+        if sha not in equivalent and sha not in note_missing and not _rev_reachable(project, sha)
     ]
 
     problems = []
@@ -16570,21 +16588,54 @@ def _preflight_evidence(
             " '@<old> superseded by @<current-rev>' and the gate stops checking it",
         )
     if head_rev and named and not any(_names_rev(head_rev, sha) for sha in named):
-        return PreflightCheck(
-            name,
-            PREFLIGHT_FAIL,
-            "the record names "
-            + ", ".join(f"@{sha}" for sha in named[:5])
-            + f", but the branch head is @{head_rev[:7]}: the tree moved after the run",
-            "re-run the command at the head and record it: selfcheck <agent> <T-id> --by "
-            f"<you> --note '<what you re-read>' --test '<cmd> @{head_rev[:7]} -> <result>'",
-        )
+        if not equivalent:
+            return PreflightCheck(
+                name,
+                PREFLIGHT_FAIL,
+                "the record names "
+                + ", ".join(f"@{sha}" for sha in named[:5])
+                + f", but the branch head is @{head_rev[:7]}: the tree moved after the run",
+                "re-run the command at the head and record it: selfcheck <agent> <T-id> --by "
+                f"<you> --note '<what you re-read>' --test '<cmd> @{head_rev[:7]} -> <result>'",
+            )
     shown = ", ".join(f"@{sha}" for sha in named[:5])
     detail = f"{len(named)} evidence revision(s) reachable: {shown}"
     if superseded:
         accepted = ", ".join(f"@{sha}" for sha in sorted(superseded)[:5])
         detail += f"; {len(superseded)} marked superseded and not checked: {accepted}"
+    if equivalent:
+        moved = ", ".join(f"@{sha}" for sha in sorted(equivalent)[:3])
+        detail += (
+            f"; {moved} carries the same patch as the head @{head_rev[:7]}"
+            " (a rebase moves the commit, not the change)"
+        )
     return PreflightCheck(name, PREFLIGHT_OK, detail)
+
+
+def _same_patch_revs(project: Path, base: str, named: list, head: str) -> set:
+    """The named revisions whose diff against ``base`` is the head's own patch.
+
+    This is the one way a record may name a revision other than the head and still
+    pass the evidence gate: a rebase, a restack or a reword leaves the branch's own
+    diff byte-identical, so the run reproduces and re-running it would only measure
+    the same change at a new SHA. Equivalence is also what lets such a revision be
+    unreachable - a rebase removes it from every ref, which is otherwise a fail.
+
+    Anything git cannot answer - no head, an unknown base, an empty diff, a missing
+    ``patch-id`` - answers the empty set, so the gate stays fail-closed.
+    """
+    if not head or not base or not _rev_commit_exists(project, base):
+        return set()
+    target = patch_id(project, base, head)
+    if not target:
+        return set()
+    return {
+        sha
+        for sha in named
+        if not _names_rev(head, sha)
+        and _rev_commit_exists(project, sha)
+        and patch_id(project, base, sha) == target
+    }
 
 
 def _names_rev(head: str, sha: str) -> bool:

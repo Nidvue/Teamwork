@@ -228,17 +228,18 @@ def run_git(project: Path, *argv: str, timeout: float | None = None, env: dict |
         return subprocess.CompletedProcess(command, process.returncode, _drain(out), _drain(err))
 
 
-def _spawn(command: list[str], out, err, env: dict | None = None) -> subprocess.Popen:
-    """Start ``git`` in its own process group, with no stdin and file output.
+def _spawn(command: list[str], out, err, env: dict | None = None, stdin=None) -> subprocess.Popen:
+    """Start ``git`` in its own process group, with file output.
 
     Its own group is what makes the timeout killable as a tree: a git call that
     reaches the network execs a remote helper as a child, and killing the leader
-    alone leaves the helper running. ``stdin`` is ``DEVNULL`` so an unanswerable
-    credential prompt fails instead of consuming the lane's input.
+    alone leaves the helper running. ``stdin`` defaults to ``DEVNULL`` so an
+    unanswerable credential prompt fails instead of consuming the lane's input; a
+    caller that has to feed git a patch passes its own file instead.
     """
     return subprocess.Popen(
         command,
-        stdin=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL if stdin is None else stdin,
         stdout=out,
         stderr=err,
         start_new_session=True,
@@ -270,6 +271,48 @@ def _drain(handle) -> str:
     handle.flush()
     handle.seek(0)
     return handle.read()
+
+
+def patch_id(project: Path, base: str, rev: str) -> str:
+    """The stable patch-id of the change ``rev`` carries on top of ``base``.
+
+    The diff is taken from the **merge base** of ``base`` and ``rev``, not from
+    ``base`` itself, so it is the branch's own change and nothing else: a branch
+    rebased onto a moved base and the same branch before the rebase produce the
+    same patch, which is what makes a verdict survive a rebase. A patch-id is
+    computed from the diff alone, so it also survives a reword or an amend that
+    only moves the commit. Returns "" whenever git cannot answer - no such
+    revision, no merge base, an empty diff, a patch-id too old to know
+    ``--stable`` - and every caller treats "" as "not the same patch", never as a
+    pass.
+    """
+    fork = run_git(project, "merge-base", base, rev)
+    start = fork.stdout.strip() if fork.returncode == 0 else ""
+    if not start:
+        return ""
+    diff = run_git(project, "diff", "--no-color", "--no-ext-diff", start, rev)
+    if diff.returncode != 0 or not diff.stdout.strip():
+        return ""
+    limit = git_timeout()
+    command = ["git", "-C", str(project), "patch-id", "--stable"]
+    with (
+        tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as out,
+        tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as err,
+        tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as feed,
+    ):
+        feed.write(diff.stdout)
+        feed.flush()
+        feed.seek(0)
+        process = _spawn(command, out, err, None, feed)
+        try:
+            process.wait(timeout=limit)
+        except subprocess.TimeoutExpired:
+            _kill_tree(process)
+            return ""
+        if process.returncode != 0:
+            return ""
+        text = _drain(out).strip()
+    return text.split()[0] if text else ""
 
 
 def ignored_files(project: Path) -> set[str]:
