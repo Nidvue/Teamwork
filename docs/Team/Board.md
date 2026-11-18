@@ -334,7 +334,7 @@ under two roles is two tasks.
 | reviewer | T-0005 | - | done | - | - |
 | reviewer | T-0006 | acceptance | done | P-0117 | 2174360 |
 | reviewer | T-0007 | clean | done | P-0240 | f813c0eb |
-| reviewer | T-0008 | widget | todo | - | - |
+| reviewer | T-0008 | widget | done | P-0243 | e6c09c25 |
 | security-auditor | T-0001 | audit | dropped | P-0022 | - |
 | security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
 | security-auditor | T-0003 | - | dropped | - | - |
@@ -378,7 +378,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
