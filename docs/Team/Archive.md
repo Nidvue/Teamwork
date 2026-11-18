@@ -8704,4 +8704,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: pytest tests/unit/test_archive_merge_revisions.py @main 70ec07d5 -> 2 failed, 4 passed
 - reviewer evidence: reviewer's own runs in a pristine detached worktree at 65debcea (git worktree add .pi/scratch/rev-T0001 65debcea --detach, no .pi team tree reachable): PYTHONPATH=src .venv/bin/python -m pytest -q tests/unit/test_archive_merge_revisions.py tests/unit/test_preflight_patch_id.py @65debcea -> 11 passed in 2.17s; git merge-base --is-ancestor <landing> HEAD for all eight archive landings -> exit 0 x8; rendered templates/AGENTS.md vs the AGENTS.md managed block @65debcea -> identical; teamwork.py criteria list @65debcea -> 4/4 verified; credited TS-0003 (acceptance, Reviewer-1) -> PYTHONPATH=src .venv/bin/python -m pytest -q @65debcea -> 3314 passed, 15 skipped, 0 failed | credited: TS-0003 acceptance/records by Reviewer-1 @65debcea
 - findings history: 
-- branch / merge: ceo/archive-repair-and-pstack-adoption / pending
+- branch / merge: ceo/archive-repair-and-pstack-adoption / 070513da
