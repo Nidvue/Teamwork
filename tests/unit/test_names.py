@@ -141,11 +141,13 @@ def test_the_declared_preset_wins_over_the_role_mailbox(tmp_path: Path) -> None:
     ]
 
 
-def test_the_configured_pair_authors_the_commit(tmp_path: Path) -> None:
-    """The repository's own ``user.name``/``user.email`` authors its commits.
+def test_the_machine_pair_never_authors_the_commit(tmp_path: Path) -> None:
+    """The ambient ``user.name``/``user.email`` is not a declaration.
 
-    Decision 2026-11-11: published history names the project, not the agent, so the
-    configured pair is the default and the role mailbox is an opt-in.
+    Decision 2026-11-18 supersedes 2026-11-11: the acting role's mailbox authors a
+    commit, and only a declared ``teamwork.identity`` pair overrides it. The ambient
+    pair made the tool produce the commits the CI strict audit refuses, so it is
+    never read.
     """
     project = tmp_path / "ambient"
     project.mkdir()
@@ -153,7 +155,7 @@ def test_the_configured_pair_authors_the_commit(tmp_path: Path) -> None:
     engine.run_git(project, "config", "--local", "user.name", "Ops Person")
     engine.run_git(project, "config", "--local", "user.email", "ops@example.com")
     assert engine.declared_identity(project) is None
-    assert engine.commit_identity("developer", project) == ("Ops Person", "ops@example.com")
+    assert engine.commit_identity("developer", project) == engine.role_identity("developer")
 
 
 def test_the_role_mailbox_is_an_opt_in(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
