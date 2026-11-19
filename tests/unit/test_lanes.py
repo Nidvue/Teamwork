@@ -1479,3 +1479,33 @@ def test_a_lost_lane_that_recorded_no_task_still_releases_its_claim(
 
     assert lanes.release_dead_review_claims(root) == ["developer/T-0001"]
     assert not engine.parse_tasks(path)[0].get("review_claim")
+
+
+def test_stale_empty_task_history_does_not_release_a_fresh_claim(cli, project: Path) -> None:
+    """A prompt lane from an earlier review must not release a claim taken after it.
+
+    Matching an empty-task run on "no recorded task" alone released a fresh claim
+    before its own lane had started, which permits a duplicate review of a live
+    deliverable. The run has to have started at or after the claim it releases.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "ship the contract")
+    review_ready(root)
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["review_claim"] = "Reviewer-1"
+    tasks[0]["review_claim_ts"] = "2999-01-01T00:00"
+    engine.write_tasks(path, tasks, "developer")
+    lanes.write_run(
+        root,
+        {
+            "id": "L-0001",
+            "agent": "Reviewer-1",
+            "task": "",
+            "state": lanes.LOST,
+            "started": "2020-01-01T00:00:00",
+        },
+    )
+
+    assert lanes.release_dead_review_claims(root) == []
+    assert engine.parse_tasks(path)[0]["review_claim"] == "Reviewer-1"

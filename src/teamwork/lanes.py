@@ -1725,16 +1725,24 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
     return out
 
 
-def _run_covered_task(run: dict, task_id: str) -> bool:
-    """Did this run work on ``task_id``, or on whatever it was handed?
+def _run_covered_task(run: dict, task_id: str, claimed_at: str = "") -> bool:
+    """Did this run take the claim being released?
 
     A lane started with `--review-owner` and no `--task` records an empty task: its
     whole job was that review, and it holds the claim all the same. Matching only on
-    the id left such a claim held by a lost lane until its lease ran out - the delay
-    this reconcile exists to remove, seen when a Reviewer-2 lane was lost mid-review.
+    the id left such a claim held by a lost lane until its lease ran out.
+
+    Matching on "no recorded task" alone is worse, and was: the lane history keeps
+    every earlier prompt lane, so a stale empty-task run released a **fresh** claim
+    before its own lane had started - a duplicate review of a live deliverable. So an
+    empty-task run only covers a claim it started after, which ties the run to the
+    claim instead of to the task id. A run that recorded the id still matches on it.
     """
     recorded = str(run.get("task") or "").strip()
-    return not recorded or recorded.endswith(task_id)
+    if recorded:
+        return recorded.endswith(task_id)
+    started = str(run.get("started") or "").strip()
+    return bool(claimed_at and started and started >= claimed_at)
 
 
 def release_dead_review_claims(root: Path) -> list:
@@ -1759,7 +1767,7 @@ def release_dead_review_claims(root: Path) -> list:
             continue
         if not any(
             pascal(str(run.get("agent") or "")) == holder
-            and _run_covered_task(run, task["id"])
+            and _run_covered_task(run, task["id"], str(task.get("review_claim_ts") or ""))
             and str(run.get("state") or "") in TERMINAL
             for run in runs
         ):
