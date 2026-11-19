@@ -85,10 +85,14 @@ under two roles is two tasks.
 | ceo | T-0002 | gate | done | P-0002 | b6d7240f |
 | ceo | T-0003 | widget | review | P-0004 | - |
 | ceo | T-0004 | gate | done | P-0003 | 9a42ac63 |
+| ceo | T-0005 | review | review | P-0005 | - |
+| ceo | T-0006 | privacy | done | P-0006 | 7bf336f5 |
 | reviewer | T-0001 | lanes | dropped | - | - |
-| reviewer | T-0002 | lanes | todo | - | - |
-| reviewer | T-0003 | lanes | todo | - | - |
-| reviewer | T-0004 | lanes | todo | - | - |
+| reviewer | T-0002 | lanes | dropped | - | - |
+| reviewer | T-0003 | lanes | dropped | - | - |
+| reviewer | T-0004 | lanes | dropped | - | - |
+| reviewer | T-0005 | lanes | dropped | - | - |
+| reviewer | T-0006 | lanes | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -107,9 +111,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0003 · Adopt the uncommitted lane-status engine self-location work onto its own branch | P1 | review | - |
-| reviewer | T-0002 · Root cause: T-0004 timed out (budget) on Reviewer-1 | P1 | todo | - |
-| reviewer | T-0003 · Root cause: T-0004 timed out (budget) on Reviewer-1 | P1 | todo | - |
-| reviewer | T-0004 · Root cause: L-0014 timed out (budget) on Reviewer-2 | P1 | todo | - |
+| ceo | T-0005 · Name the tree under review in the review packet | P1 | review | - |
+| reviewer | T-0006 · Root cause: L-0020 timed out (budget) on Reviewer-2 | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
