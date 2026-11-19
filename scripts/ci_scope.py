@@ -180,6 +180,45 @@ def classify(
     )
 
 
+def local_change_set(repo: Path, base: str = DEFAULT_BRANCH) -> tuple[str, ...] | None:
+    """The change set of this checkout against ``base``, uncommitted work included.
+
+    ``git diff <merge-base>`` compares the fork point to the *working tree*, so one
+    call covers the branch's commits and anything still uncommitted. A checkout
+    that cannot name a base reports ``None``, and the caller treats an unknown
+    change set as code so a gate is never skipped by a broken measurement.
+    """
+    base_ref = base
+    if not _resolves(repo, base_ref):
+        for candidate in (f"origin/{base}", "origin/HEAD"):
+            if _resolves(repo, candidate):
+                base_ref = candidate
+                break
+        else:
+            return None
+    merge_base = _git(repo, "merge-base", "HEAD", base_ref)
+    if not merge_base:
+        return None
+    output = _git(repo, "diff", "--no-renames", "--name-only", merge_base)
+    if output is None:
+        return None
+    return tuple(line for line in output.splitlines() if line)
+
+
+def classify_local(repo: Path = Path("."), base: str = DEFAULT_BRANCH) -> Scope:
+    """Classify this checkout's own change set, for a local gate rather than CI."""
+    paths = local_change_set(repo, base)
+    if paths is None:
+        return Scope(
+            code=True,
+            prose=False,
+            reason="no base to diff against: the change set is unknown, so run the gate",
+            undetermined=True,
+        )
+    scope = classify_files(paths)
+    return Scope(code=scope.code, prose=scope.prose, files=scope.files, reason=scope.reason)
+
+
 def _boolean(value: bool) -> str:
     return "true" if value else "false"
 
@@ -209,19 +248,28 @@ def _parser() -> argparse.ArgumentParser:
         help="append code= and prose= to this step output file",
     )
     parser.add_argument("--repo", default=".", metavar="PATH")
+    parser.add_argument(
+        "--local",
+        action="store_true",
+        help="classify this checkout against its base, uncommitted work included",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    scope = classify(
-        event=args.event,
-        ref=args.ref,
-        before=args.before,
-        head=args.head,
-        default_branch=args.default_branch,
-        files=args.files,
-        repo=Path(args.repo),
+    scope = (
+        classify_local(Path(args.repo), args.default_branch)
+        if args.local
+        else classify(
+            event=args.event,
+            ref=args.ref,
+            before=args.before,
+            head=args.head,
+            default_branch=args.default_branch,
+            files=args.files,
+            repo=Path(args.repo),
+        )
     )
     if scope.files:
         print(f"scope: changed -> {' '.join(scope.files)}")

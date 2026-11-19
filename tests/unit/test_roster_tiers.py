@@ -58,7 +58,6 @@ def test_a_slim_tier_reports_folded_lanes_and_no_phantom_layer_gaps(
         "unit",
         "integration",
         "acceptance",
-        "feature",
     ]
     assert engine.instances_of(root, "designer") == []
     assert "ui" not in engine.staffed_layers(root)

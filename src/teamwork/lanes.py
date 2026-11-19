@@ -1728,12 +1728,15 @@ def dispatch_plan(root: Path, limit: int = 0) -> list:
     by_role: dict = {}
     for agent in sorted(capacity):
         by_role.setdefault(resolve_role(agent), []).append(agent)
+    suite_first: set = set()
     for role, instances in sorted(by_role.items()):
         if role == "reviewer":
             for instance in instances:
                 if not open_reviews or capacity[instance] <= 0:
                     continue
                 owner, task = open_reviews.pop(0)
+                if not _review_can_credit(root, owner, task):
+                    suite_first.add(f"{owner}/{task['id']}")
                 plan.append(
                     Assignment(
                         instance,
@@ -1771,9 +1774,31 @@ def dispatch_plan(root: Path, limit: int = 0) -> list:
                     )
                 )
                 capacity[instance] -= 1
-    if _review_backlogged(root, open_reviews):
-        plan.sort(key=lambda item: 0 if item.review_owner else 1)
+    backlogged = _review_backlogged(root, open_reviews)
+
+    def rank(item) -> tuple:
+        """Cheap work first, and a review that must run the suite starts last.
+
+        A code deliverable with no creditable record at its revision makes its
+        Reviewer pay the full suite; the Tester's own record is what makes the
+        second run unnecessary (`SKILL.md` 5h/5i, `Throughput` 6). So a lane that
+        can produce that record goes out ahead of the review that needs it, and
+        the review that must run the suite goes last - ordered, never blocked, so
+        a missing Tester record cannot deadlock a review.
+        """
+        if not item.review_owner:
+            return (1, 0) if backlogged else (0, 0)
+        tier = 2 if f"{item.review_owner}/{item.task}" in suite_first else 1
+        return (0, tier) if backlogged else (1, tier)
+
+    plan.sort(key=rank)
     return plan[:limit] if limit else plan
+
+
+def _review_can_credit(root: Path, owner: str, task: dict) -> bool:
+    """True when another role already recorded a passing result at this revision."""
+    credits, _stale = engine.creditable_tests(root, owner, task)
+    return bool(credits)
 
 
 def _review_backlogged(root: Path, unclaimed: list) -> bool:

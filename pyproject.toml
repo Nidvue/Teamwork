@@ -186,6 +186,12 @@ addopts = "-ra"
 # A third-party warning gets a narrow, reasoned entry here, never a blanket ignore.
 filterwarnings = ["error"]
 norecursedirs = ["dist", "build", "site", ".venv", ".pi", "*.egg"]
+# `slow` marks a test whose cost is the whole git history or a real process spawn.
+# The author gate runs `-m "not slow"`; the Tester records the full suite once per
+# revision, so nothing is skipped - only scheduled.
+markers = [
+    "slow: walks the full git history or spawns real processes; excluded from the author gate",
+]
 
 [tool.coverage.run]
 source = ["teamwork"]

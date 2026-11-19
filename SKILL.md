@@ -112,7 +112,7 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 311 kB |
+| `slim` (default) | 6 | 267 kB |
 | `standard` | 10 | 431 kB |
 | `full` | 17 | 703 kB |
 

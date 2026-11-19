@@ -377,6 +377,7 @@ def test_the_pi_launcher_never_passes_a_provider_without_a_model(
     assert "--provider" not in printed, printed
 
 
+@pytest.mark.slow
 def test_the_provider_cap_refuses_a_second_lane_and_leaves_it_queued(
     cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -730,6 +731,7 @@ def test_an_unwritable_launcher_records_its_failure(tmp_path: Path) -> None:
     assert outcome["state"] == "failed"
 
 
+@pytest.mark.slow
 def test_a_lane_that_cannot_start_releases_the_claim_it_took(
     cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -748,6 +750,7 @@ def test_a_lane_that_cannot_start_releases_the_claim_it_took(
     assert cli("--project", project, "lane", "stop", "L-0001") == 0
 
 
+@pytest.mark.slow
 def test_one_lane_per_instance_is_refused_not_shared(
     cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1081,6 +1084,7 @@ def test_the_attempt_budget_bounds_the_review_rounds(cli, project: Path) -> None
     assert lanes.adopted_plan(root) == []
 
 
+@pytest.mark.slow
 def test_swarm_dispatches_a_wave_and_returns_without_waiting(
     cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1104,6 +1108,7 @@ def test_swarm_dispatches_a_wave_and_returns_without_waiting(
         assert cli("--project", project, "lane", "stop", run["id"], "--reason", "test cleanup") == 0
 
 
+@pytest.mark.slow
 def test_pulse_spawn_is_async_too(cli, project: Path, tmp_path: Path, monkeypatch) -> None:
     """One CEO wake dispatches and returns; it never waits for the lanes it started."""
     root = init(cli, project)

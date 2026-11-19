@@ -17960,7 +17960,8 @@ def cmd_audit(args) -> int:
     problems += _audit_branch_pr_flow(root, names, args)
     problems += _audit_red_lines(root, names, args)
     problems += _audit_team_skills(root, names, args)
-    problems += _audit_completion_gates_shared_with_loop(root, names, args)
+    if not getattr(args, "no_gates", False):
+        problems += _audit_completion_gates_shared_with_loop(root, names, args)
     problems += _audit_audit_trail_append_only_hash_chained(root, names, args)
     problems += _audit_layered_tests(root, names, args)
     problems += _audit_evolution_framework(root, names, args)
@@ -18447,6 +18448,17 @@ def _audit_ownership_sanity_phantom_agents_silent_o(root: Path, names: list, arg
     return hits
 
 
+def _is_base_checkout(project: Path) -> bool:
+    """True when the command runs in the base checkout, not in a lane worktree.
+
+    The uncommitted-work rule is about the checkout that holds the default branch:
+    a lane runs ``audit`` from its own worktree and must not be charged with a
+    peer's uncommitted files, which it has no authority over and cannot commit.
+    """
+    here = run_git(Path.cwd(), "rev-parse", "--show-toplevel").stdout.strip()
+    return not here or Path(here).resolve() == project.resolve()
+
+
 def _audit_branch_pr_flow(root: Path, names: list, args) -> int:
     print("## branch / PR flow")
     project_a = project_of(root)
@@ -18480,7 +18492,7 @@ def _audit_branch_pr_flow(root: Path, names: list, args) -> int:
             if ln.startswith("??") and path in bootstrap:
                 continue
             pending.append(path)
-        if current_branch(project_a) == DEFAULT_BASE and pending:
+        if current_branch(project_a) == DEFAULT_BASE and pending and _is_base_checkout(project_a):
             print(
                 f"- uncommitted changes on {DEFAULT_BASE}: work belongs on a task branch "
                 f"({', '.join(pending[:3])})"
@@ -21748,6 +21760,11 @@ def _parsers_audit(sub, common) -> None:
         "audit", parents=[common], help="find fabricated completions, stale work, duplicates"
     )
     s.add_argument("--stale-days", type=int, default=2)
+    s.add_argument(
+        "--no-gates",
+        action="store_true",
+        help="skip the completion gates `loop` owns, for a mid-flight gate like preflight",
+    )
     s.set_defaults(func=cmd_audit)
 
     s = sub.add_parser(

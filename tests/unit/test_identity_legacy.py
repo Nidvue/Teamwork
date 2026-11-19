@@ -8,7 +8,11 @@ import subprocess
 from contextlib import redirect_stdout
 from pathlib import Path
 
+import pytest
+
 from teamwork import engine
+
+pytestmark = pytest.mark.slow
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 IDENTITY = [

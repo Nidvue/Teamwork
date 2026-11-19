@@ -312,6 +312,14 @@ only the touched scope; run the workspace-wide suite only at the pre-merge gate.
 Reuse or cite an existing green run on the same revision instead of re-running
 it. Report `BUILD: <command> · built|reused · <seconds>`.
 
+The same rule prices the author gate. `make ci-fast` is `PreflightCommand`: it
+classifies this checkout's own change set (`scripts/ci_scope.py --local`) and runs
+the unit suite only when the set ships code, so a prose-only change set - most
+commits - pays seconds. `make test-fast` is that suite; `make test` is the whole
+suite, and `slow` marks the tests whose cost is the full git history or a real
+process spawn. The Tester records `make test` once per revision and the Reviewer
+cites it, so the full suite is paid once, not three times.
+
 ## Linting, formatting and type checking
 
 Style is not a matter of taste and not a review topic. It is **automated**: a

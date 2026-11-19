@@ -11,7 +11,7 @@ HERE   := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 .DEFAULT_GOAL := help
 
 .PHONY: help install dev lint format typecheck test test-unit test-integration \
-        test-acceptance selftest build verify package sync-skill sync-check privacy \
+        test-acceptance test-fast test-scope selftest build verify package sync-skill sync-check privacy \
         docs links identity clean release-consistency release-consistency-online \
         release-check ci ci-fast python-floor
 
@@ -108,9 +108,28 @@ release-check: lint test selftest sync-check verify release-consistency privacy 
 python-floor: ## Fail when $(PYTHON) is below the supported 3.11 floor.
 	@$(PYTHON) -c "import sys; got = '%d.%d' % sys.version_info[:2]; sys.exit('python-floor: ' + sys.executable + ' is Python ' + got + ', but this project requires 3.11 or newer (pyproject requires-python); pass PYTHON=<interpreter> or run make dev') if sys.version_info < (3, 11) else None"
 
-ci-fast: python-floor lint ## The single local gate: lint, link health and the docs contract, in one pass.
+ci-fast: python-floor lint test-scope ## The single local gate: lint, link health, the docs contract, the team records and the touched suite.
 	$(PYTHON) $(HERE)scripts/teamwork.py links
 	$(PYTHON) -m pytest -q tests/unit/test_docs_contracts.py
+	@base=$$(git rev-parse --git-common-dir 2>/dev/null | xargs -r dirname); \
+	if [ -n "$$base" ] && [ -d "$$base/.pi/Teamwork/Teams" ]; then \
+		$(PYTHON) $(HERE)scripts/teamwork.py ledger verify && \
+		$(PYTHON) $(HERE)scripts/teamwork.py audit --no-gates; \
+	else \
+		echo "ci-fast: no team tree for this checkout - the record gates are skipped"; \
+	fi
+
+test-fast: ## Run the unit suite without the slow, history-walking tests.
+	$(PYTHON) -m pytest -q tests/unit -m "not slow"
+
+test-scope: ## Run the fast suite only when this checkout ships code; prose costs seconds.
+	@scope=$$($(PYTHON) $(HERE)scripts/ci_scope.py --local) || exit 1; \
+	echo "$$scope" | grep -E '^scope:' | tail -1; \
+	case "$$scope" in \
+		*code=true*) echo "test-scope: shipping change set - running the fast suite"; \
+			$(PYTHON) -m pytest -q tests/unit -m "not slow" ;; \
+		*) echo "test-scope: prose-only change set - the fast suite is skipped" ;; \
+	esac
 
 ci: release-check ## Alias for the documented one-shot local pipeline.
 	@printf 'ci: all gates passed\n'

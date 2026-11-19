@@ -67,7 +67,7 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 311 kB |
+| `slim` (default) | 6 | 267 kB |
 | `standard` | 10 | 431 kB |
 | `full` | 17 | 703 kB |
 
@@ -91,6 +91,7 @@ A tier drops **lanes**, not gates:
 | product-manager | requirements, acceptance criteria and `Research.md` ride with the CEO |
 | project-manager | `Plan.md`/`Board.md` ride with the CEO; `pulse` does the chasing |
 | cto / coo | stack and process facts go in `Decisions.md`/`Risks.md` |
+| team-leader | a feature team needs a manager and a squad, so `feature add` is a `standard`+ construct; below that the CEO owns one stream directly and `feature` layer is unstaffed |
 | cfo | `Costs.md` only when the work has a real cost dimension |
 | designer | `ui` layer unstaffed |
 | technical-writer | `docs` layer unstaffed; authors write their own docs |

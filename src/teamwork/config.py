@@ -449,7 +449,6 @@ ROSTER_TIERS = {
     "slim": (
         "ceo",
         "architect",
-        "team-leader",
         "developer",
         "tester",
         "reviewer",

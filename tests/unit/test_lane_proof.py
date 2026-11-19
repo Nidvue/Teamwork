@@ -17,8 +17,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from teamwork.config import DEFAULT_PROVIDER_LIMITS
 from teamwork.portable import pid_alive
+
+pytestmark = pytest.mark.slow
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "lane_proof.py"

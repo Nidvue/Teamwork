@@ -17,9 +17,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from support import in_lane, lane_cli
 from teamwork import engine
 from teamwork.names import clip
+
+pytestmark = pytest.mark.slow
 
 AGENTS = ("ceo", "developer-1", "reviewer-1", "reviewer-2")
 LIMIT = engine.VIEW_CLIP_LIMIT
