@@ -45,41 +45,36 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 
 ## Non-negotiable contract
 
-1. **One voice to the user.** Only the CEO reports, asks, and accepts. No other agent contacts the user.
-2. **Run to completion.** Work ends only when every acceptance criterion is verified by executed evidence. Blocked is not done; idle with executable work left is a bug.
-3. **Evidence or `UNVERIFIED`.** No claim about code, tests, CI, or the world without a path/command/revision/result. The engine refuses `done` without recorded evidence.
-4. **Independent parallel lanes.** Freeze interfaces first, then developer, tester and designer lanes run concurrently against the same contract.
+1. **One voice to the user.** Only the CEO reports, asks and accepts.
+2. **Run to completion.** Work ends only when every criterion is verified by executed evidence. Blocked is not done.
+3. **Evidence or `UNVERIFIED`.** No claim without a path/command/revision/result; the engine refuses `done` without one.
+4. **Independent parallel lanes.** Freeze interfaces first, then developer, tester and designer run concurrently on the same contract.
 5. **Code, then tests, then docs.** Documentation never blocks code or tests.
-6. **Role-shared state, private workspace.** Memory and the task queue belong to the ROLE and are shared by its instances; only charter, worklog, inbox, artifacts, reports and scratch are private.
-7. **Red lines are absolute.** Unsafe, illegal, irreversible or fabrication actions stop the lane and escalate to the CEO (`references/Evidence.md`).
-8. **Nothing unnecessary is kept.** No duplicate docs, scratch, build output or secrets in the repository.
-9. **Style is automated.** Each role runs the language's canonical formatter, linter and type checker (Python: `ruff format` + `ruff check` + `mypy`); the fixer runs before the commit and the checker gates the merge. Never hand-format, never add a competing config, never weaken a rule to pass (`references/Engineering.md`).
-10. **Names are deliberate.** Team directories are PascalCase; file names follow the ecosystem (docs `Architecture.md`, components `ButtonGroup.tsx`); Python modules stay `lower_snake_case`; tool-mandated files are never renamed.
-11. **History is minimal and modular.** Every commit message carries the subject `<type>(<area>): <summary>` and the seven fields `Role`, `Producers`, `Goal`, `Deliverable`, `Why`, `Status`, `Result`; a field with nothing recorded says `not recorded at this revision`, never an invented value. Commit while you work, then rebase and squash before review: one coherent change-set, `wip`/`fixup` squashed, rebased onto the default branch, one commit per task before the merge. The Reviewer merges locally (`git merge --no-ff`); `pr merge --squash` is the one-commit path. Never rebase or force-push shared history.
-12. **Each agent's model is its own.** The skill ships no model and calls no LLM API; the engine configures a model per role and instance (`model set|get|list`). `model auto --apply` reads the host's model and applies cost-aware routing: strongest on decision lanes, economy on mechanical lanes; set `TEAMWORK_MODEL_ALT` when two verification lanes are staffed. Model choice never changes the protocol, the gates, the review or the ledger (`references/Concurrency.md`).
-13. **Warnings are errors.** The toolchain fails on them by configuration, the cause is fixed, and a third-party warning is suppressed narrowly with a reason. CI annotations count as warnings.
-14. **Independence is structural.** Verification lanes do not share a model when a second is available; a Reviewer records its own run, never the author's line; one task owns one branch; duplicate work is a defect.
-15. **No lane wars.** Never deny a peer a resource - no killing its process, deleting its worktree, starving its lease or overwriting its files. Resolve a conflict by a measurable contest or the CEO; `reclaim` refuses a live lane.
-16. **Consensus is not evidence.** A single source is provisional, a unanimous zero-finding run is sampled, and lowering a gate to agree is collusion (`references/Coordination.md`).
+6. **Role-shared state, private workspace.** Memory and queue belong to the ROLE; charter, worklog, inbox, artifacts, reports and scratch are private.
+7. **Red lines are absolute.** Unsafe, irreversible or fabricated work stops the lane and escalates (`references/Evidence.md`).
+8. **Nothing unnecessary is kept.** No duplicate docs, scratch, build output or secrets.
+9. **Style is automated.** The canonical formatter, linter and type checker (Python: `ruff format` + `ruff check` + `mypy`) run before the commit and gate the merge; never hand-format, never weaken a rule to pass.
+10. **Names are deliberate.** Team directories are PascalCase, files follow the ecosystem, Python modules `lower_snake_case`, tool-mandated files never renamed.
+11. **History is minimal and modular.** `<type>(<area>): <summary>` plus `Role`, `Producers`, `Goal`, `Deliverable`, `Why`, `Status`, `Result`; squash to one commit per task before review; never rebase or force-push shared history.
+12. **Each agent's model is its own.** The skill ships no model and calls no LLM API; `model auto --apply` routes cost-aware, strongest on decision lanes (`references/Concurrency.md`).
+13. **Warnings are errors.** The toolchain fails on them; fix the cause, suppress narrowly with a reason. CI annotations count too.
+14. **Independence is structural.** Verification lanes do not share a model; one task owns one branch; duplicate work is a defect.
+15. **No lane wars.** Never deny a peer a process, worktree, lease or file; resolve by a measurable contest or the CEO.
+16. **Consensus is not evidence.** A single source is provisional and lowering a gate to agree is collusion.
+
 ## The org
 
-| Role | Instance names | Charter |
-|---|---|---|
-| CEO | leader session (not spawned) | `roles/ceo.md` |
-| CTO | `cto` | `roles/cto.md` |
-| COO | `coo` | `roles/coo.md` |
-| CFO | `cfo` | `roles/cfo.md` |
-| Architect | `architect` | `roles/architect.md` |
-| Product Manager | `product-manager` | `roles/product-manager.md` |
-| Project Manager | `project-manager` | `roles/project-manager.md` |
-| Designer | `designer-1..N` | `roles/designer.md` - also owns every visual asset, raster **and** vector (recorded in `Design.md`), and decides what is needed |
-| Developer | `developer-1..N` | `roles/developer.md` |
-| Tester | `tester-1..N` | `roles/tester.md` |
-| Release Engineer | `release-engineer` | `roles/release-engineer.md` - also owns repository and CI integrity: branch protection, required checks, merge strategy and protected tags, on any git host |
-| Technical Writer | `technical-writer` | `roles/technical-writer.md` |
-| Data Engineer (conditional) | `data-engineer` | `roles/data-engineer.md` |
-| Reviewer | `reviewer-1..N` (several may run **in parallel**) | `roles/reviewer.md` - deep independent second review of every deliverable from one shared queue; one claim per deliverable; only a Reviewer may pass/merge, and never the author |
-| Security Auditor | `security-auditor` | `roles/security-auditor.md` |
+Sixteen charters, one per role, at `roles/<role>.md`; instance names are `<role>` or
+`<role>-<n>`, the CEO is the leader session and is never spawned. Three roles own
+more than their charter's headline: the **Designer** owns every visual asset, raster
+and vector (recorded in `Design.md`), the **Release Engineer** owns repository and CI
+integrity (branch protection, required checks, merge strategy, protected tags, on any
+git host), and the **Reviewer** (`reviewer-1..N`, several may run **in parallel**)
+owns the pass/merge right - deep independent review of every deliverable from one
+shared queue, one claim per deliverable, never the author. **Review is a parallel
+lane** and a pass is the merge.
+Who owns what and who reports to whom: `AGENTS.md` (`## Team and reporting lines`);
+handoffs and decision rights: `references/Roles.md`.
 
 ### Who reports to whom
 
@@ -112,9 +107,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 267 kB |
-| `standard` | 10 | 431 kB |
-| `full` | 17 | 703 kB |
+| `slim` (default) | 6 | 250 kB |
+| `standard` | 10 | 400 kB |
+| `full` | 17 | 649 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 2.2x what `slim` costs. A role earns a seat only if it owns a deliverable, a test
@@ -239,78 +234,51 @@ A team that runs one lane at a time is a slow single agent with extra records.
 | A dependency can release early | `deps: role:T-id@review` or `@started` | the downstream lane needs a frozen interface |
 | Reviews are the exception | one claim per Reviewer lane; run several lanes | a deep review is not divisible |
 
+Capacity is bounded by the provider caps in `Settings.json`, never by the lane
+count: Ollama Cloud 64, DeepSeek 2500, OpenAI 64, Anthropic 64. `pulse` defers
+assignments beyond the free-slot count and prints the shortfall.
+
 **Delegation is recursive, and the CEO does not do a lane's work.** The CEO's output
 is the decomposition, the dispatch, the arbitration and the final claim; every unit
-goes to a lane. The CEO delegates a stream to a Team Leader and never takes a slice,
-and a feature is filed by its own leader because the tool refuses an owner other
-than the caller. A Team Leader lane spawns its squad, and a lane whose slice will not
-fit its budget splits it into sub-tasks and dispatches them. The chain ends at a
-small task one lane can finish and get verdict-ed inside its budget, and at an
-independent verifier: no lane reviews, tests or merges its own work, and every
-deliverable gets its author's self-check, a different role's review and its test
-layer run by the owning role.
-
-**The roster follows the work, so no single lane is the bottleneck.** `pulse
---commit` (and `swarm run`) plans instances from the ready work - one lane carries
-`LANE_WIP` units and one Reviewer takes one deliverable - bounded by
-`SCALE_PER_ROLE_CAP` (4) per role, `SCALE_MAX_ADDS` (6) per wake, `LaneMax` and the
-free provider slots. `--no-scale` dispatches to the current roster; an
-`observe`/`off` wake adds nothing. The other half is folding: an idle seat is
-retired (`instance prune`) and restaffed on demand.
-
-Capacity is bounded by the provider caps in `Settings.json`, never by the lane
-count: Ollama Cloud 64, DeepSeek 2500, OpenAI 64, Anthropic 64 and 32 default
-concurrent lanes. `pulse` defers assignments beyond the free-slot count and prints
-the shortfall; the measured anti-patterns are in `references/Concurrency.md`.
+goes to a lane. A Team Leader spawns its squad, and a lane whose slice will not fit
+its budget splits it into sub-tasks and dispatches them. The chain ends at a small
+task one lane can finish and get verdict-ed inside its budget, and at an independent
+verifier: no lane reviews, tests or merges its own work.
 
 ### 5b. Keep the lanes full: swarm is the default mode
 
-After dispatching, the CEO **re-wakes on an interval**, finds idle lanes, and hands them runnable work. **Swarm is the default**: `pulse --commit` sizes and runs the engine's swarm on that wake, and `--no-spawn` is the report-only opt-out. Arm a recurring wake-up once and act on every wake:
+After dispatching, the CEO **re-wakes on an interval**, finds idle lanes and hands
+them runnable work. Swarm is the default: `pulse --commit` sizes and runs the
+engine's swarm on that wake.
 
 ```sh
 python3 "$SKILL/scripts/teamwork.py" pulse --commit --interval 5   # dispatch + one swarm run
 python3 "$SKILL/scripts/teamwork.py" pulse --commit --no-spawn     # the plan only, no lane
-```
-
-`pulse` prints idle lanes, ready work and a dispatch plan; `--commit` applies it and
-pins review claims so lanes never review the same deliverable. Exit 3 means
-"nothing to dispatch". A review claim is a renewable profile lease
-(`ReviewLeaseMinutes`, default 20; x1 fast, x2 standard, x4 deep), separate from
-the 90-minute slot TTL: verdict with `--result`, extend with `--renew`, or
-`--release`.
-
-**The engine runs the lanes; no host plugin is needed, and the wave is sized by the
-work.** `swarm run` measures what is in hand from the records - every ready task and
-unclaimed review, weighted 1 prose / 2 code / 3 security-release-data, +1 for a bug
-- and starts `ceil(weight / 3)` lanes, bounded by the free slots and `LaneMax`. It
-re-measures every wave, and each lane's budget follows its unit: 10 tool calls/10
-min prose, 16/25 code, 24/40 deep. An unfinished assignment gets a bounded retry, a
-claim with no live lane is adopted, a deliverable in `review` becomes a Reviewer
-lane, and `lane status|logs|stop|reap` is the inspection surface:
-
-```sh
-python3 "$SKILL/scripts/teamwork.py" swarm run --dry-run   # the measured policy, start nothing
-python3 "$SKILL/scripts/teamwork.py" swarm run             # waves until nothing is runnable
-python3 "$SKILL/scripts/teamwork.py" pulse --commit        # one wake: dispatch, then run the swarm (default)
+python3 "$SKILL/scripts/teamwork.py" swarm run --dry-run           # the measured policy
 python3 "$SKILL/scripts/teamwork.py" lane status --live
 ```
 
-**The default is async/streaming: `swarm run` dispatches the next wave and returns -
-it never waits for a lane.** Each lane is a detached process; the next wake
-reconciles the finished ones and refills, so the supervisor is never the bottleneck
-and no lane waits on another. `--wait` is the batch mode (`--waves N` implies it);
-use it for CI or a one-shot drain, not the live loop. `--lanes N` caps the policy,
-`--fixed --lanes N` turns it off, and the `## complexity (score N -> band)` line
-shows the factors.
+Exit 3 means "nothing to dispatch". A review claim is a renewable profile lease
+(`ReviewLeaseMinutes`, default 20; x1 fast, x2 standard, x4 deep), separate from the
+90-minute slot TTL: verdict with `--result`, extend with `--renew`, or `--release`.
 
-An instance is **busy** only while it holds a slot, a `doing`/`selfcheck` task or a
-live review claim; everything else is idle and must be fed. An idle seat with
-nothing to feed it is folded: `pulse --commit` retires the surplus, and
-`instance prune` folds every idle instance in one move-only pass
-(`Runtime/Retired/`, role memory and queue stay). The CEO is never folded;
-`--keep-required` keeps one instance of each gate role. Interval: `PulseMinutes`
-(default 5). The runtime and its settings: `references/Concurrency.md` and
-`references/Adapters.md`.
+- **The wave is sized by the work.** `swarm run` weighs what is in hand (1 prose,
+  2 code, 3 security/release/data, +1 bug) and starts `ceil(weight / 3)` lanes,
+  bounded by free slots and `LaneMax`; budgets follow the unit (10 calls/10 min
+  prose, 16/25 code, 24/40 deep). An unfinished assignment gets a bounded retry, a
+  claim with no live lane is adopted, and a `review` deliverable becomes a Reviewer
+  lane. `lane status|logs|stop|reap` is the inspection surface.
+- **Async by default.** `swarm run` dispatches one wave and returns - never waits.
+  `--wait` (implied by `--waves N`) is the CI drain, not the live loop.
+- **The roster follows the work.** `pulse --commit` adds an instance per `LANE_WIP`
+  units of ready work and one Reviewer per unclaimed deliverable, spreads the units
+  round-robin, and folds seats it cannot feed (`instance prune`). `--no-scale` opts
+  out; an `observe`/`off` wake changes nothing.
+- **Busy means leased, claimed or doing.** Everything else is idle and must be fed.
+  The CEO is never folded.
+
+Interval: `PulseMinutes` (default 5). Runtime, launchers and degraded modes:
+`references/Concurrency.md`, `references/Adapters.md`.
 
 ### 5c. Push in stages, and certify both signals
 
@@ -428,71 +396,45 @@ unrecorded run is a run the Reviewer has to repeat.
 ### 5i. The throughput contract
 
 Speed is a property of the structure, not of working harder. Measured on this
-project's own trail at **one** ledger cut, `n=1615`: **44** review failures over
-**66** review targets (one role + task), 26 needing more than one verdict and 11
-three or more; verdict distribution 40/15/6/4/1. Two independent readings put
-failures a local check could have caught at **16-24 of 44**, but the split is
-**contested**, so the contract does not rest on it: every fail records whether the
+project's trail at one ledger cut, `n=1615`: **44** review failures over **66**
+review targets (one role + task), 26 needing more than one verdict, 11 three or
+more. Two readings put locally-catchable failures at **16-24 of 44**, but the split
+is **contested**, so the contract does not rest on it: every fail records whether the
 author had a green `preflight` at that revision (`mechanical: no|unknown|n/a`),
 measuring it prospectively. `teamwork.py throughput` re-reads the current cut.
 
-| Rule | It forbids |
-|---|---|
-| one parent, one board | a second reporting line; three managers for one role |
-| one feature, one team | a Team Leader owning two open features; two teams on one slice |
-| one owner per artifact, one writer per file | two lanes editing one contract, board, charter or file |
-| one verification per fact per revision | re-running a gate another role recorded green (5h) |
-| one gate, one place | CI and docs running one check; the Reviewer repeating `preflight` |
-| definition of ready | starting on a moving interface, a shared path, an in-flight dependency |
-| definition of done | a done that is not preflight-green + independent pass + archived + merged |
-| generated artifacts render at the merge | a board/archive render riding a feature branch |
-| right-sized roster | one lane per task; a second Developer for a slice one can carry |
-| small slices, short leases | a task that cannot be verdict-ed inside one lease - split it |
+The ten rules and what each forbids are the `## Throughput contract (hard)` table in
+`AGENTS.md`; `preflight <role> <T-id>` turns six of them into one fail-closed command
+(identity, commit count, every `@<sha>` reachable, evidence and note name the branch
+head, `merge-tree` clean, board drift, then the project gate).
 
-`preflight <role> <T-id>` turns rules 6-8 into one fail-closed command: identity,
-commit count, every `@<sha>` exists and is reachable, the evidence and the newest
-note name the **branch head**, `merge-tree` against the base is clean, board drift is
-charged only to a board edit, and the project gate runs from `Settings.json` ->
-`PreflightCommand` (`--run`). A fail records `mechanical`.
-
-**Feature teams are live** (`references/Roles.md`, `teamwork.py feature
-add|set|list|check`, contract in `Architecture.md` 13): one open feature per leader
-and its squad, teams run in parallel, Architect and Project Manager are shared
-services. `feature check` applies five rules - shared writable path, in-flight
-dependency, one open feature per leader, owned-path shape, duplicate id - and a
-feature cannot leave `proposed` without a frozen interface (`feature set <F-nnnn>
---state ready` refuses one). `preflight`, a review pass and the merge all run it.
-The structure and the five rules: `references/Roles.md`.
+**Feature teams are live** (`references/Roles.md`): one open feature per leader and
+its squad, teams in parallel, Architect and Project Manager shared services. `feature
+check` applies five rules - shared writable path, in-flight dependency, one open
+feature per leader, owned-path shape, duplicate id - and a feature cannot leave
+`proposed` without a frozen interface (`feature set <F-nnnn> --state ready` refuses
+one). `preflight`, a review pass and the merge all run it.
 
 ### 5j. Learning is part of the work
 
 A failure you do not record is one the team pays for twice.
 
-- **A lesson (`L-`)** after a failed self-check or review, and after any mistake
-  worth not repeating: the failure, the cause, the rule you now follow, the evidence.
-  `lesson add` requires all four; `load` shows open lessons at every startup. Close
-  it with the cheapest rung that stops it recurring: `lesson fix --check '<cmd>'`
-  runs the command that now catches it (it must exit 0) or `--no-check '<why>'`
-  records that the class is gone by design; prose alone is refused.
+- **A lesson (`L-`)** after a failed self-check, review or any mistake worth not
+  repeating, closed with the cheapest rung that stops it recurring: `lesson fix
+  --check '<cmd>'` (run on the spot, must exit 0) or `--no-check '<why>'`. Prose
+  alone is refused.
 - **A `tw-` mistake skill** when the fix is a flow: `skill create --kind mistake
-  --from-lesson L-nnnn` marks the lesson fixed, links both records and names the
-  failure it prevents. A recurring finding with no skill behind it is a defect.
+  --from-lesson L-nnnn`.
+- **A knowledge record (`K-`)** for a durable fact, command or gotcha. Search before
+  asking, supersede rather than contradict, never store a secret.
 - **The skill library is managed, not just grown.** Every agent creates, updates,
-  enhances, improves and **removes** skills over time. Every skill is
-  **feature-unique**: search the library before creating, consolidate or merge
-  overlap instead of duplicating, and delete a skill that is superseded or unused.
-  A redundant or stale skill is a defect.
-- **A knowledge record (`K-`)** for a durable fact, command or gotcha: statement,
-  evidence, tags, importance 1-5 and a kind (`fact`, `experience`, `preference`,
-  `gotcha`, `rule`). Search before asking, `touch` what you used, supersede rather
-  than contradict. Never store a secret or personal data.
+  enhances and **removes** skills; every skill is feature-unique, so search for
+  overlap and consolidate rather than duplicate.
 
-Both stores are team-local, never committed, written only through the commands:
-`Roles/<Role>/Lessons.md` is role-shared, `Knowledge.md` team-wide. Classify a
-finding first - tool defect, process, doc drift, governance or knowledge - and run
-`tw-self-evolve` at every milestone close. A tool defect takes a code task with a
-failing reproduction, never a lesson. Detail: `references/State.md`,
-`docs/Team/Evolution.md`.
+Classify a finding first - tool defect, process, doc drift, governance or knowledge -
+and run `tw-self-evolve` at every milestone close. A tool defect takes a code task
+with a failing reproduction, never a lesson. Commands and rungs: `AGENTS.md`
+(`## Learning from your own work`); detail: `references/State.md`.
 
 ### 5k. The context tree
 
@@ -509,27 +451,21 @@ inside a byte budget, and `--lines`/`--full` are the verify and native fallbacks
 
 ### 5l. Throughput and the token budget
 
-- **Right-size the roster.** `slim` is the default; add an instance for a named
-  deliverable, retire an idle one. Retirement is **move-only** to
-  `Runtime/Retired/<Instance>/`; verify `git rev-parse HEAD` is at or after the
-  move-only revision (`da8a1a6`) first - a stale cut lost 102 artifact paths
-  (`L-0001`).
+- **Right-size the roster.** `slim` is default; add an instance for a named
+  deliverable, retire an idle one (move-only to `Runtime/Retired/<Instance>/`).
 - **Read by id, never by history.** `archive --task <T-id>`, `decision list`,
   `board`, `trace <id>` answer a question; a whole `Archive.md` is ~0.63M tokens
   against a ~0.11-0.15M startup, and `Decisions.md`, `Plan.md` and a `TaskQueue.md`
   are the same trap.
-- **Make the first pass review-ready.** The self-check note answers the boundary and
-  empty/duplicate/second-call case, the contract surface, concurrency/shared writes
-  and the exact scope, each with a test or a reason. On a code task the Tester
-  records the full suite once and the Reviewer cites it (`--credit`).
-- **Keep the budget token-true.** `harness budget` measures what `load` prints;
-  `--recallable` reports what it never prints. The cap is `AlwaysOnBudgetKb`
-  (122880 B default); when a row is over, trim the surface, never raise the cap.
+- **Make the first pass review-ready**, then let the Reviewer cite the Tester's run
+  (`--credit`) instead of repeating it (5h).
+- **Keep the budget token-true.** `harness budget` measures what `load` prints,
+  `--recallable` what it never prints; the cap is `AlwaysOnBudgetKb` (122880 B) -
+  trim the surface, never raise the cap.
 - **Split at the slice warning.** `preflight` warns past 6 files/300 lines (`fast`),
-  12/600 (`standard`), 24/1200 (`deep`); split, or say why it is one contract.
+  12/600 (`standard`), 24/1200 (`deep`).
 
-`teamwork.py throughput` is the measured reader for latency, pass/fail, rework,
-queue depth and surface bytes. Detail: `references/State.md`.
+The rules and the per-surface budget: `AGENTS.md` (`## Context and token economy`).
 
 ### 5m. The intern protocol
 
@@ -553,9 +489,8 @@ seat.
 ### 5n. Agents talk to each other: the mailbox
 
 An agent that needs another agent to do, check or answer something sends a
-**message**; it does not open a task and does not shout into a worklog. Messages are
-queued, prioritised and preemptible, so a request never costs the recipient its
-current work.
+**message**: not a task, not a worklog entry. Queued, prioritised, preemptible, so a
+request never costs the recipient its current work.
 
 ```sh
 python3 "$SKILL/scripts/teamwork.py" message send --from <you> --to <instance> \
@@ -566,29 +501,23 @@ python3 "$SKILL/scripts/teamwork.py" message take <M-id> --for <instance> --by <
 python3 "$SKILL/scripts/teamwork.py" message done <M-id> --for <instance> --by <you> --result '<what you did + evidence>'
 ```
 
-| Priority | What it means | What the recipient does |
-|---|---|---|
-| `urgent` | the current assignment is displaced | the supervisor stops the lane, marks the task `paused` with the message id, runs a mailbox lane; `lane resume <T-id>` puts it back |
-| `high` | before the next new task | read at the next step |
-| `normal` | the default | read in order |
-| `low` | when idle | read in order |
+| Priority | What the recipient does |
+|---|---|
+| `urgent` | the supervisor stops the lane, marks the task `paused`, runs a mailbox lane; `lane resume <T-id>` puts it back |
+| `high` | read before the next new task |
+| `normal` / `low` | read in order, at the next step or when idle |
 
-- **The queue is in the packet.** Every lane packet opens with `## Messages for
-  you` in priority order, so the recipient sees its mail without polling;
-  `message inbox` is the same list on demand.
-- **A message never interrupts a step, a priority does.** `urgent` is preemption
-  through the supervisor - the only component that owns process lifecycle.
-- **One taker.** `message take` makes exactly one lane process a message; `message
-  done` closes it with the result the sender reads.
-- **The task is paused, not lost.** Preemption records `paused` with the message id;
-  a paused task blocks `loop` until it resumes.
-- **The trail is the ledger.** `message.send|take|done` and `lane.preempt` are
-  ledger actions; the message itself lives in `Runtime/Mailbox/<Instance>/`.
+- **The queue is in the packet**: every lane packet opens with `## Messages for
+  you`, so no polling is needed.
+- **One taker**: `message take` makes exactly one lane process it; `message done`
+  closes it with the result the sender reads.
+- **The task is paused, not lost**: a paused task blocks `loop` until it resumes.
+- **The trail is the ledger**: `message.send|take|done` and `lane.preempt`.
 
-Use it for a review finding the author must act on now, a fact another role holds,
-an interface change that invalidates a peer's work, a hand-off. Not to assign work
+Use it for a review finding the author must act on now, a fact another role holds, an
+interface change that invalidates a peer's work, a hand-off. Not to assign work
 (`task add`), not to report progress (the worklog), never to ask the user. Detail:
-`references/State.md` and `references/Coordination.md`.
+`references/State.md`.
 
 ### 5o. Loops inside a node, the graph between them
 
@@ -699,15 +628,9 @@ Full contract: `docs/Team/Architecture.md` section 18.
 
 ## Two-stage quality gate
 
-Every deliverable passes **two** gates, in order:
-
-1. **Self-check (the author).** Re-read the diff, *run* a self-test and record the
-   result. You cannot submit work you have not checked.
-2. **Independent review (the Reviewer).** The Reviewer judges the result against the
-   requirement and either passes it (task `done`, result archived) or fails it
-   (returns to the owner with findings). It verifies what no independent lane
-   verified at that revision - requirement conformance, its own `acceptance` layer,
-   the uncovered criteria and one sampled credit - and cites the rest (5h).
+Two gates, in order. **Self-check** (the author) re-reads the diff, *runs* a test and
+records it. **Independent review** (the Reviewer) judges it against the requirement
+and either passes it (task `done`, archived, merged) or fails it back to the owner.
 
 ```text
 todo -> doing -> selfcheck -> review -> done (merged into main by the Reviewer)
@@ -716,49 +639,35 @@ todo -> doing -> selfcheck -> review -> done (merged into main by the Reviewer)
                   +-------- doing
 ```
 
-**Evidence is graded, and a pass reads the grade.** `strong` is a result a program
-produced (`-> 12 passed`, `exit 0`, `# issues: 0`, a digest); `medium` is a pointer
-a reader can follow (`path:line`, `TS-0006 @rev`); `weak` is a command with no
-result; `noise` is a self-assessment (`looks good`, `verified`, `no errors were
-thrown`, `see the run`) and it is **refused** on a passing self-check and on a
-passing verdict. An empty error log means nothing was reported, not that nothing
-went wrong.
+**Evidence is graded and a pass reads the grade.** `strong` = a program produced it
+(`-> 12 passed`, `exit 0`, `# issues: 0`); `medium` = a pointer a reader can follow
+(`path:line`, `TS-0006 @rev`); `weak` = a command with no result; `noise` = a
+self-assessment ("looks good", "verified") and it is **refused** on a passing
+self-check and on a passing verdict.
 
-**A closed lane has no score to lower.** `preflight` sorts the diff by how hard it
-is to undo. `closed` - a migration or schema path, a payment, a secret/auth/cert
-path, a workflow that fires on merge, a release exception, or any deleted file -
-fails until the CEO records the authorization: `task set <role> <T-id> --by ceo
---authorize '<who said yes + evidence>'`. `evidence` - the constitution, the frozen
-contract, `config.py`/`records.py`, the build config - warns and asks for strong
-evidence. A threshold is a number someone can lower on a busy Friday; a closed lane
-has no number to lower.
+**A closed lane has no score to lower.** `preflight` sorts the diff by how hard it is
+to undo: `closed` (migration/schema, payment, secret/auth, a workflow that fires on
+merge, a release exception, any deleted file) fails until the CEO records
+`task set <role> <T-id> --by ceo --authorize '<who said yes + evidence>'`;
+`evidence` (constitution, frozen contract, record layer, build config) warns.
 
-- `task set --status review` is refused until `self_check: passed`, and a passing
-  self-check needs a `--test` line - reading your own diff is not a test.
-- Evidence is a packet: `--baseline`, `--artifact` (hashed into the ledger) and
-  `--replay` travel with the claim, on self-check and review as well as `tests run`.
-- A `--bug` task cannot pass without a `tests repro` record showing the failing run
-  before the passing one.
-- Only the owner may self-check, and only the Reviewer may review it; an author
-  never closes a `review=required` task.
-- A review claim belongs to one lane: another Reviewer is refused while the lease is
-  live, only the holder renews or releases, and a verdict clears it.
-- A pass appends the accepted result to `docs/Team/Archive.md`; read it by id with
-  `archive --task <T-id>`.
-- A re-submitted fix is a **delta**: its findings, the changed files, the failed
-  criterion re-run, one fresh credit. At 3 failures the Reviewer opens a dispute.
-- A design disagreement goes through the dispute protocol.
-
-This applies to code, unit tests, integration/E2E tests, documentation, design
-specs, plans, research, architecture contracts, cost models and risk registers. Full
-sequence: `references/Roles.md` (Submission).
-
+- `review` is refused until `self_check: passed`; a passing self-check needs a real
+  `--test` line. Evidence travels as a packet: `--baseline`, `--artifact` (hashed
+  into the ledger), `--replay`.
+- A `--bug` task needs a `tests repro` record of the failing run first.
+- Only the owner self-checks, only the Reviewer reviews, and a pass merges at once.
+  An author never closes a `review=required` task.
+- A re-submitted fix is a **delta**: findings, changed files, the failed criterion
+  re-run, one fresh credit. At 3 failures the Reviewer opens a dispute.
 **The reviewer judges the artefact, not the author.** The verdict walks six ordered
 criteria - delivery and conformance, fidelity, internal consistency, operational
-fitness, finish, evidence reproduces - and stops at the first failure (the full
-rubric is the `## Ordered criteria` section of `roles/reviewer.md`). Length and
-polish are not merits; a shorter exact answer beats a longer one with a gap; "this
-needs no change" is a real verdict; weigh the downside as heavily as the upside.
+fitness, finish, evidence reproduces - and stops at the first failure; the full rubric
+is the `## Ordered criteria` section of `roles/reviewer.md`. Length and polish are not
+merits, a shorter exact answer beats a longer one with a gap, "this needs no change"
+is a real verdict, and the downside weighs as heavily as the upside.
+
+Full sequence, the rubric and the closed-lane table: `references/Roles.md`
+(Submission) and `roles/reviewer.md` (`## Ordered criteria`).
 
 ## Self-management charter
 

@@ -305,33 +305,29 @@ Details: `{references}/Testing.md`.
 
 ### Working clean (all roles)
 
-- **No comments:** the code is the comment; only the directives a toolchain reads
-  (`# noqa`, `# type: ignore`, a shebang) are allowed.
-- **Working tree:** delete temp and stale files as you go (`*.orig`, `*.rej`,
-  `*.bak`, `*~`, `*.tmp`, `*.log`, `.DS_Store`); scratch lives in your gitignored
-  `Scratch/` and is emptied before the task closes.
+- **No comments:** the code is the comment; only toolchain directives (`# noqa`,
+  `# type: ignore`, `# pragma: no cover`, `# fmt:`, a shebang`) are allowed, and
+  `scripts/check_comments.py` fails the gate on anything else.
+- **Working tree:** no temp, stale or superseded files; scratch lives in your
+  gitignored `Scratch/` and is emptied before the task closes.
 
 ### Code standards (all roles)
 
-- Use the language's **canonical formatter and linter** (`{references}/Engineering.md`):
-  run the fixer before you commit and the checker before you submit.
-- Never hand-format, never introduce a competing config and never weaken a rule to
-  pass - no blanket `noqa`, no rule removed, no directory excluded.
-- Type-check where the language supports it; a type error is a defect.
-- **Naming:** team directories are PascalCase; file names follow the ecosystem,
-  Python modules stay `lower_snake_case`.
-- **Commit hygiene:** squash `wip`/`fixup` and target **one commit per task**; never
-  rebase or force-push a shared branch.
-- **Warnings are errors:** make the toolchain fail on them, fix the cause and
-  suppress only narrowly with a reason.
-- Evidence: the format/lint command and its result, on the same revision as the tests.
+Use the language's **canonical formatter and linter** before the commit, type-check
+where the language supports it. Never hand-format, never add a competing config,
+never weaken a rule to pass. **Naming:** team directories are PascalCase, file names
+follow the ecosystem, Python modules stay `lower_snake_case`. **Commit hygiene:**
+commit while you work, then squash to one commit per task and never rebase a shared
+branch. **Warnings are errors:** make the toolchain fail on them, fix the cause, and
+suppress only narrowly with a reason for third-party code.
 
 ### Your model (all roles)
 
-- You run through the host's own LLM API on the model configured for **you**
-  (`model get <you>`); the CEO sets the lanes with `model auto --apply` and an
-  instance override beats the role default. Model choice never changes the protocol.
+`teamwork.py model get <you>` shows your model; the CEO sets the lanes with `model
+auto --apply`. Model choice never changes the protocol, the gates or the ledger.
 
+The full text of these three blocks is `references/AllRoles.md`, injected verbatim
+into your lane packet - read it there rather than re-deriving it.
 ### Recording (your part of the trail)
 
 Every action you take is logged and must be attributable - `remember`,

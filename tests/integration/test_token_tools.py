@@ -217,7 +217,10 @@ def test_harness_budget_charges_startup_not_the_recall_only_store(cli, project):
     assert before.returncode == 0, before.stderr
     startup_before = budget_rows(before.stdout)
     assert set(startup_before) == {"CEO", "Developer-1", "Reviewer-1"}
-    assert "cap: 122880 bytes per instance (default)" in before.stdout
+    assert (
+        f"cap: {config.DEFAULT_ALWAYS_ON_BUDGET_KB * 1024} bytes per instance (default)"
+        in before.stdout
+    )
 
     remembered = shipped(
         project,

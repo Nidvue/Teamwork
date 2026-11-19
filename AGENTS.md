@@ -30,20 +30,16 @@ follow it with this file; the full policy is the `/teamwork` skill.
 
 One parent per role: a role with two managers answers to neither. Reviewer, CFO and
 Security Auditor answer to the CEO because their job is to disagree with everyone
-else - no reviewed lane manages its reviewer, the CFO holds the cap, the auditor
-audits the CTO.
-
-Instances are `<role>` or `<role>-<n>`. Instances of a role share one
-`Roles/<Role>/` memory and one queue; only one holds the memory pen at a time
-(`memory claim <role> --by <instance>`, then `memory release`; a single `remember`
-takes it for its own duration). Everything else is per instance: directory, branch,
-slot.
+else. Instances are `<role>` or `<role>-<n>`; instances of a role share one
+`Roles/<Role>/` memory and one queue, and only one holds the memory pen at a time
+(`memory claim <role> --by <instance>`, `memory release`). Everything else - directory,
+branch, slot - is per instance.
 
 **Slim roster by default**: `ceo, architect, developer, tester, reviewer-1,
-reviewer-2`, plus any role that owns a deliverable, a test layer and a decision
-right nobody else holds. Add an instance only for a named deliverable; retire it
-when its queue is empty. A test layer is required only for a staffed role, and the
-tribunal keeps a neutral seat, so **no party rules its own dispute**.
+reviewer-2`, plus any role that owns a deliverable, a test layer and a decision right
+nobody else holds. Add an instance only for a named deliverable; retire it when its
+queue is empty. A test layer is required only for a staffed role, and the tribunal
+keeps a neutral seat, so **no party rules its own dispute**.
 
 ## Where things live
 
@@ -92,12 +88,13 @@ deliverable naming the missing evidence or escalate capacity.
   `git rev-parse HEAD` is at or after the move-only fix first: a stale checkout
   lost 102 artifact paths in the 2026-11 cut (`Throughput` 3).
 - **Read by id.** `archive --task <T-id>`, `decision list`, `board`, `trace <id>`,
-  `context find/read`. Never read `Archive.md`, `Decisions.md`, `Plan.md`,
-  `Architecture.md` or a `TaskQueue.md` whole.
+  `context find/read`, `tw read <path> --query '<needle>'`. Never read `Archive.md`,
+  `Decisions.md`, `Plan.md`, `Architecture.md` or a `TaskQueue.md` whole; detail is
+  in `references/`, loaded when needed.
 - **Review the first pass.** The self-check note answers the boundary and the
   empty/duplicate/second-call case, the contract surface, concurrency and shared
   writes, and the exact scope. The Reviewer judges the requirement and the
-  acceptance layer. On a code task the Tester records the suite first and the
+  acceptance layer; on a code task the Tester records the suite first and the
   Reviewer cites it (`--credit`).
 - **Keep the budget true.** `harness budget` = `load`'s startup plus the skill body
   and charter; `--recallable` is long memory, fixed lessons and superseded
@@ -133,80 +130,56 @@ B links back. Check with `teamwork links`.
 
 ## Shared skills (hard)
 
-Extract a repetitive, widely reused flow into a team skill and tell your peers.
-
-```sh
-teamwork skill candidates                       # repeated areas + review failures
-teamwork skill create --name tw-<kebab-name> --role <role> --by <you> \
-    --for "<when to use it>" --body-file <steps.md>
-teamwork skill create --name tw-<kebab-name> --kind mistake --from-lesson L-0001 \
-    --by <you> --for "<when>" --body-file <steps.md>
-teamwork skill share tw-<kebab-name> --by <you>
-```
-
-Always the `tw-` prefix. `workflow` is the default kind; `mistake` names the lesson
-it fixes. The file is committed at `.agents/skills/tw-<name>/SKILL.md` and goes
-through branch, PR and review. A skill never replaces a gate, never weakens one,
-and never bypasses self-check, review or the Reviewer-only merge.
+Extract a repetitive, widely reused flow into a team skill and tell your peers:
+`skill candidates`, `skill create --name tw-<kebab-name> --role <role> --by <you>
+--for '<when>' --body-file <steps.md>`, `skill share tw-<name> --by <you>`. Always
+the `tw-` prefix; `workflow` is the default kind, `mistake` names the lesson it fixes.
+The file is committed at `.agents/skills/tw-<name>/SKILL.md` and goes through branch,
+PR and review. A skill never replaces a gate, never weakens one, and never bypasses
+self-check, review or the Reviewer-only merge.
 
 **The skill library is every agent's responsibility, over time.** Not only create:
 update, enhance, improve and **remove** skills as the work changes. Every skill is
-**feature-unique** - no redundant or duplicate skill. Before creating one, search
-the existing library for overlap; consolidate or merge rather than duplicate; delete
-a skill that is superseded, unused or covered by another. A stale or duplicated
-skill is a defect the same way stale code is.
+**feature-unique** - no redundant or duplicate skill. Before creating one, search the
+existing library for overlap; consolidate or merge rather than duplicate; delete a
+skill that is superseded, unused or covered by another. A stale or duplicated skill is
+a defect the same way stale code is.
 
 ## Learning from your own work (hard)
 
 A failure you do not record is one the team pays for twice. Two team-local stores,
 written only through the commands, never committed:
 
-- **Lessons** - `Roles/<Role>/Lessons.md`, one record per mistake: what happened,
-  why, the rule now, the evidence. Record one before re-submitting after a failed
-  self-check or review.
-
-  ```sh
-  teamwork lesson add --by <you> --mistake '<observed failure>' --cause '<why>' \
-      --rule '<what you do instead>' --evidence '<cmd @rev -> result>' [--task T-nnnn]
-  teamwork lesson fix L-0001 --by <you> --check '<cmd>' | --no-check '<why none>' \
-      [--skill tw-<name>] [--evidence '<proof>']
-  ```
-
-  **A correction becomes a check, not another paragraph.** `lesson fix` refuses
-  prose: `--check '<cmd>'` is run on the spot and must exit 0 (that is the rung),
-  `--no-check '<why>'` records that the class is gone by design. A `tw-` skill is
-  the third rung, for a fix that is a flow and never runs by itself.
-
-  **Take the highest rung that works, and prove the rung.** Order the rungs by how
-  hard they are to undo - one owner in the architecture, then a type, then a lint
-  whose error names the fix, then a test, then a skill - and put prose last,
-  because nothing fails when an agent skips a paragraph. A new check is shown
-  failing on a real past mistake before it counts, and a rule whose mistake can no
-  longer happen is deleted rather than kept.
-
+- **Lessons** - `Roles/<Role>/Lessons.md`, one record per mistake: what happened, why,
+  the rule now, the evidence. `lesson add` requires all four and is due before
+  re-submitting after a failed self-check or review. Close it with the cheapest rung:
+  `lesson fix L-0001 --check '<cmd>'` (run on the spot, must exit 0) or `--no-check
+  '<why>'`; `--skill tw-<name>` when the fix is a flow. **A correction becomes a
+  check, not another paragraph** - prose is refused, because nothing fails when an
+  agent skips a paragraph.
 - **Project knowledge** - `Knowledge.md`, one `K-` record per durable fact, rule,
-  command or measured behaviour, with evidence, tags and importance 1-5. Supersede,
-  never contradict; search before asking.
+  command or measured behaviour: `knowledge add --topic --statement --evidence
+  [--tags] [--importance 1-5] [--supersedes K-0002]`, `knowledge search '<topic>'`.
+  Supersede, never contradict; search before asking.
 
-  ```sh
-  teamwork knowledge add --by <you> --topic '<topic>' --statement '<one fact>' \
-      --evidence '<cmd @rev -> result | path:line | URL + access date>' \
-      [--tags '<tag,tag>'] [--importance 1-5] [--supersedes K-0002]
-  teamwork knowledge search '<topic>'
-  ```
+**Take the highest rung that works, and prove the rung.** Order the rungs by how hard
+they are to undo - one owner in the architecture, then a type, then a lint whose error
+names the fix, then a test, then a skill - and put prose last. A new check is shown
+failing on a real past mistake before it counts, and a rule whose mistake can no
+longer happen is deleted rather than kept.
 
-Never store a secret, credential or personal data in either store. `load` prints
-the role's open lessons and the top-10 knowledge records.
+Never store a secret, credential or personal data in either store. `load` prints the
+role's open lessons and the top-10 knowledge records. Detail: `references/State.md`.
 
 ## Recording and audit (hard)
 
-Everything you write is a record with provenance. Memory entries carry `by`/`src`/
-`rev`; tasks carry `claimed_by`, `branch`, `pr`, `area`, `evidence`; decisions carry
-decider, evidence and falsifier. Every mutation appends to the hash-chained
-`Ledger.jsonl`: never edit, reorder or truncate it (`ledger verify` detects it and
-`loop` refuses to stop). Record decisions with
-`teamwork decision add --by <you> --evidence '<cmd @rev -> result>'`; evidence is
-mandatory. Before reporting completion: `ledger verify`, `audit`, `ledger export`.
+Everything you write is a record with provenance. Memory entries carry `by`/`src`/`rev`;
+tasks carry `claimed_by`, `branch`, `pr`, `area`, `evidence`; decisions carry decider,
+evidence and falsifier. Every mutation appends to the hash-chained `Ledger.jsonl`: never
+edit, reorder or truncate it (`ledger verify` detects it and `loop` refuses to stop).
+Record decisions with `decision add --by <you> --evidence '<cmd @rev -> result>'`;
+evidence is mandatory. Before reporting completion: `ledger verify`, `audit`,
+`ledger export`.
 
 ## Layered tests (hard)
 
@@ -236,37 +209,32 @@ the failing run before the passing one. Do not duplicate another layer's coverag
 Self-check first, then an independent review. You cannot submit unchecked work and
 you cannot close a `review=required` task.
 
-**Evidence is graded, and the gates read the grade.** `strong` is a result a
-program produced (`-> 12 passed`, `exit 0`, `# issues: 0`, a digest); `medium` is
-a pointer a reader can follow (`path:line`, `TS-0006 @rev`); `weak` is a command
-with no result; `noise` is a self-assessment (`looks good`, `verified`, `no errors
-were thrown`) and it is **refused** on a passing self-check and on a passing
-verdict. A model grading its own work is a model grading its own homework with a
-friend, and an empty error log means nothing was reported.
+**Evidence is graded, and the gates read the grade.** `strong` is a result a program
+produced (`-> 12 passed`, `exit 0`, `# issues: 0`, a digest); `medium` is a pointer a
+reader can follow (`path:line`, `TS-0006 @rev`); `weak` is a command with no result;
+`noise` is a self-assessment (`looks good`, `verified`, `no errors were thrown`) and it
+is **refused** on a passing self-check and on a passing verdict. An empty error log
+means nothing was reported.
 
-**A closed lane has no score to lower.** The diff is sorted by how hard it is to
-undo: `closed` (a migration or schema path, a payment, a secret or auth path, a
-workflow that fires on merge, a release exception, any deleted file) fails
-`preflight` until the CEO records who authorized it - `task set <role> <T-id> --by
-ceo --authorize '<who said yes + evidence>'`. `evidence` (the constitution, the
-frozen contract, the shared record layer, the build config) warns and asks for
-strong evidence. A threshold is a number someone can lower on a busy Friday.
+**A closed lane has no score to lower.** The diff is sorted by how hard it is to undo:
+`closed` (a migration or schema path, a payment, a secret or auth path, a workflow
+that fires on merge, a release exception, any deleted file) fails `preflight` until
+the CEO records who authorized it - `task set <role> <T-id> --by ceo --authorize
+'<who said yes + evidence>'`. `evidence` (the constitution, the frozen contract, the
+shared record layer, the build config) warns and asks for strong evidence. A threshold
+is a number someone can lower on a busy Friday.
 
-- Author: `task set <you> <T-id> --status selfcheck`, then
-  `selfcheck <you> <T-id> --by <you> --note '<what you proved>' --test '<cmd @rev -> result>'`.
-  A passing self-check needs a real `--test` line; reading your own diff is not one.
-  `--result fail` returns the task to `doing`.
-- Reviewer: `review --queue`, `review --next --by <lane>`, `review <role> <T-id> --packet`.
-  A fail returns the task to the owner with findings. A pass sets `done`, archives
-  the result to `docs/Team/Archive.md` and **merges at once** - the author never
-  merges, and a reviewer is never its own author (`--no-merge` records a pass
-  without landing it).
-- Verify once, credit the rest: `review --credit TS-nnnn` cites a peer's passing record at
-  the same revision instead of re-running it. The Reviewer's own work is the
-  requirement check, its `acceptance` layer, the uncovered criteria and one sampled
-  credit.
-- A re-submitted fix is re-reviewed as a **delta**: the findings, the changed files since
-  the failed revision, the failed criterion re-run, one fresh credit. Review
+- Author: `task set <you> <T-id> --status selfcheck`, then `selfcheck <you> <T-id>
+  --by <you> --note '<what you proved>' --test '<cmd @rev -> result>'`. A passing
+  self-check needs a real `--test` line; reading your own diff is not one.
+- Reviewer: `review --queue`, `review --next --by <lane>`, `review <role> <T-id>
+  --packet`. A fail returns the task to the owner with findings; a pass sets `done`,
+  archives it and **merges at once**. The author never merges.
+- Verify once, credit the rest: `review --credit TS-nnnn` cites a peer's passing
+  record at the same revision. The Reviewer's own work is the requirement check, its
+  `acceptance` layer, the uncovered criteria and one sampled credit.
+- A re-submitted fix is re-reviewed as a **delta**: the findings, the changed files
+  since the failed revision, the failed criterion re-run, one fresh credit. Review
   failures are counted: at 3 fails the Reviewer opens a dispute and the tribunal rules.
 
 This covers code, unit and integration tests, docs, design specs, plans, research,
@@ -328,25 +296,19 @@ the bottleneck; `--no-scale` opts out and an `observe`/`off` wake changes nothin
 
 ## Decision quality and dissent (hard)
 
-Decide independently from the facts, not from a senior voice; deference is a
-defect. Every non-trivial decision carries an evidence chain: claim, data,
-reasoning, rejected alternatives, the assumption you are betting on, and the test
-that would falsify it. "I think", "best practice" and "probably" are not evidence:
-run the benchmark, count the cases, reproduce the bug, read the spec. If a
-measurement is impossible, say so and mark the decision provisional.
+Decide independently from the facts, not from a senior voice; deference is a defect.
+Every non-trivial decision carries an evidence chain: claim, data, reasoning, rejected
+alternatives, the assumption you are betting on, and the test that would falsify it.
+"I think", "best practice" and "probably" are not evidence: run the benchmark, count
+the cases, reproduce the bug, read the spec. If a measurement is impossible, say so and
+mark the decision provisional.
 
-To challenge a design, do not comply silently and do not work around it:
-
-```sh
-teamwork dispute open --by <you> --against <owner> --topic "..." \
-    --position "..." --evidence "<data/command/measurement>" [--task T-xxxx]
-teamwork dispute round <D-id> --by <you> --message "<new evidence + argument>"
-```
-
-Three rounds maximum; a round without new evidence is noise. Then
-`dispute escalate` -> `ceo`, `cto`, `cfo` each `dispute sign` ->
-`dispute resolve --by ceo --decision '<ruling>'`. The ruling is binding: implement
-it and say so. A dispute never blocks unrelated work.
+To challenge a design, do not comply silently and do not work around it: `dispute open
+--by <you> --against <owner> --topic ... --position ... --evidence '<data/command>'`,
+then `dispute round <D-id> --message '<new evidence + argument>'`. Three rounds
+maximum; a round without new evidence is noise. Then `dispute escalate` -> `ceo`,
+`cto`, `cfo` each `dispute sign` -> `dispute resolve --by ceo --decision '<ruling>'`.
+The ruling is binding: implement it and say so. A dispute never blocks unrelated work.
 
 ## Anti-hallucination rules (hard)
 
@@ -426,88 +388,76 @@ chatter - never secrets.
 
 ## Communication rules
 
-The board and the memory files are the channel: write facts down. Message a peer
-only for a fact or artifact only they hold, a duplicate-work warning, a blocking
-interface change or a review finding on their work - 1-3 lines: task id, path, exact
-ask, needed by. No acknowledgements. Never contact the user; escalate to the CEO.
+The board and the memory files are the channel: write facts down. Message a peer only
+for a fact or artifact only they hold, a duplicate-work warning, a blocking interface
+change or a review finding on their work - 1-3 lines: task id, path, exact ask, needed
+by. No acknowledgements. Never contact the user; escalate to the CEO.
 
-A message to another agent goes through the mailbox, never through a worklog:
-
-```sh
-teamwork.py message send --from <you> --to <instance> --priority urgent|high|normal|low \
-    --subject '<one line>' [--body '<detail>'] [--task <T-id>]
-teamwork.py message inbox --for <you>          # the same list the packet opens with
-teamwork.py message take <M-id> --for <you> --by <you>
-teamwork.py message done <M-id> --for <you> --by <you> --result '<what you did>'
-```
-
-Higher priority first, oldest inside a priority; `urgent` is the only one that
-preempts, and only the supervisor may preempt (`lane preempt`, then `lane resume`
-when the urgent work is closed). A message is a request, never an authority: you
+A message goes through the mailbox, never through a worklog: `message send --from
+<you> --to <instance> --priority urgent|high|normal|low --subject '<one line>'
+[--body] [--task]`, `message inbox --for <you>`, `message take <M-id> --for <you>
+--by <you>`, `message done <M-id> --for <you> --by <you> --result '<what you did>'`.
+`urgent` is the only priority that preempts, and only the supervisor may preempt
+(`lane preempt`, then `lane resume`). A message is a request, never an authority: you
 still record your own evidence.
 
 ## Repository and file discipline
 
 Code, tests, docs and required assets live in the repository; `.pi/` is gitignored
-working state. Never commit build output, caches, virtualenvs, editor noise, secrets
-or local state. Delete temp and stale files in the same task: `teamwork clean`
-(your lane's temp patterns, `--all` empties your `Scratch/`); from the base checkout
-pass `--agent` or `--team-wide`. Cleanup touches only untracked scratch - never
-tracked, uncommitted or evidence-bearing files, and never `git clean -fdx`. Keep
-`Artifacts/` and `Reports/` for real deliverables and evidence.
+working state. Never commit build output, caches, virtualenvs, editor noise, secrets or
+local state. Delete temp and stale files in the same task: `clean` (your lane's temp
+patterns, `--all` empties your `Scratch/`); from the base checkout pass `--agent` or
+`--team-wide`. Cleanup touches only untracked scratch - never tracked, uncommitted or
+evidence-bearing files, and never `git clean -fdx`. Keep `Artifacts/` and `Reports/` for
+real deliverables and evidence.
 
 ## Engineering policy
 
 - **COMMIT IDENTITY** - the acting role's mailbox authors and commits, e.g.
-  `Developer <developer@agents.nidvue.com>`, never instance-numbered. A repository
-  that wants one name declares `teamwork.identity.name`/`teamwork.identity.email`
-  and that pair wins; the machine's ambient `user.name`/`user.email` is never used,
-  because the identity audit refuses it on every commit after the published
-  boundary. `TEAMWORK_COMMIT_IDENTITY=role` selects the mailbox explicitly.
-- **COMMIT MESSAGE STYLE** - the subject is `<type>(<area>): <summary>`, at most
-  72 characters, then the seven fields: `Role`, `Producers`, `Goal`,
-  `Deliverable`, `Why`, `Status`, `Result`. The fields are the record the commit
-  is - what was asked for, what it produced, why that is the right change, the
-  state it reached, and the command that proved it. A field with nothing recorded
-  says `not recorded at this revision` rather than inventing a value; a fabricated
-  result makes the history lie, which is what the block exists to prevent. No
-  field names an instance: the role mailbox is the identity. `teamwork.py commit`
-  builds the whole block from `--goal`, `--deliverable`, `--why`, `--status` and
-  `--result`.
+  `Developer <developer@agents.nidvue.com>`, never instance-numbered. A repository that
+  declares `teamwork.identity.name`/`teamwork.identity.email` wins; the machine's
+  ambient `user.name`/`user.email` is never used, because the identity audit refuses
+  it on every commit after the published boundary. `TEAMWORK_COMMIT_IDENTITY=role`
+  selects the mailbox explicitly.
+- **COMMIT MESSAGE STYLE** - the subject is `<type>(<area>): <summary>`, at most 72
+  characters, then the seven fields: `Role`, `Producers`, `Goal`, `Deliverable`,
+  `Why`, `Status`, `Result`. The fields are the record the commit is; a field with
+  nothing recorded says `not recorded at this revision` rather than inventing a
+  value, because a fabricated result makes the history lie. No field names an
+  instance: the role mailbox is the identity. `teamwork.py commit` builds the block
+  from `--goal`, `--deliverable`, `--why`, `--status`, `--result`.
 - **GIT LFS** - binaries, media, datasets and weights go through Git LFS
-  (`.gitattributes` patterns). `commit` refuses an uncovered file above 1 MB.
+  (`.gitattributes`); `commit` refuses an uncovered file above 1 MB.
 - **ONE TASK, ONE WORKTREE** - never commit on `main`. `branch start --agent <you>
   --task <T-id>` gives the task its own worktree under
-  `Runtime/Worktrees/<Instance>/<T-id>/` and leaves the main checkout alone; work
-  there, and `commit --task` refuses a commit made anywhere else. `--shared` is the
-  exception, only when the work genuinely needs the main checkout. A merged branch
-  is deleted.
+  `Runtime/Worktrees/<Instance>/<T-id>/`, and `commit --task` refuses a commit made
+  anywhere else. `--shared` is the exception, only when the work genuinely needs the
+  main checkout. A merged branch is deleted.
 - **PR TO THE REVIEWER** - `pr open` when self-checked; a fail returns it to you.
 - **REVIEWER-ONLY MERGE, ON PASS** - only the Reviewer merges, and a pass merges at
   once. You never review or merge your own work.
 - **COMMIT BATCHING** - one commit per coherent, locally green change-set; never
   bundle unrelated issues or mixed owners.
-- **WORKTREE LOCATION** - worktrees, clones and scratch stay inside the repository
-  at `<repo>/.pi/...`, never `$HOME`, `/tmp` or a sibling path.
+- **WORKTREE LOCATION** - worktrees, clones and scratch stay inside the repository at
+  `<repo>/.pi/...`, never `$HOME`, `/tmp` or a sibling path.
 - **WORKTREE HYGIENE** - remove only your own untracked scratch.
 - **BUILD ECONOMY** - never delete build caches (`target/`, `node_modules/`,
   `dist/`, `build/`, `.venv/`). Build the touched scope only; reuse or cite an
-  existing green run on the same revision. Report `BUILD: <cmd> · built|reused ·
-  <s>`.
-- **NAMING** - team directories are PascalCase; files follow the ecosystem
-  (Python modules stay `lower_snake_case`); tool-mandated files are never renamed.
+  existing green run on the same revision. Report `BUILD: <cmd> · built|reused · <s>`.
+- **NAMING** - team directories are PascalCase; files follow the ecosystem (Python
+  modules stay `lower_snake_case`); tool-mandated files are never renamed.
 - **COMMIT HYGIENE** - commit while you work, then rebase and squash before review:
-  one coherent change-set, `wip`/`fixup` squashed, rebased on the latest default
-  branch, one commit per task. Never rebase or force-push a shared branch.
+  one coherent change-set, `wip`/`fixup` squashed, rebased on the default branch, one
+  commit per task. Never rebase or force-push a shared branch.
 - **WARNINGS ARE ERRORS** - make the tool fail on them (`ruff check`, `mypy
   --warn-unused-ignores`, `pytest -W error`, `--max-warnings 0`, `-D warnings`,
-  `-Werror`), fix the cause, suppress narrowly with a reason for third-party only.
-  CI annotations count too.
+  `-Werror`), fix the cause, suppress narrowly with a reason for third-party only. CI
+  annotations count too.
 - **LINT AND FORMAT** - style is automated: the language's canonical formatter and
   linter (Python: `ruff format` + `ruff check` + `mypy`; full table in
   `references/Engineering.md`). Run the fixer before committing, the checker in CI.
-  Never hand-format, never weaken a rule to pass, never merge code the formatter
-  would change.
+  Never hand-format, never weaken a rule to pass, never merge code the formatter would
+  change.
 - **NO COMMENTS** - the code is the comment: names, types, small functions and
   docstrings carry the meaning. The only allowed comments are toolchain directives
   (`# noqa`, `# type: ignore`, `# pragma: no cover`, `# fmt:`, a shebang).

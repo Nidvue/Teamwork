@@ -236,7 +236,7 @@ def test_the_budget_unit_is_frozen_as_kib_and_the_single_threshold_is_named() ->
     section = _section_text()
     assert "**one instance**" in section, "the budget unit is one instance"
     assert "never the roster" in section
-    assert "120 KiB = 122880 B" in section
+    assert "108 KiB = 110592 B" in section
     assert "**1024**" in section, "the KiB multiplier is frozen"
 
 

@@ -282,6 +282,33 @@ def test_every_role_charter_documents_working_clean(root):
         assert "Working tree:" in text, path.name
 
 
+def test_the_all_roles_blocks_have_one_home(root):
+    """Three blocks are identical for every role, so they are written once.
+
+    Copying them into fifteen charters cost 47 kB of always-on budget and drifted:
+    the reviewer charter already carried a 1.5 kB variant. The charter keeps the
+    rule and the pointer; `references/AllRoles.md` keeps the full text.
+    """
+    canonical = (root / "references" / "AllRoles.md").read_text(encoding="utf-8")
+    for heading in (
+        "Working clean (all roles)",
+        "Code standards (all roles)",
+        "Your model (all roles)",
+    ):
+        assert heading in canonical, heading
+    for phrase in ("canonical formatter and linter", "Never hand-format", "Working tree:"):
+        assert phrase in canonical, phrase
+    for path in sorted((root / "roles").glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        assert "references/AllRoles.md" in text, path.name
+        assert text.count("scratch copies, superseded drafts") == 0, (
+            f"{path.name} re-duplicates the all-roles block instead of pointing at it"
+        )
+        assert text.count("You run through the host's own LLM API") == 0, (
+            f"{path.name} re-duplicates the model block instead of pointing at it"
+        )
+
+
 def test_agents_template_documents_comments_and_clean_tree(root):
     text = (root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
     assert "**NO COMMENTS**" in text

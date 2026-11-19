@@ -1453,9 +1453,11 @@ total       <sum_bytes>        <budget_bytes x instances>  <ok|OVER>
 - the managed block is read through the engine's `BEGIN`/`END` markers, the same
   pair `agents-md` writes; no second marker literal.
 
-The default is 120 KiB = 122880 B against a measured worst instance of 93379 B
-(76%): 27386 B block + 46575 B `SKILL.md` + 18069 B largest charter + 1349 B
-role memory (`D-20261020-Architect-4`).
+The default is 108 KiB = 110592 B against a measured worst instance of 98062 B
+(89%): 29036 B block + 47043 B `SKILL.md` + 19392 B largest charter + role memory.
+The cap was lowered from 120 KiB in T-0007 after the always-on surface was cut by
+64,939 B (704,208 -> 639,269 B across seven instances); a lower cap is the only
+version of that saving that cannot regress.
 
 ### 12.6 The hook shim contract
 
