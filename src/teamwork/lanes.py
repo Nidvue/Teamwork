@@ -724,6 +724,66 @@ def _open_lesson_lines(root: Path, role: str) -> list:
     return lines
 
 
+def _branch_engine_cli(root: Path, first) -> tuple:
+    """(cli, note): the engine a lane should run, and why it is not the base copy.
+
+    A lane runs `scripts/teamwork.py` from the base checkout, so a deliverable that
+    changes the engine is gated by the engine it replaces: a fix to `grades.py` was
+    judged by main's unfixed `grades.py`, which reported a false closed lane and cost
+    one review lane its entire 25-minute budget. When the branch touches the engine,
+    the lane gets the branch's own copy from the worktree that holds it.
+
+    Only a project that *carries* the engine can have this problem - the skill's own
+    checkout. In every other project the engine lives in the skill directory and is
+    one copy for the whole team, so the base CLI is already correct.
+
+    A tree that cannot be found falls back to the base copy with no note: a missing
+    worktree is not a reason to refuse to start a lane.
+    """
+    task_id = str(first.task or "")
+    if not task_id:
+        return cli_command(), ""
+    role = first.review_owner or first.role
+    branch = ""
+    try:
+        for t in engine.parse_tasks(engine.task_file(root, role)):
+            if t.get("id") == task_id:
+                branch = str(t.get("branch") or "")
+                break
+    except OSError:
+        return cli_command(), ""
+    if not branch:
+        return cli_command(), ""
+    project = project_of(root)
+    if not (project / "scripts" / "teamwork.py").is_file():
+        return cli_command(), ""
+    tree = engine.branch_worktree(project, branch)
+    if tree is None:
+        return cli_command(), ""
+    script = Path(tree) / "scripts" / "teamwork.py"
+    if not script.is_file():
+        return cli_command(), ""
+    touched = engine.run_git(project, "diff", "--name-only", f"{engine.DEFAULT_BASE}...{branch}")
+    if touched.returncode != 0:
+        return cli_command(), ""
+    paths = touched.stdout.split()
+    if not any(p.startswith(("src/teamwork/", "scripts/")) for p in paths):
+        return cli_command(), ""
+    quoted = (
+        f'"{sys.executable}" "{script}"'
+        if IS_WINDOWS
+        else (f"{shlex.quote(sys.executable)} {shlex.quote(str(script))}")
+    )
+    note = (
+        f"This branch changes the engine, so `tw` below is the branch's own copy at\n"
+        f"`{shown_path(script)}`, not the base checkout's. A lane that ran the base\n"
+        "copy would be gated by the engine this deliverable replaces. If that copy\n"
+        "fails to start or misbehaves, run the base copy for the rest of the run and\n"
+        "record the failure as a finding on the deliverable.\n"
+    )
+    return quoted, note
+
+
 def build_packet(
     root: Path,
     assignments: list,
@@ -739,7 +799,7 @@ def build_packet(
     """The prompt a lane actually executes: identity, work, commands, budget, result."""
     first = assignments[0]
     instance, role = first.instance, first.role
-    cli = cli_command()
+    cli, engine_note = _branch_engine_cli(root, first)
     project = project_of(root)
     task = first.task or "<T-id>"
     out = [
@@ -752,6 +812,7 @@ def build_packet(
         "",
         "This is a bounded run: finish the assignments below, record the evidence, and exit.",
         f"The CLI for every command is `{cli}`; this packet calls it `tw`.",
+        *(["", engine_note] if engine_note else []),
         "",
         f"## Assignments (attempt {attempt} of {attempts})",
         *_assignment_lines(assignments),
@@ -1662,6 +1723,52 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
             )
         )
     return out
+
+
+def release_dead_review_claims(root: Path) -> list:
+    """Release a review claim whose lane is gone, without waiting out the lease.
+
+    A lease exists so a slow review is not stolen, not so a dead lane keeps holding
+    the deliverable. The lease is 40 minutes for a standard profile; a lane that dies
+    at minute 25 leaves the queue blocked for 15 more with no live process behind the
+    claim, and re-dispatching is refused until someone releases it by hand. So a
+    claim whose holder has no live lane and at least one terminal run is released on
+    the same reconcile that folds the seat.
+
+    A claim with **no** run at all is kept: that is a lane about to start, not a dead
+    one, and releasing it would let two lanes take the same deliverable.
+    """
+    live = {pascal(str(run.get("agent") or "")) for run in live_runs(root)}
+    runs = load_runs(root)
+    released: list = []
+    for role, task, lane, _age in engine.held_review_items(root):
+        holder = pascal(lane)
+        if not holder or holder in live:
+            continue
+        if not any(
+            pascal(str(run.get("agent") or "")) == holder
+            and str(run.get("task") or "").endswith(task["id"])
+            and str(run.get("state") or "") in TERMINAL
+            for run in runs
+        ):
+            continue
+        if engine.review_claim_clear(root, role, task["id"], by=holder):
+            released.append(f"{role}/{task['id']}")
+    if released:
+        print(
+            "# reconcile: released "
+            f"{len(released)} review claim(s) whose lane is gone: " + ", ".join(released)
+        )
+        engine.ledger_append(
+            root,
+            "review.claim.released",
+            "reconcile",
+            ", ".join(released),
+            "the holder has no live lane and its run is terminal: released without waiting out the lease",
+            "",
+            "",
+        )
+    return released
 
 
 def reconcile_stalled(root: Path, attempts: int = 0) -> list:

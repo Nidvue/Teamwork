@@ -440,15 +440,34 @@ def test_a_merge_with_nothing_to_record_makes_no_records_commit(cli, project, ca
     )
 
 
-def test_uncommitted_work_outside_the_records_is_still_refused(cli, project, capsys) -> None:
-    """Narrowing the records commit must not let unrelated work sit under a merge."""
+def test_uncommitted_work_the_merge_would_overwrite_is_refused(cli, project, capsys) -> None:
+    """An overlap is the case the refusal exists for: the merge would clobber it."""
     ship(cli, project)
-    (project / "peer-work.txt").write_text("a peer lane's uncommitted work\n", encoding="utf-8")
+    (project / "feature.txt").write_text("a peer lane's uncommitted edit\n", encoding="utf-8")
     before = engine.run_git(project, "rev-parse", "main").stdout.strip()
 
     capsys.readouterr()
     assert cli("--project", project, "pr", "merge", "--pr", "P-0001", "--by", "reviewer-2") == 1
     err = capsys.readouterr().err
-    assert "outside the reviewed records" in err, err
-    assert "peer-work.txt" in err, err
+    assert "would overwrite" in err, err
+    assert "feature.txt" in err, err
     assert engine.run_git(project, "rev-parse", "main").stdout.strip() == before
+
+
+def test_uncommitted_work_disjoint_from_the_merge_is_preserved(cli, project, capsys) -> None:
+    """Two lanes run at once: a merge must not demand a peer's work be committed first.
+
+    The blanket refusal made the only sanctioned way out "commit another lane's
+    half-finished work", which is the thing one-writer-per-file exists to prevent.
+    A path the merge does not touch is proved safe by intersecting the two sets.
+    """
+    ship(cli, project)
+    (project / "peer-work.txt").write_text("a peer lane's uncommitted work\n", encoding="utf-8")
+    before = engine.run_git(project, "rev-parse", "main").stdout.strip()
+
+    capsys.readouterr()
+    assert cli("--project", project, "pr", "merge", "--pr", "P-0001", "--by", "reviewer-2") == 0
+    out = capsys.readouterr().out
+    assert "disjoint from every merged path" in out, out
+    assert engine.run_git(project, "rev-parse", "main").stdout.strip() != before
+    assert "peer-work.txt" in porcelain_status(project)

@@ -882,8 +882,7 @@ def test_a_fail_on_a_task_with_no_revision_is_recorded_as_not_applicable(cli, pr
     assert last_fail_detail(root).startswith("mechanical: n/a | ")
 
 
-def test_the_slice_warning_uses_the_profiles_file_budget(tmp_path: Path) -> None:
-    """A diff past the profile's slice warns; the same diff under it is silent."""
+def _slice_repo(tmp_path: Path, files: int, lines_each: int) -> tuple[Path, str]:
     repo = tmp_path / "slice-repo"
     repo.mkdir()
     assert git(repo, "init", "-q").returncode == 0
@@ -894,17 +893,40 @@ def test_the_slice_warning_uses_the_profiles_file_budget(tmp_path: Path) -> None
     assert git(repo, "commit", "-q", "-m", "base").returncode == 0
     base = git(repo, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
     assert git(repo, "checkout", "-q", "-b", "slice").returncode == 0
-    for index in range(7):
-        (repo / f"file-{index}.txt").write_text("one line\n", encoding="utf-8")
+    body = "".join(f"line {n}\n" for n in range(lines_each))
+    for index in range(files):
+        (repo / f"file-{index}.txt").write_text(body, encoding="utf-8")
     assert git(repo, "add", "-A").returncode == 0
-    assert git(repo, "commit", "-q", "-m", "seven files").returncode == 0
+    assert git(repo, "commit", "-q", "-m", "a slice").returncode == 0
+    return repo, base
+
+
+def test_many_files_with_few_lines_is_not_a_slice_warning(tmp_path: Path) -> None:
+    """File count is not the risk: one contract spread over files is still one review.
+
+    The old rule warned at 6 files, so a coherent change-set of 16 files and 690
+    lines tripped a 12/600 budget and taught authors to ignore the warning.
+    """
+    repo, base = _slice_repo(tmp_path, files=13, lines_each=1)
 
     fast = engine._preflight_slice(
         repo, base, "slice", tmp_path, "developer", {"review_profile": "fast"}
     )
+
+    assert fast is None, fast.detail
+
+
+def test_the_slice_warning_uses_the_profiles_line_budget(tmp_path: Path) -> None:
+    """Changed lines past the profile's slice warns, and the file count is context."""
+    repo, base = _slice_repo(tmp_path, files=2, lines_each=200)
+
+    fast = engine._preflight_slice(
+        repo, base, "slice", tmp_path, "developer", {"review_profile": "fast"}
+    )
+
     assert fast is not None
     assert fast.status == engine.PREFLIGHT_WARN
-    assert "7 files / 7 changed lines vs fast budget" in fast.detail
+    assert "400 changed lines over 2 file(s) vs the fast budget of 300" in fast.detail
     assert "split the task or record why it cannot be split" in fast.detail
 
     standard = engine._preflight_slice(
@@ -919,8 +941,9 @@ def test_a_slice_over_the_profile_warns_but_does_not_fail_preflight(cli, project
     start_branch(cli, project)
     tree = lane_tree(project)
     names = [f"slice-{index}.txt" for index in range(13)]
+    body = "".join(f"line {n}\n" for n in range(60))
     for name in names:
-        (tree / name).write_text("one line\n", encoding="utf-8")
+        (tree / name).write_text(body, encoding="utf-8")
     with in_tree(tree):
         assert (
             cli(
@@ -951,7 +974,9 @@ def test_a_slice_over_the_profile_warns_but_does_not_fail_preflight(cli, project
     code, out = preflight(cli, capsys, project)
 
     assert code == 0, out
-    assert re.search(r"- warn\s+slice\s+13 files / 13 changed lines vs standard budget", out), out
+    assert re.search(
+        r"- warn\s+slice\s+780 changed lines over 13 file\(s\) vs the standard budget", out
+    ), out
     assert "PREFLIGHT pass" in out
     assert "9 checks, 0 failed" in out
 

@@ -1309,3 +1309,141 @@ def test_a_retried_unit_carries_the_failing_check_and_its_scope(cli, project: Pa
     assert "- fix src/parse.py only and nothing else." in packet
     assert lanes.scope_of(tasks[0]["findings"]) == "src/parse.py only"
     assert lanes.scope_of("detects: x | no scope here") == ""
+
+
+def test_a_dead_lane_s_review_claim_is_released_without_waiting_out_the_lease(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lease protects a slow review from being stolen, not a dead lane's hold.
+
+    L-0002 timed out at minute 25 of a 40-minute standard lease and the deliverable
+    stayed blocked for the remaining 15 with no process behind the claim; the queue
+    could not be re-dispatched until someone released it by hand.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "ship the contract")
+    review_ready(root)
+    launcher(monkeypatch, fake_lane(tmp_path))
+    assert (
+        cli(
+            "--project",
+            project,
+            "lane",
+            "start",
+            "--agent",
+            "reviewer-1",
+            "--review-owner",
+            "developer",
+            "--task",
+            "T-0001",
+        )
+        == 0
+    )
+    assert engine.review_claim_state(engine.parse_tasks(engine.task_file(root, "developer"))[0])[0]
+    record = runs(root)[0]
+    record["deadline"] = time.time() - 1
+    lanes.write_run(root, record)
+    assert cli("--project", project, "lane", "status", "L-0001") == 0
+    time.sleep(0.2)
+    assert not lanes.live_runs(root)
+
+    released = lanes.release_dead_review_claims(root)
+
+    task = engine.parse_tasks(engine.task_file(root, "developer"))[0]
+    assert released == ["developer/T-0001"], released
+    assert not task.get("review_claim"), task.get("review_claim")
+    assert task["status"] == "review", "the deliverable stays where the holder left it"
+
+
+def test_a_claim_with_no_run_at_all_is_not_released(cli, project: Path) -> None:
+    """A claim with no lane yet is a lane about to start, not a dead one."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "ship the contract")
+    review_ready(root)
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["review_claim"] = "Reviewer-1"
+    tasks[0]["review_claim_ts"] = engine.claim_stamp()
+    engine.write_tasks(path, tasks, "developer")
+
+    assert lanes.release_dead_review_claims(root) == []
+    assert engine.parse_tasks(path)[0]["review_claim"] == "Reviewer-1"
+
+
+def test_a_lane_that_changes_the_engine_runs_the_branch_s_engine(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lane runs the engine from the base checkout, so a fix to the engine was
+    judged by the engine it replaces: a false closed-lane refusal from main's unfixed
+    grades.py cost one review lane its entire 25-minute budget.
+    """
+    root = init(cli, project)
+    git = engine.run_git
+    assert git(project, "init", "-q", "-b", "main").returncode == 0
+    git(project, "config", "user.name", "Developer")
+    git(project, "config", "user.email", "developer@nidvue.test")
+    (project / "README.md").write_text("base\n", encoding="utf-8")
+    (project / "scripts").mkdir(exist_ok=True)
+    (project / "scripts" / "teamwork.py").write_text("# engine\n", encoding="utf-8")
+    assert git(project, "add", "-A").returncode == 0
+    assert git(project, "commit", "-q", "-m", "base").returncode == 0
+    add_task(cli, project, "developer", "fix the classifier")
+    assert (
+        cli(
+            "--project",
+            project,
+            "branch",
+            "start",
+            "--agent",
+            "developer-1",
+            "--task",
+            "T-0001",
+            "--worktree",
+        )
+        == 0
+    )
+    tree = engine.task_worktree(root, engine.parse_tasks(engine.task_file(root, "developer"))[0])
+    assert tree is not None and Path(tree).is_dir(), tree
+    target = Path(tree) / "src" / "teamwork"
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "grades.py").write_text("VALUE = 1\n", encoding="utf-8")
+    assert engine.run_git(Path(tree), "add", "-A").returncode == 0
+    assert engine.run_git(Path(tree), "commit", "-q", "-m", "fix the classifier").returncode == 0
+
+    packet = lanes.build_packet(
+        root,
+        [lanes.Assignment("Developer-1", "developer", "T-0001", "fix the classifier")],
+        "L-0001",
+        1,
+        2,
+        25,
+        16,
+        "pi",
+        "",
+        "default",
+    )
+
+    assert "changes the engine" in packet, packet
+    assert str(Path(tree) / "scripts" / "teamwork.py") in packet, packet
+
+
+def test_a_lane_that_changes_only_docs_runs_the_base_engine(
+    cli, project: Path, tmp_path: Path
+) -> None:
+    """Only a branch that touches the engine switches the CLI; everything else does not."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "write the guide")
+    packet = lanes.build_packet(
+        root,
+        [lanes.Assignment("Developer-1", "developer", "T-0001", "write the guide")],
+        "L-0001",
+        1,
+        2,
+        25,
+        16,
+        "pi",
+        "",
+        "default",
+    )
+
+    assert "changes the engine" not in packet, packet

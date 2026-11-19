@@ -1436,6 +1436,24 @@ def _merge_base_branch(project: Path, raw: str, pr: dict) -> str:
     )
 
 
+def _merge_touched_paths(here: Path, base: str, branch: str) -> set | None:
+    """Every path the merge will write, so an uncommitted file can be proved safe.
+
+    The dirty-tree refusal exists so a merge never stashes, reverts or overwrites a
+    peer's work. A blanket refusal also blocks a merge whose paths are disjoint from
+    everything uncommitted, which is the ordinary case when two lanes run at once -
+    and the only sanctioned way out was to commit another lane's half-finished work.
+    So the two sets are intersected instead of guessed about: only an overlap refuses.
+
+    ``None`` means the set could not be measured, and the caller refuses: an
+    unreadable diff must never read as "nothing overlaps".
+    """
+    diff = run_git(here, "diff", "--no-renames", "--name-only", f"{base}...{branch}")
+    if diff.returncode != 0:
+        return None
+    return {line.strip() for line in diff.stdout.splitlines() if line.strip()}
+
+
 def _merge_work_repo(project: Path, here: Path, base: str) -> Path:
     """The work tree a merge must run in: the one holding ``base``, else ``here``.
 
@@ -1828,11 +1846,30 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
         docs_prefix = "/".join(DIR_DOCS)
         dirty = _uncommitted_paths(here)
         dirty_docs = [d for d in dirty if d == docs_prefix or d.startswith(docs_prefix + "/")]
-        if len(dirty_docs) != len(dirty):
-            die(
-                "working tree has uncommitted work outside the reviewed records:\n  "
-                + "\n  ".join(d for d in dirty if d not in dirty_docs)
-                + "\n  commit it on its task branch first (branch start + commit)"
+        outside = [d for d in dirty if d not in dirty_docs]
+        if outside:
+            touched = _merge_touched_paths(here, base, branch)
+            overlap = outside if touched is None else [d for d in outside if d in touched]
+            if overlap:
+                die(
+                    "working tree has uncommitted work the merge would overwrite:\n  "
+                    + "\n  ".join(overlap)
+                    + "\n  commit it on its task branch first (branch start + commit)"
+                )
+            print(
+                "# uncommitted work outside docs/ is disjoint from every merged path: "
+                + ", ".join(outside[:3])
+                + (" and more" if len(outside) > 3 else "")
+                + " - preserved untouched"
+            )
+            ledger_append(
+                root,
+                "pr.merge.dirty_disjoint",
+                merger,
+                pr["task"],
+                f"{pr['id']} merged over uncommitted work disjoint from its own paths: "
+                + ", ".join(outside[:5])
+                + f" (merged paths: {len(touched)})",
             )
         was_on = current_branch(here)
         owned = merge_record_paths()
@@ -2993,6 +3030,7 @@ LEDGER_ACTIONS = (
     "feature.set",
     "hooks.install",
     "instance.add",
+    "instance.apply",
     "instance.retire",
     "knowledge.add",
     "knowledge.supersede",
@@ -3034,6 +3072,7 @@ LEDGER_ACTIONS = (
     "pr.base.repoint",
     "pr.merge",
     "pr.merge.archive",
+    "pr.merge.dirty_disjoint",
     "pr.merge.forced",
     "pr.open",
     "pr.repair",
@@ -3043,6 +3082,7 @@ LEDGER_ACTIONS = (
     "redline.close",
     "redline.record",
     "review.claim",
+    "review.claim.released",
     "review.fail",
     "review.pass",
     "review.release",
@@ -6513,6 +6553,8 @@ def cmd_instance(args) -> int:
         return _instance_retire(root, args)
     if args.instance_cmd == "prune":
         return _instance_prune(root, args)
+    if args.instance_cmd == "apply":
+        return _instance_apply(root, args)
     return _instance_add(root, args)
 
 
@@ -6898,6 +6940,7 @@ def _foldable_instances(root: Path, keep_required: bool, mutate: bool = True) ->
     lane_runtime.settle(root)
     if mutate:
         lane_runtime.reconcile_stalled(root)
+        lane_runtime.release_dead_review_claims(root)
     reap_slots(root)
     ready_by_role = {role: _ready_for_role(root, role) for role in list_roles(root)}
     open_reviews = open_review_items(root)
@@ -6968,6 +7011,88 @@ def fold_finished_seats(root: Path, by: str = "reconcile") -> list:
         names = ", ".join(folded)
         print(f"# reconcile: folded {len(folded)} finished seat(s): {names}")
     return folded
+
+
+class _RosterArgs:
+    """The attributes `_instance_add` and `_instance_retire` read, for `roster apply`.
+
+    Both verbs take an argparse namespace; reusing them from a plan needs the same
+    shape and nothing else, so one small holder beats duplicating either body.
+    """
+
+    def __init__(self, **kwargs) -> None:
+        self.reason = ""
+        self.force = False
+        self.__dict__.update(kwargs)
+
+
+def _instance_apply(root: Path, args) -> int:
+    """Make the live roster match a tier: add what it needs, fold what it drops.
+
+    A tier is read only by `init`, so an existing tree keeps the roster it was born
+    with: changing `ROSTER_TIERS` changed the recipe and nothing about the running
+    team, and a role the recipe drops kept its queue and its test layer forever. This
+    is the missing half of the recipe - the same expansion `init` uses, applied to a
+    tree that already exists.
+
+    Retirement is move-only (`Runtime/Retired/<Instance>/`), a role is only added
+    when it has no instance, and a fold is refused while the seat holds work. The
+    CEO is never folded: it is the user interface, not a lane.
+    """
+    tier = args.tier
+    plan = expand_roster(tier)
+    wanted = {resolve_role(name) for name in plan["instances"]}
+    dry = bool(getattr(args, "dry_run", False))
+    by = (getattr(args, "by", "") or "ceo").strip()
+    live = set(list_roles(root))
+    print(f"# Roster apply ({root})")
+    print(f"# tier: {tier} -> {', '.join(sorted(wanted))}")
+    added = retired = refused = 0
+    for role in sorted(wanted):
+        if role in live:
+            continue
+        print(f"+ add  {role}")
+        added += 1
+        if not dry:
+            _instance_add(
+                root,
+                _RosterArgs(
+                    role=role, count=1, name="", new_role=True, under="", by=by, json=False
+                ),
+            )
+    for role in sorted(live - wanted):
+        if role == "ceo":
+            print(f"- keep {role}: the user interface, never folded")
+            continue
+        holders = instances_of(root, role)
+        busy = [n for n in holders if _instance_busy_reasons(root, role, n)]
+        if busy:
+            print(f"- keep {role}: {', '.join(busy)} holds work")
+            refused += 1
+            continue
+        print(f"- fold {role}: {', '.join(holders) or 'no instance'}")
+        retired += 1
+        if dry:
+            continue
+        for name in holders:
+            _instance_retire(
+                root,
+                _RosterArgs(
+                    role=role, count=1, name=name, new_role=False, under="", by=by, json=False
+                ),
+            )
+    print(f"# {added} added, {retired} folded, {refused} kept while holding work")
+    if not dry:
+        ledger_append(
+            root,
+            "instance.apply",
+            by,
+            f"roster:{tier}",
+            f"roster apply --tier {tier}: {added} added, {retired} folded, {refused} kept busy",
+            "",
+            "",
+        )
+    return 0
 
 
 def _instance_prune(root: Path, args) -> int:
@@ -15597,6 +15722,39 @@ def _review_claim(root: Path, args) -> int:
         return 0
 
 
+def review_claim_clear(root: Path, role: str, handle: str, by: str = "reconcile") -> bool:
+    """Drop a review claim the holder can no longer act on. True when one was cleared.
+
+    Only the claim fields change: the deliverable, its findings and its review
+    status are untouched, so releasing a dead lane's claim returns the work to the
+    shared queue exactly as the holder left it. A claim already empty is a no-op.
+    """
+    path = task_file(root, role)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        tasks = parse_tasks(path)
+        idx = find_task(tasks, handle)
+        if idx is None:
+            return False
+        t = tasks[idx]
+        if not str(t.get("review_claim") or "").strip():
+            return False
+        t["review_claim"] = ""
+        t["review_claim_ts"] = ""
+        t["review_claim_profile"] = ""
+        t["review_claim_lease"] = ""
+        write_tasks(path, tasks, role)
+    ledger_append(
+        root,
+        "review.release",
+        by,
+        t["id"],
+        f"{role}/{t['id']} released by reconcile: the holder has no live lane",
+        "",
+        role,
+    )
+    return True
+
+
 def _review_next(root: Path, args) -> int:
     """Claim the highest-priority unclaimed deliverable and print its packet.
 
@@ -16947,14 +17105,14 @@ def _preflight_slice(
     profile_task = dict(task)
     profile_task["base"] = base
     profile, _reason = review_profile_for(root, role, profile_task)
-    file_budget, line_budget = SLICE_BUDGETS.get(profile, SLICE_BUDGETS["standard"])
-    if files <= file_budget and changed <= line_budget:
+    _file_budget, line_budget = SLICE_BUDGETS.get(profile, SLICE_BUDGETS["standard"])
+    if changed <= line_budget:
         return None
     return PreflightCheck(
         "slice",
         PREFLIGHT_WARN,
-        f"{files} files / {changed} changed lines vs {profile} budget; "
-        "split the task or record why it cannot be split",
+        f"{changed} changed lines over {files} file(s) vs the {profile} budget "
+        f"of {line_budget}; split the task or record why it cannot be split",
         "split the task into review-sized slices, or say in the self-check note "
         "why it is one coherent change",
     )
@@ -20394,6 +20552,16 @@ def _parsers_workspace(sub, common) -> None:
         action="store_true",
         help="keep one instance of each gate-critical role (ceo, developer, tester, reviewer)",
     )
+    p.set_defaults(func=cmd_instance)
+
+    p = isub.add_parser(
+        "apply",
+        parents=[common],
+        help="make the live roster match a tier: add what it needs, fold what it drops",
+    )
+    p.add_argument("tier", choices=list(ROSTER_TIERS), help="the tier to apply")
+    p.add_argument("--by", default="ceo", help="who applies it (provenance)")
+    p.add_argument("--dry-run", action="store_true", help="print the plan, move nothing")
     p.set_defaults(func=cmd_instance)
 
     st = sub.add_parser("task", parents=[common], help="manage an agent's priority task list")

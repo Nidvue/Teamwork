@@ -341,8 +341,9 @@ def test_preflight_warns_on_an_oversized_slice_and_stays_green(cli, project, cap
         cli_run(cli, project, "branch", "start", "--agent", "developer-1", "--task", "T-0001") == 0
     )
     tree = lane_tree(project, "T-0001")
+    body = "".join(f"line {n}\n" for n in range(60))
     for index in range(13):
-        (tree / f"slice-{index}.txt").write_text("one line\n", encoding="utf-8")
+        (tree / f"slice-{index}.txt").write_text(body, encoding="utf-8")
     commit_all(cli, project, "T-0001")
 
     capsys.readouterr()
@@ -352,7 +353,9 @@ def test_preflight_warns_on_an_oversized_slice_and_stays_green(cli, project, cap
     oversized = capsys.readouterr().out
     assert code == 0, oversized
     assert re.search(
-        r"^- warn\s+slice\s+13 files / 13 changed lines vs standard budget", oversized, re.M
+        r"^- warn\s+slice\s+780 changed lines over 13 file\(s\) vs the standard budget",
+        oversized,
+        re.M,
     )
     assert "split the task or record why it cannot be split" in oversized
     assert "PREFLIGHT pass" in oversized

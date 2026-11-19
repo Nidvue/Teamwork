@@ -156,7 +156,14 @@ teamwork instance add ROLE [--count N] [--name NAME] [--new-role]
 teamwork instance list [--json]
 teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
 teamwork instance prune [--by BY] [--reason WHY] [--dry-run] [--keep-required]
+teamwork instance apply {slim|standard|full} [--by BY] [--dry-run]
 ```
+
+- `apply` makes the live roster match a tier. A tier is read only by `init`, so a
+  tree keeps the roster it was born with: editing `ROSTER_TIERS` changed the recipe
+  and nothing about the running team. `apply` adds a role the tier needs, and
+  move-only retires a role it drops (`Runtime/Retired/`; the role's memory and queue
+  stay). A seat that holds work is kept and named.
 
 - `add` scaffolds `Agents/<Role>-N` against the existing `Roles/<Role>/`, so a
   fourth architect costs one directory, not a second memory. A role the team does

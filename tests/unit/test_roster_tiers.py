@@ -102,3 +102,51 @@ def test_documented_tier_costs_match_the_measured_ones(repo_root) -> None:
             row = f"| `{tier}`"
             assert row in text or f"`{tier}` (default)" in text, (name, tier)
             assert f"{round(cost / 1000)} kB" in text, (name, tier, cost)
+
+
+def test_roster_apply_folds_a_role_the_tier_drops(cli, project: Path, capsys) -> None:
+    """A tier is read only by `init`, so an existing tree kept the roster it was born
+    with: changing ROSTER_TIERS changed the recipe and nothing about the running team.
+    """
+    assert (
+        cli("--project", project, "init", "--agents", "ceo,team-leader,developer", "--no-git") == 0
+    )
+    root = team_root(project)
+    assert "team-leader" in engine.list_roles(root)
+
+    capsys.readouterr()
+    assert cli("--project", project, "instance", "apply", "slim", "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "fold team-leader" in out, out
+    assert "add  architect" in out, out
+    assert "team-leader" in engine.list_roles(root), "a dry run moves nothing"
+
+    capsys.readouterr()
+    assert cli("--project", project, "instance", "apply", "slim") == 0
+    staffed = {role for role in engine.list_roles(root) if engine.instances_of(root, role)}
+    assert staffed == set(engine.ROSTER_TIERS["slim"]), staffed
+    assert engine.instances_of(root, "team-leader") == []
+    assert (root / "Runtime" / "Retired").is_dir(), "retirement is move-only"
+    assert not (root / "Agents" / "TeamLeader").exists()
+    assert (root / "Roles" / "TeamLeader").is_dir(), "role memory and queue stay"
+
+
+def test_roster_apply_keeps_a_seat_that_holds_work(cli, project: Path, capsys) -> None:
+    """Folding a lane mid-task would strand its claim, so a busy seat is kept."""
+    assert (
+        cli("--project", project, "init", "--agents", "ceo,team-leader,developer", "--no-git") == 0
+    )
+    root = team_root(project)
+    assert cli("--project", project, "task", "add", "team-leader", "cut the feature") == 0
+    path = engine.task_file(root, "team-leader")
+    tasks = engine.parse_tasks(path)
+    assert tasks, "the task add wrote nothing"
+    tasks[0]["status"] = "doing"
+    tasks[0]["claimed_by"] = "TeamLeader"
+    engine.write_tasks(path, tasks, "team-leader")
+
+    capsys.readouterr()
+    assert cli("--project", project, "instance", "apply", "slim") == 0
+    out = capsys.readouterr().out
+    assert "keep team-leader" in out, out
+    assert engine.instances_of(root, "team-leader") == ["TeamLeader"]
