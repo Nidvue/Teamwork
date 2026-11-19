@@ -59,18 +59,32 @@ def test_the_main_skill_points_at_it() -> None:
     assert "skills/teamwork-learn/SKILL.md" in text, "the source path is not named"
 
 
-def test_no_relative_link_escapes_the_installed_sibling() -> None:
-    """The file ships at two depths, so a `../` link is broken in one of them.
+def test_the_related_line_makes_no_path_claim() -> None:
+    """The file ships at two depths, so any path it names is wrong in one of them.
 
     In the checkout it is `skills/teamwork-learn/SKILL.md`; installed it is a sibling
-    of the teamwork skill, one level shallower. `../../SKILL.md` resolves to the repo
-    root in the first and to the skills directory's parent in the second, so a review
-    that read the installed copy found every Related link dead while the source link
-    check was green.
+    of the teamwork skill, one level shallower. `../../SKILL.md` resolved to the repo
+    root in the first and outside the skills directory in the second; `teamwork/...`
+    then resolved only when installed. Both were real review findings, so the line
+    now names the documents and claims no location at all.
     """
-    text = SOURCE.read_text(encoding="utf-8")
-    body = text.split("---\n", 2)[2]
+    body = SOURCE.read_text(encoding="utf-8").split("---\n", 2)[2]
+    related = body.split("## 1.")[0]
 
-    escaping = [line for line in body.splitlines() if "](" in line and "../" in line]
+    assert "](" not in related, "a link in the Related block resolves in one layout only"
+    assert "skills/" not in related, "a path in the Related block is wrong in one layout"
+    assert "../" not in related, "an escaping path in the Related block"
 
-    assert escaping == [], escaping
+
+def test_the_documents_it_names_exist_where_it_says_they_do() -> None:
+    """An existence check on the documents, not on a path string.
+
+    The skill says the four live in the teamwork skill's directory: the repository
+    root in the checkout, and beside this skill when installed. Both are checked, so
+    the sentence cannot quietly become false.
+    """
+    named = ["SKILL.md", "references/Roles.md", "references/Evidence.md", "references/Testing.md"]
+    for rel in named:
+        assert (ROOT / rel).is_file(), f"{rel} is not in the checkout the skill points at"
+    installed_teamwork = ROOT / "src" / "teamwork"
+    assert installed_teamwork.is_dir()
