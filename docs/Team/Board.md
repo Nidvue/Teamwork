@@ -92,7 +92,7 @@ under two roles is two tasks.
 | reviewer | T-0003 | lanes | dropped | - | - |
 | reviewer | T-0004 | lanes | dropped | - | - |
 | reviewer | T-0005 | lanes | dropped | - | - |
-| reviewer | T-0006 | lanes | todo | - | - |
+| reviewer | T-0006 | lanes | dropped | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -110,7 +110,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| reviewer | T-0006 · Root cause: L-0020 timed out (budget) on Reviewer-2 | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
