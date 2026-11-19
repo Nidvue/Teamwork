@@ -8756,4 +8756,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 85a9209c
 - reviewer evidence: python -m pytest -q tests/unit -m "not slow" -> 2783 passed, 8 skipped; python -m mypy src/teamwork -> Success: no issues found
 - findings history: 
-- branch / merge: ceo/t-0005-name-the-tree-under-review-in-the-review / pending
+- branch / merge: ceo/t-0005-name-the-tree-under-review-in-the-review / 37e42174
