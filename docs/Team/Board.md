@@ -83,7 +83,7 @@ under two roles is two tasks.
 |---|---|---|---|---|---|
 | ceo | T-0001 | records | done | P-0001 | 070513da |
 | ceo | T-0002 | gate | done | P-0002 | b6d7240f |
-| ceo | T-0003 | widget | review | P-0004 | - |
+| ceo | T-0003 | widget | done | P-0004 | a5064c31 |
 | ceo | T-0004 | gate | done | P-0003 | 9a42ac63 |
 | ceo | T-0005 | review | done | P-0005 | 37e42174 |
 | ceo | T-0006 | privacy | done | P-0006 | 7bf336f5 |
@@ -110,7 +110,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0003 · Adopt the uncommitted lane-status engine self-location work onto its own branch | P1 | review | - |
 | reviewer | T-0006 · Root cause: L-0020 timed out (budget) on Reviewer-2 | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
