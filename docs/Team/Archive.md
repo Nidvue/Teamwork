@@ -8743,4 +8743,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit fe0f7ae8
 - reviewer evidence: pytest -q tests/unit/test_mailmap.py tests/unit/test_hygiene.py tests/unit/test_commit_identity.py -> 67 passed; git log --all --use-mailmap -> NO-PERSONAL-ADDRESS
 - findings history: 
-- branch / merge: ceo/t-0006-map-the-operator-s-published-identity-to / pending
+- branch / merge: ceo/t-0006-map-the-operator-s-published-identity-to / 7bf336f5
