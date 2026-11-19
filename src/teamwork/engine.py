@@ -16799,12 +16799,21 @@ def _preflight_features(root: Path, project: Path, base: str, branch: str) -> Pr
 
 
 def _undo_entries(project: Path, base: str, branch: str) -> list:
-    """``(path, added, deleted)`` rows for one branch, empty when it cannot be read."""
+    """``(path, added, deleted, is_delete)`` rows for one branch, empty when unreadable.
+
+    ``is_delete`` comes from git's own ``--diff-filter=D``, not from ``added == 0``:
+    a row that only removes lines still has its file, and treating the two alike
+    closed a lane for a one-line config edit.
+    """
     if not (branch and is_git_repo(project) and branch_exists(project, branch)):
         return []
     diff = run_git(project, "diff", "--numstat", f"{base}...{branch}")
     if diff.returncode != 0:
         return []
+    gone_files = set()
+    names = run_git(project, "diff", "--diff-filter=D", "--name-only", f"{base}...{branch}")
+    if names.returncode == 0:
+        gone_files = {line.strip() for line in names.stdout.splitlines() if line.strip()}
     entries = []
     for line in diff.stdout.splitlines():
         parts = line.split("\t")
@@ -16812,7 +16821,7 @@ def _undo_entries(project: Path, base: str, branch: str) -> list:
             continue
         added = int(parts[0]) if parts[0].isdigit() else 0
         gone = int(parts[1]) if parts[1].isdigit() else 0
-        entries.append((parts[2], added, gone))
+        entries.append((parts[2], added, gone, parts[2] in gone_files))
     return entries
 
 

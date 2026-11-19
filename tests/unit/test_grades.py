@@ -83,9 +83,18 @@ def test_an_irreversible_path_is_a_closed_lane(path: str) -> None:
 
 def test_a_deletion_is_a_closed_lane_whatever_the_path() -> None:
     """A deletion is the one edit a revert cannot always undo."""
-    cls, why = undo_class([("docs/Team/Risks.md", 0, 12)])
+    cls, why = undo_class([("docs/Team/Risks.md", 0, 12, True)])
     assert cls == "closed"
     assert "1 deleted file(s)" in why
+
+
+def test_removing_lines_from_a_file_that_still_exists_is_one_revert() -> None:
+    """`added == 0` is an edit, not a deleted file: git's --diff-filter=D decides."""
+    assert undo_class([("docs/Team/Risks.md", 0, 12)]) == ("revert", "one revert undoes it")
+    assert undo_class([("src/teamwork/board.py", 0, 3, False)]) == (
+        "revert",
+        "one revert undoes it",
+    )
 
 
 def test_a_frozen_or_shared_surface_needs_hard_evidence() -> None:
@@ -97,4 +106,4 @@ def test_a_frozen_or_shared_surface_needs_hard_evidence() -> None:
 
 def test_the_constitution_outranks_the_shared_surface() -> None:
     """A diff that both edits AGENTS.md and deletes a file is closed, not evidence."""
-    assert undo_class([("AGENTS.md", 2, 0), ("docs/Team/Risks.md", 0, 4)])[0] == "closed"
+    assert undo_class([("AGENTS.md", 2, 0), ("docs/Team/Risks.md", 0, 4, True)])[0] == "closed"

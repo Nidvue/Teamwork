@@ -123,23 +123,29 @@ _EVIDENCE_MARKERS = (
 
 
 def undo_class(entries) -> tuple:
-    """``(class, reason)`` for a diff given as ``(path, added, deleted)`` rows.
+    """``(class, reason)`` for a diff given as ``(path, added, deleted[, is_delete])`` rows.
 
     ``closed`` is the lane no score opens: data and schema changes, secrets and
     auth, a workflow that fires on merge, a release exception, and any deletion of
     a tracked file (a deletion is the one edit a revert cannot always undo).
     ``evidence`` is a wide blast radius that a revert does undo - the constitution,
     the frozen contract, the shared record layer, the build and gate config.
+
+    A row that only removes lines is an *edit*, not a deleted file: ``added == 0``
+    says nothing about whether the path still exists, so the caller states it in
+    the fourth element (git's ``--diff-filter=D``). Without it a one-line deletion
+    in a config file read as a removed file and closed the lane.
     """
-    deleted = [path for path, added, gone in entries if added == 0 and gone > 0]
+    rows = [(*entry[:3], bool(entry[3]) if len(entry) > 3 else False) for entry in entries]
+    deleted = [path for path, _added, _gone, is_delete in rows if is_delete]
     if deleted:
         return "closed", f"{len(deleted)} deleted file(s): " + ", ".join(sorted(deleted)[:3])
-    for path, _added, _gone in entries:
+    for path, _added, _gone, _is_delete in rows:
         low = path.lower()
         marker = next((m for m in _CLOSED_MARKERS if m in low), "")
         if marker:
             return "closed", f"{path} matches {marker!r}"
-    for path, _added, _gone in entries:
+    for path, _added, _gone, _is_delete in rows:
         low = path.lower()
         marker = next((m for m in _EVIDENCE_MARKERS if m in low), "")
         if marker:
