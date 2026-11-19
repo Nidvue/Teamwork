@@ -5841,7 +5841,7 @@ _RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
 LEGACY_MESSAGE_EXEMPT: dict[str, str] = {}
 LEGACY_AUTHOR_EXEMPT: dict[str, str] = {}
 
-LEGACY_IDENTITY_BEFORE = "34384c63c1d817719aa3b15a62b6a0c269c71bb2"
+LEGACY_IDENTITY_BEFORE = "5670c011a788ec7f933dca5ddb696c78dd2e8504"
 
 LEGACY_IDENTITY_REASON = (
     "published before the merge-identity fix; the commits are ancestors of "
