@@ -3040,3 +3040,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: pre-reseal head a13c2a1433ecf14090958c37c88fb82227cda3ab98c695551bfa36d670a7fc10 at n=320; after redacting 3 record(s) and re-sealing from n=281: head 70c5eb76c5cac87b126184afd2e36a4ec9cececdea45e87bf43f24e474a54099 at n=320; teamwork.py ledger verify -> chain intact, every digest matches; grep -c for the name in Ledger.jsonl -> 0
 - falsified by: if any record before n=281 fails to verify against its own prev, the reseal touched more than the redacted tail; if the pre-reseal head hash above cannot be matched to a bundle, the discontinuity has no witness
 - consequences: -
+
+## D-20261119-CEO-3 - LEDGER RESEAL (second, operator-directed): records 85 and...
+
+- date: 2026-11-19
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: LEDGER RESEAL (second, operator-directed): records 85 and 308 onward quoted the operator's username in a detail or target field. Redacted and the chain re-sealed.
+- why: the ledger is hash-chained, so removing content means re-sealing every digest after the first changed record; the operator required nothing personal anywhere on disk. The two boundaries are named here so the discontinuity is auditable: a reader comparing either pre-reseal head to the current one finds this record.
+- evidence: first reseal: pre f11cff61f7a8d0a6b6e9e664bcaffef3d16c223558bbecf98fcbece1676ff658 (n=327) -> post 6d17c79ccbf2c76a; second: pre 6d17c79ccbf2c76a (first record 308) -> post b421d3324a64e06145b82edd43a1727866a9a7142bb29b13f410f641a336c771 at n=327; teamwork.py ledger verify -> chain intact, every digest matches; grep -RIl for the username in .pi -> 0
+- falsified by: if any record before 85 fails to verify against its own prev, the reseal touched more than the redacted tail
+- consequences: -
