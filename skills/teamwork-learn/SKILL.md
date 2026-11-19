@@ -9,9 +9,14 @@ Owner: CEO. This is the learning procedure: how the team reads something built b
 someone else, decides what is genuinely better, and integrates the idea into its
 own system without copying a line of it.
 
-Related: [SKILL.md](../../SKILL.md) · [references/Roles.md](../../references/Roles.md) ·
-[references/Evidence.md](../../references/Evidence.md) ·
-[references/Testing.md](../../references/Testing.md)
+Related, read alongside: `teamwork/SKILL.md` · `teamwork/references/Roles.md` ·
+`teamwork/references/Evidence.md` · `teamwork/references/Testing.md`
+
+Those are spelled from the **skills directory**, not linked. This file ships twice -
+as `skills/teamwork-learn/SKILL.md` in the checkout and as a sibling of the
+installed teamwork skill - and the two layouts sit at different depths, so any
+relative link that resolves in one is broken in the other. A path a reader can
+follow in both is a name, not a link.
 
 ## 1. The two hard rules
 

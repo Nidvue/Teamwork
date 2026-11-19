@@ -57,3 +57,20 @@ def test_the_main_skill_points_at_it() -> None:
 
     assert "teamwork-learn" in text, "SKILL.md does not mention the companion skill"
     assert "skills/teamwork-learn/SKILL.md" in text, "the source path is not named"
+
+
+def test_no_relative_link_escapes_the_installed_sibling() -> None:
+    """The file ships at two depths, so a `../` link is broken in one of them.
+
+    In the checkout it is `skills/teamwork-learn/SKILL.md`; installed it is a sibling
+    of the teamwork skill, one level shallower. `../../SKILL.md` resolves to the repo
+    root in the first and to the skills directory's parent in the second, so a review
+    that read the installed copy found every Related link dead while the source link
+    check was green.
+    """
+    text = SOURCE.read_text(encoding="utf-8")
+    body = text.split("---\n", 2)[2]
+
+    escaping = [line for line in body.splitlines() if "](" in line and "../" in line]
+
+    assert escaping == [], escaping
