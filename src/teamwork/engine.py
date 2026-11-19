@@ -11705,6 +11705,35 @@ def review_latency(root: Path) -> dict:
     }
 
 
+def _review_tree_lines(root: Path, project: Path, task: dict, branch: str, base: str) -> list:
+    """Where the gates must run: the tree that holds the branch, never the base.
+
+    A review lane executes the base checkout, but the deliverable lives on a branch,
+    so a gate run "here" measures a tree without the change. Three findings in one
+    session came from exactly that: a `grades.py` fix judged by main's unfixed copy, a
+    companion skill's links checked in the checkout instead of the install, and a test
+    count that read 2 on main and 3 on the branch. The packet names the tree, and says
+    what the wrong tree looks like, so the Reviewer cannot measure the wrong one by
+    accident.
+    """
+    tree = task_worktree(root, task)
+    if tree is not None and Path(tree).is_dir():
+        where = str(tree)
+        how = f"cd {where}"
+    else:
+        where = f"a worktree of {branch}"
+        how = f"git -C {project} worktree add <path> {branch}   # then cd <path>"
+    return [
+        "- **run every gate in the tree under review, not in the base checkout**:",
+        f"  - tree: {where}",
+        f"  - {how}",
+        "  - the base checkout does not contain this change: a test count, a link or a",
+        f"    module read there measures {base} without it, and the mismatch reads as a",
+        "    finding against the author when it is a measurement of the wrong tree",
+        f"  - if that tree is gone, `git -C {project} worktree add <path> {branch}`",
+    ]
+
+
 def review_packet(root: Path, role: str, task: dict, full: bool = False) -> str:
     """Everything a Reviewer needs to start, in one screen."""
     profile, reason = review_profile_for(root, role, task)
@@ -11732,6 +11761,7 @@ def review_packet(root: Path, role: str, task: dict, full: bool = False) -> str:
         ).stdout.strip()
         if stat:
             lines.append(f"- diffstat: {one_line(stat.splitlines()[-1])}")
+        lines += _review_tree_lines(root, project, task, branch, base)
     for label, field in (
         ("self-check note", "self_note"),
         ("author evidence", "evidence"),
