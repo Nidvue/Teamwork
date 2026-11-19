@@ -8769,4 +8769,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: the L-0019 finding 'pytest integration suite passed with only 2 tests, expected 3' measured the base checkout, not the branch: main collects 2 tests in tests/integration/test_widget_survives.py, the T-0003 worktree collects 3, and the branch adds the third. The review packet now names the tree under review (T-0005), so the re-review cannot repeat it. Branch unchanged at a714647c.
 - reviewer evidence: python -m pytest -q tests/integration/test_widget_survives.py -> 3 passed in 3.83s
 - findings history: detects: test-count mismatch vs expected 3; cannot verify the third widget-survival case | pytest integration suite passed with only 2 tests, expected 3 (2 passed in 2.67s, exit 0)
-- branch / merge: ceo/t-0003-adopt-the-uncommitted-lane-status-engine / pending
+- branch / merge: ceo/t-0003-adopt-the-uncommitted-lane-status-engine / a5064c31
