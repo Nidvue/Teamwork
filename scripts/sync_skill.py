@@ -40,11 +40,14 @@ bundle_files = bundle.bundle_files
 installed_files = bundle.installed_files
 managed = bundle.managed
 plan = bundle.plan
+plan_siblings = bundle.plan_siblings
+sync_siblings = bundle.sync_siblings
 
 
 def sync(source: Path, dest: Path, *, dry_run: bool, quiet: bool = False) -> int:
     """Mirror ``source`` into ``dest``; ``0`` when the copy is in sync afterwards."""
     bundle.sync(source, dest, dry_run=dry_run, quiet=quiet)
+    bundle.sync_siblings(source, dest, dry_run=dry_run, quiet=quiet)
     return 0
 
 
@@ -94,6 +97,24 @@ def main(argv: list[str]) -> int:
         if not dest.is_dir():
             print(f"sync_skill: {dest} does not exist (nothing installed there)", file=sys.stderr)
             return 1
+        drift = False
+        for target, (s_added, s_updated, s_removed) in plan_siblings(source, dest):
+            if not (s_added or s_updated or s_removed):
+                continue
+            drift = True
+            print(
+                f"sync_skill: companion skill {target} is out of sync: "
+                f"{len(s_added)} missing, {len(s_updated)} stale, {len(s_removed)} to delete",
+                file=sys.stderr,
+            )
+            for rel in s_added:
+                print(f"  missing: {rel}", file=sys.stderr)
+            for rel in s_updated:
+                print(f"  stale:   {rel}", file=sys.stderr)
+            for rel in s_removed:
+                print(f"  extra:   {rel}", file=sys.stderr)
+        if drift:
+            return 1
         if added or updated or removed:
             print(
                 f"sync_skill: {dest} is out of sync with {source}: "
@@ -118,6 +139,7 @@ def main(argv: list[str]) -> int:
         print(f"# {dest} is in sync with {source}")
         return 0
     bundle.sync(source, dest, dry_run=False)
+    bundle.sync_siblings(source, dest, dry_run=False)
     state = display(dest, args.host)
     if state.ok:
         print(f"# lane display: {state.target} registered in {state.settings}")

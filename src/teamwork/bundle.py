@@ -23,6 +23,8 @@ BUNDLE_FILES = ("SKILL.md", "AGENTS.md")
 
 BUNDLE_TREES = ("extensions", "references", "roles", "templates", "scripts", "src")
 
+SIBLING_SKILLS = {"skills/teamwork-learn": "teamwork-learn"}
+
 HOST_DEFAULTS = {
     "pi": Path("~/.pi/agent/skills/teamwork"),
     "agents": Path("~/.agents/skills/teamwork"),
@@ -114,6 +116,39 @@ def sync(source: Path, dest: Path, *, dry_run: bool, quiet: bool = False) -> int
     if not quiet:
         print(f"# {len(added)} added, {len(updated)} updated, {len(removed)} removed -> {dest}")
     return touched
+
+
+def sibling_targets(source: Path, dest: Path) -> list[tuple[Path, Path]]:
+    """``(source_dir, dest_dir)`` for every companion skill the bundle ships.
+
+    The bundle mirrors one skill directory, so a second skill the teamwork system
+    installs - `teamwork-learn` - has no place inside it. It is a *sibling* of the
+    installed skill, with its own name so the host exposes its own command, and its
+    source lives in the checkout under the same relative path. Mirroring it from the
+    same manifest is what stops the two copies drifting: a skill the host loads and
+    the checkout no longer has is the exact failure this module exists to prevent.
+    """
+    pairs = []
+    for rel, name in SIBLING_SKILLS.items():
+        base = source / rel
+        if base.is_dir():
+            pairs.append((base, dest.parent / name))
+    return pairs
+
+
+def sync_siblings(source: Path, dest: Path, *, dry_run: bool, quiet: bool = False) -> int:
+    """Mirror every companion skill; returns the number of files touched."""
+    touched = 0
+    for base, target in sibling_targets(source, dest):
+        if not quiet:
+            print(f"# companion skill: {base.relative_to(source)} -> {target}")
+        touched += sync(base, target, dry_run=dry_run, quiet=quiet)
+    return touched
+
+
+def plan_siblings(source: Path, dest: Path) -> list[tuple[Path, tuple]]:
+    """``(dest_dir, (added, updated, removed))`` for every companion skill."""
+    return [(target, plan(base, target)) for base, target in sibling_targets(source, dest)]
 
 
 def resolve_dest(host: str = "pi", dest: str = "") -> Path:

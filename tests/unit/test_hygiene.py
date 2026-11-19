@@ -74,6 +74,7 @@ ROOT_ALLOWLIST = {
     "roles",
     "scripts",
     "site",
+    "skills",
     "src",
     "templates",
     "NOTICE",

@@ -653,6 +653,25 @@ the one you need instead of the whole skill.
 | `references/Remotes.md` | git-host integrity: protection, checks, merge, tags |
 | `references/Loops.md` | loops, the task graph, failure routing, who signs off |
 
+## Companion skill: `teamwork-learn`
+
+One flow is a whole skill of its own, installed beside this one as the
+`teamwork-learn` skill (`/teamwork-learn`): study an outside article, repository,
+file or block of code systematically, compare it against this system, and adopt the
+**mechanism** rather than the expression. Load it when a prompt says "learn from
+this repo", "study how X does it", "compare us against Y" or "what should we adopt
+from Z".
+
+It exists because the default failure is the wrong one: a team handed an external
+system copies the visible half and calls it learning. The skill pins the target to a
+revision, records the licence before the code, forces the comparison onto one axis
+at a time, requires a decision with a falsifier, and forbids the paste. A study with
+no verdict, no contrast and no revision is a summary, not a deliverable.
+
+`skills/teamwork-learn/SKILL.md` in this checkout is the source; `make sync-skill`
+mirrors it to `<skills>/teamwork-learn` and `sync-check` fails on drift, the same
+way the main bundle is kept true.
+
 ## The bus and the claim register
 
 `message send --to <Instance>` writes the team mailbox. The four bus addresses cross a
