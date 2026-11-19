@@ -183,6 +183,68 @@ def test_an_explicit_file_list_does_not_touch_git() -> None:
     assert scope.files == ("src/teamwork/cli.py",)
 
 
+def _git(cwd: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.name=T", "-c", "user.email=t@example.com", *args],
+        cwd=str(cwd),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _repo(tmp_path: Path) -> Path:
+    """A repository whose `main` is one empty commit, so `--local` has a base."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "commit", "-q", "--allow-empty", "-m", "base")
+    return repo
+
+
+def test_an_untracked_source_file_is_a_code_change(tmp_path: Path) -> None:
+    """A path git has never seen still ships: `git diff <base>` alone omits it.
+
+    Before this, a checkout whose only change was a brand-new source file reported
+    an empty change set, so the scope-aware author gate took its skip branch and
+    ran no unit tests exactly when the first file of a new module appeared.
+    """
+    repo = _repo(tmp_path)
+    (repo / "src" / "pkg").mkdir(parents=True)
+    (repo / "src" / "pkg" / "new_code.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    scope = CI_SCOPE.classify_local(repo)
+
+    assert scope.files == ("src/pkg/new_code.py",), scope.reason
+    assert (scope.code, scope.prose) == (True, False), scope.reason
+
+
+def test_an_untracked_scratch_file_is_ignored_and_still_skips(tmp_path: Path) -> None:
+    """`--others --exclude-standard` honours .gitignore, so scratch is not a change."""
+    repo = _repo(tmp_path)
+    (repo / ".gitignore").write_text("Scratch/\n", encoding="utf-8")
+    _git(repo, "add", ".gitignore")
+    _git(repo, "commit", "-q", "-m", "ignore")
+    (repo / "Scratch").mkdir()
+    (repo / "Scratch" / "note.tmp").write_text("x\n", encoding="utf-8")
+
+    scope = CI_SCOPE.classify_local(repo)
+
+    assert "Scratch/note.tmp" not in (scope.files or ()), scope.reason
+    assert (scope.code, scope.prose) == (False, False), scope.reason
+
+
+def test_an_unknown_base_fails_closed_to_code(tmp_path: Path) -> None:
+    """No base to diff against means the change set is unknown, so the gate runs."""
+    repo = tmp_path / "empty"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "trunk")
+
+    scope = CI_SCOPE.classify_local(repo, "main")
+
+    assert scope.code is True and scope.undetermined is True, scope.reason
+
+
 def test_docs_trigger_list_is_the_classifier_prose_set() -> None:
     assert docs_trigger_paths() == CI_SCOPE.prose_paths(), (
         "docs.yml's `paths:` list and scripts/ci_scope.py::PROSE_PATHS disagree; "

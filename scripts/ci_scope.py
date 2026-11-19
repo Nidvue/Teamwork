@@ -184,9 +184,15 @@ def local_change_set(repo: Path, base: str = DEFAULT_BRANCH) -> tuple[str, ...] 
     """The change set of this checkout against ``base``, uncommitted work included.
 
     ``git diff <merge-base>`` compares the fork point to the *working tree*, so one
-    call covers the branch's commits and anything still uncommitted. A checkout
-    that cannot name a base reports ``None``, and the caller treats an unknown
-    change set as code so a gate is never skipped by a broken measurement.
+    call covers the branch's commits and anything already tracked and edited. It
+    does **not** list a path git has never seen, so a new source file that has not
+    been staged yet would read as no change at all and a scope-aware gate would
+    skip the suite exactly when the first file of a new module appears. The
+    untracked set is therefore unioned in from ``git ls-files --others``, which
+    honours ``.gitignore`` so scratch and build output still do not count.
+
+    A checkout that cannot name a base reports ``None``, and the caller treats an
+    unknown change set as code so a gate is never skipped by a broken measurement.
     """
     base_ref = base
     if not _resolves(repo, base_ref):
@@ -202,7 +208,12 @@ def local_change_set(repo: Path, base: str = DEFAULT_BRANCH) -> tuple[str, ...] 
     output = _git(repo, "diff", "--no-renames", "--name-only", merge_base)
     if output is None:
         return None
-    return tuple(line for line in output.splitlines() if line)
+    untracked = _git(repo, "ls-files", "--others", "--exclude-standard")
+    if untracked is None:
+        return None
+    paths = [line for line in output.splitlines() if line]
+    paths += [line for line in untracked.splitlines() if line]
+    return tuple(dict.fromkeys(paths))
 
 
 def classify_local(repo: Path = Path("."), base: str = DEFAULT_BRANCH) -> Scope:
