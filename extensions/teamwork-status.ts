@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 const KEY = "teamwork-status";
@@ -105,23 +106,42 @@ function ancestors(start: string): string[] {
   return out;
 }
 
-function findEngine(cwd: string): string | null {
-  const env = process.env.TEAMWORK_ROOT;
-  const roots = env ? [resolve(env), ...ancestors(cwd)] : ancestors(cwd);
-  for (const root of roots) {
-    const candidate = join(root, ...ENGINE);
-    if (existsSync(candidate)) return candidate;
+type Engine = { engine: string; project: string };
+
+function teamDir(cwd: string): string | null {
+  for (const dir of ancestors(cwd)) {
+    if (existsSync(join(dir, ".pi", "Teamwork", "Teams"))) return dir;
   }
   return null;
 }
 
-function readStatus(engine: string): Promise<Payload | null> {
+function skillEngine(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "skills", "teamwork", ...ENGINE);
+}
+
+function findEngine(cwd: string): Engine | null {
+  const env = process.env.TEAMWORK_ROOT;
+  if (env) {
+    const root = resolve(env);
+    const pinned = join(root, ...ENGINE);
+    if (existsSync(pinned)) return { engine: pinned, project: teamDir(cwd) ?? root };
+  }
+  for (const root of ancestors(cwd)) {
+    const candidate = join(root, ...ENGINE);
+    if (existsSync(candidate)) return { engine: candidate, project: root };
+  }
+  const skill = skillEngine();
+  if (!existsSync(skill)) return null;
+  return { engine: skill, project: teamDir(cwd) ?? cwd };
+}
+
+function readStatus(engine: string, project: string): Promise<Payload | null> {
   const python = process.env.TEAMWORK_PYTHON || "python3";
   return new Promise((settle) => {
     execFile(
       python,
-      [engine, "status", "--json"],
-      { cwd: dirname(dirname(engine)), timeout: 4_000, maxBuffer: 4 << 20 },
+      [engine, "status", "--json", "--project", project],
+      { timeout: 4_000, maxBuffer: 4 << 20 },
       (error, stdout) => {
         if (error) return settle(null);
         try {
@@ -455,10 +475,9 @@ export default function teamworkStatus(pi: ExtensionAPI): void {
       const engine = findEngine(cwd);
       if (!engine) {
         clear(ctx);
-        stop();
         return;
       }
-      const payload = await readStatus(engine);
+      const payload = await readStatus(engine.engine, engine.project);
       if (!payload) {
         ctx.ui.setWidget(KEY, [`${GLYPH.stalled} teamwork: status unavailable`]);
         return;

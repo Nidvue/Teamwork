@@ -156,7 +156,30 @@ def checkout(base: Path) -> Path:
     return project
 
 
-def drive(cwd: Path, wait_ms: int = 8000) -> dict:
+def agent_home(base: Path) -> tuple[Path, Path]:
+    """A host laid out like the pi install: the adapter under `<agent>/extensions`,
+    the engine only under `<agent>/skills/teamwork`, the project somewhere else.
+
+    The engine is never under the project here, which is the shape every repo but
+    the skill checkout has: the hunt has to self-locate the bundle.
+    """
+    agent = base / "Agent"
+    (agent / "extensions").mkdir(parents=True)
+    adapter = agent / "extensions" / "teamwork-status.ts"
+    shutil.copy(EXTENSION, adapter)
+    skill = agent / "skills" / "teamwork"
+    (skill / "scripts").mkdir(parents=True)
+    shutil.copy(ROOT / "scripts" / "teamwork.py", skill / "scripts" / "teamwork.py")
+    (skill / "src").symlink_to(ROOT / "src", target_is_directory=True)
+    project = base / "SkillFixture"
+    team = project / ".pi" / "Teamwork" / "Teams" / "SkillFixture"
+    (team / "Roles" / "Developer").mkdir(parents=True)
+    (team / "Agents" / "Developer").mkdir(parents=True)
+    (team / "Roles" / "Developer" / "TaskQueue.md").write_text(QUEUE)
+    return adapter, project
+
+
+def drive(cwd: Path, wait_ms: int = 8000, extension: Path = EXTENSION) -> dict:
     env = {key: value for key, value in os.environ.items() if key != "TEAMWORK_ROOT"}
     result = subprocess.run(
         [node(), "--experimental-strip-types", "--no-warnings", "-e", DRIVE],
@@ -165,7 +188,7 @@ def drive(cwd: Path, wait_ms: int = 8000) -> dict:
         cwd=ROOT,
         env={
             **env,
-            "TW_EXTENSION": EXTENSION.as_uri(),
+            "TW_EXTENSION": extension.as_uri(),
             "TW_CWD": str(cwd),
             "TW_WAIT": str(wait_ms),
             "TEAMWORK_PYTHON": sys.executable,
@@ -198,6 +221,16 @@ def test_the_widget_paints_the_real_status_payload_and_stops_on_a_stale_ctx(
     )
     assert body["liveAfterStale"] == 0, f"a timer survived a stale ctx: {body}"
     assert body["attempts"] <= 2, f"the stale ctx was retried: {body}"
+
+
+def test_a_skill_only_install_paints_the_team_of_the_session_cwd(tmp_path: Path) -> None:
+    adapter, project = agent_home(tmp_path)
+    body = drive(project, extension=adapter)
+    assert body["paintedFromEngine"], f"a skill-only install drew nothing: {body}"
+    assert any("T-0001" in line for line in body["firstWidget"]), (
+        f"the widget read another project's team: {body['firstWidget']}"
+    )
+    assert body["unhandled"] == 0, f"a rejected refresh escaped: {body}"
 
 
 def test_a_checkout_without_the_engine_paints_nothing_and_does_not_crash(
