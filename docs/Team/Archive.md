@@ -8757,3 +8757,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: python -m pytest -q tests/unit -m "not slow" -> 2783 passed, 8 skipped; python -m mypy src/teamwork -> Success: no issues found
 - findings history: 
 - branch / merge: ceo/t-0005-name-the-tree-under-review-in-the-review / 37e42174
+
+## T-0003 · Adopt the uncommitted lane-status engine self-location work onto its own branch  (ceo)
+- date: 2026-11-19
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: widget
+- self-check: [pass] Adopted work, self-checked on the branch it was committed to. What it does: extensions/teamwork-status.ts resolves the engine from <agent>/skills/teamwork as well as from the project, so the lane widget works in the installed layout every repo except this one has; tests/integration/test_widget_survives.py adds a fixture that lays the host out like the pi install (adapter under <agent>/extensions, engine only under <agent>/skills/teamwork, project elsewhere) and asserts the hunt self-locates. Boundary and the empty/duplicate/second-call case: findEngine now returns {engine, project} instead of a path, and TEAMWORK_ROOT still wins when it is set; with no team directory the widget falls back to the project root it found; a second call re-hunts rather than caching, which is what the widget already did. Contract surface: the extension's exported behaviour is unchanged - same commands, same status line - and only the resolution order gained a fallback; the test file gains one fixture and one test, no existing test changed. Concurrency and shared writes: the widget only reads; the test writes into its own tmp fixture. Exact scope: the two files that were dirty on main with no task and no branch, adopted byte-identically (sha256 verified before and after the copy). Evidence at this revision: pytest -q tests/integration/test_widget_survives.py -> 3 passed; pytest -q tests/unit -m 'not slow' -> 2822 passed, 8 skipped; ruff check . -> All checks passed. What I cannot claim: I did not write this change and cannot vouch for its intent - it is adopted and proven to run, not authored, and the Reviewer should judge it as such. | test: pytest -q tests/integration/test_widget_survives.py -> 3 passed in 3.86s; pytest -q tests/unit -m 'not slow' -> 2822 passed, 8 skipped in 273.87s; ruff check . -> All checks passed | preflight: PF-f325b7288c6c @a714647cad09 (9 checks, 0 failed)
+- author evidence: the L-0019 finding 'pytest integration suite passed with only 2 tests, expected 3' measured the base checkout, not the branch: main collects 2 tests in tests/integration/test_widget_survives.py, the T-0003 worktree collects 3, and the branch adds the third. The review packet now names the tree under review (T-0005), so the re-review cannot repeat it. Branch unchanged at a714647c.
+- reviewer evidence: python -m pytest -q tests/integration/test_widget_survives.py -> 3 passed in 3.83s
+- findings history: detects: test-count mismatch vs expected 3; cannot verify the third widget-survival case | pytest integration suite passed with only 2 tests, expected 3 (2 passed in 2.67s, exit 0)
+- branch / merge: ceo/t-0003-adopt-the-uncommitted-lane-status-engine / pending
