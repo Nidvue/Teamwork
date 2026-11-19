@@ -1447,3 +1447,35 @@ def test_a_lane_that_changes_only_docs_runs_the_base_engine(
     )
 
     assert "changes the engine" not in packet, packet
+
+
+def test_a_lost_lane_that_recorded_no_task_still_releases_its_claim(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A prompt lane holds the claim its whole job was about, and records no task id.
+
+    A Reviewer-2 lane was lost mid-review: the run recorded an empty task, so a
+    matcher keyed on the id left the claim held until its 40-minute lease ran out and
+    the queue could not be re-dispatched. Found in the wild, not in a test.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "ship the contract")
+    review_ready(root)
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["review_claim"] = "Reviewer-1"
+    tasks[0]["review_claim_ts"] = engine.claim_stamp()
+    engine.write_tasks(path, tasks, "developer")
+    lanes.write_run(
+        root,
+        {
+            "id": "L-0001",
+            "agent": "Reviewer-1",
+            "task": "",
+            "state": lanes.LOST,
+            "started": engine.claim_stamp(),
+        },
+    )
+
+    assert lanes.release_dead_review_claims(root) == ["developer/T-0001"]
+    assert not engine.parse_tasks(path)[0].get("review_claim")
