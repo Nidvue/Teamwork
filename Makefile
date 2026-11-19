@@ -43,7 +43,7 @@ format: ## Auto-format the tree and apply safe lint fixes.
 	$(PYTHON) -m ruff format .
 	$(PYTHON) -m ruff check --fix .
 
-typecheck: ## Type-check the runtime with mypy (report-only gate in CI).
+typecheck: ## Type-check the runtime with mypy; the author gate runs it, not just the reviewer.
 	$(PYTHON) -m mypy src/teamwork
 
 test: ## Run the full test suite.
@@ -108,7 +108,7 @@ release-check: lint test selftest sync-check verify release-consistency privacy 
 python-floor: ## Fail when $(PYTHON) is below the supported 3.11 floor.
 	@$(PYTHON) -c "import sys; got = '%d.%d' % sys.version_info[:2]; sys.exit('python-floor: ' + sys.executable + ' is Python ' + got + ', but this project requires 3.11 or newer (pyproject requires-python); pass PYTHON=<interpreter> or run make dev') if sys.version_info < (3, 11) else None"
 
-ci-fast: python-floor lint test-scope ## The single local gate: lint, link health, the docs contract, the team records and the touched suite.
+ci-fast: python-floor lint typecheck test-scope ## The single local gate: lint, types, link health, the docs contract, the team records and the touched suite.
 	$(PYTHON) $(HERE)scripts/teamwork.py links
 	$(PYTHON) -m pytest -q tests/unit/test_docs_contracts.py
 	@base=$$(git rev-parse --git-common-dir 2>/dev/null | xargs -r dirname); \

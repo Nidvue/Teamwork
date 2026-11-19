@@ -313,9 +313,16 @@ Reuse or cite an existing green run on the same revision instead of re-running
 it. Report `BUILD: <command> · built|reused · <seconds>`.
 
 The same rule prices the author gate. `make ci-fast` is `PreflightCommand`: it
-classifies this checkout's own change set (`scripts/ci_scope.py --local`) and runs
-the unit suite only when the set ships code, so a prose-only change set - most
-commits - pays seconds. `make test-fast` is that suite; `make test` is the whole
+runs the formatter check, the linter, **mypy**, the link check, the docs contract,
+the team records (`ledger verify` and `audit --no-gates`), and - classified from
+this checkout's own change set (`scripts/ci_scope.py --local`) - the unit suite
+only when the set ships code, so a prose-only change set - most commits - pays
+seconds.
+
+The type gate belongs to the author, not only to the reviewer: a `standard` review
+profile type-checks, so an author gate without `mypy` is a gate the reviewer will
+pass and the author cannot see. A change-set that shipped `set | None` into `len()`
+passed its own preflight and failed its first review on exactly that line. `make test-fast` is that suite; `make test` is the whole
 suite, and `slow` marks the tests whose cost is the full git history or a real
 process spawn. The Tester records `make test` once per revision and the Reviewer
 cites it, so the full suite is paid once, not three times.

@@ -1856,6 +1856,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     + "\n  ".join(overlap)
                     + "\n  commit it on its task branch first (branch start + commit)"
                 )
+            merged_paths = len(touched) if touched is not None else 0
             print(
                 "# uncommitted work outside docs/ is disjoint from every merged path: "
                 + ", ".join(outside[:3])
@@ -1869,7 +1870,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 pr["task"],
                 f"{pr['id']} merged over uncommitted work disjoint from its own paths: "
                 + ", ".join(outside[:5])
-                + f" (merged paths: {len(touched)})",
+                + f" (merged paths: {merged_paths})",
             )
         was_on = current_branch(here)
         owned = merge_record_paths()
