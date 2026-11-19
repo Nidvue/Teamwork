@@ -3008,3 +3008,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git push origin main -> 2afe09f0..5d2d3e47 main -> main, remote: Bypassed rule violations (PR rule, 23 required checks); before the push at 5d2d3e47: make lint links identity release-consistency -> 0 problems, make selftest verify -> release verified, make docs -> built, make privacy --tree --history --stores -> PASS 0 finding(s), full suite -> 3316 passed, 6 skipped, 0 failed
 - falsified by: -
 - consequences: CI still runs on the SHA; a red run must be routed to its owner. If the forge rule is meant to bind, the bypass list needs the Release Engineer's account removed - that is the owner's call on the host, not a code change.
+
+## D-20261119-CEO - HISTORY REWRITE (operator-directed, recorded because it is...
+
+- date: 2026-11-19
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: HISTORY REWRITE (operator-directed, recorded because it is a red line): replace the operator's personal author/committer pair in 21 author and 23 committer fields, and the two commit bodies that name it, across all 3556 commits. The operator's instruction was 'there should be no where my personal info in this repo'.
+- why: the pair was published before the role-mailbox rule and the allowlist entry accepted it instead of removing it; .mailmap hid it from a display surface but the bytes remained, and a map that names the pair is itself a copy of it - so the only fix that satisfies the instruction is a rewrite of the objects, not a display map
+- evidence: git log --all --format='%an <%ae>' | sort -u -> <redacted-personal-name> <redacted> (21 authors, 23 committers); git log --all -i --grep='<redacted-personal-name>' -> 2 bodies; backup: git bundle create .pi/Backups/pre-identity-rewrite.bundle --all -> 9.3M, pre-rewrite head 4c7abd9c
+- falsified by: if after the rewrite git log --all --format='%an %ae %cn %ce' still matches the pair, or a tracked file still names it, the rewrite was incomplete
+- consequences: -

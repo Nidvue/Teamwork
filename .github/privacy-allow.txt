@@ -85,12 +85,3 @@
 # escaped dot puts a \ after the name.
 ^C:/Users/x$
 ^C:/Users/x\.py$
-# ^ping\.zhao@nidvue\.com$ - the operator's own identity on 21 commits published
-# before the role-mailbox rule took effect (boundary: LEGACY_IDENTITY_BEFORE in
-# src/teamwork/engine.py, D-20261110-CEO-8). The raw objects keep the bytes because
-# published history is protected and rewriting it is a red line, so this entry
-# exempts the *stored* value only. Nothing displays it: `.mailmap` maps the pair to
-# the CEO mailbox, and tests/unit/test_mailmap.py fails when a commit appears that
-# is neither a role mailbox nor mapped. Removing the bytes needs an operator-
-# authorized history rewrite, not a wider allowlist.
-^ping\.zhao@nidvue\.com$
