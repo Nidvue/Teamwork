@@ -866,7 +866,7 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
     assert entries == [
         r"^\.pi/agent/npm$",
         r"^/home/operator$",
-        r"^C:\\Users\\Ping$",
+        r"^C:\\Users\\operator$",
         r"^sk-live-0123456789abcdef0123456789abcdef$",
         r"^hunter2 passphrase$",
         r"^changeme-placeholder$",

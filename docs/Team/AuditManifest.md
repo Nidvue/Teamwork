@@ -5,7 +5,7 @@
 - ledger: 308 records, chain verified: True
 - checkpoint: record #308 (the ledger.export event behind this manifest; later records are work that happened after it)
 - head hash: `ebbeb16adbd7b94a89d778198d078ae1`
-- git: 85519254e258eb30fcc78bacec7be60557c4a384 on main, dirty: False
+- git: 2a056936b7c67958f93736b7878dd3d8592fb3a9 on main, dirty: False
 - externally verifiable artifacts: 4
 - local-only state files: 30
 
