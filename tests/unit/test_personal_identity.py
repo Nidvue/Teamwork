@@ -1,5 +1,8 @@
 """No personal identity may exist in this repository, in a display or in the bytes.
 
+The needles below are assembled at run time on purpose: a test that greps for a
+string must not contain the string it looks for.
+
 The operator's own name and address were published on 21 commits before the
 role-mailbox rule took effect, and an allowlist entry accepted them instead of
 removing them. A `.mailmap` hid the display, but a map that names the pair is itself
@@ -18,7 +21,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 _RE_ROLE_MAILBOX = re.compile(r"^[^<>]+ <[a-z][a-z0-9-]*@agents\.nidvue\.com>$")
 _RE_PERSONAL = re.compile(r"@(?!agents\.nidvue\.com)[a-z0-9.-]+\.[a-z]{2,}$")
-_PERSONAL_WORDS = ("<redacted-personal-name>", "ping.zhao", "operatorhao")
+_PERSON = "ping"
+_PERSONAL_WORDS = (_PERSON + " zhao", _PERSON + ".zhao", _PERSON + "zhao")
 
 
 def _git(*args: str) -> str:
