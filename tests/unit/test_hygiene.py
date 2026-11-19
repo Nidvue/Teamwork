@@ -47,6 +47,7 @@ ROOT_ALLOWLIST = {
     ".github",
     ".gitattributes",
     ".gitignore",
+    ".mailmap",
     ".mypy_cache",
     ".pi",
     ".pytest_cache",

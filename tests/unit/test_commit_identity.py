@@ -240,8 +240,8 @@ def test_the_machine_pair_never_authors_a_commit(tmp_path: Path) -> None:
     project = tmp_path / "repo"
     project.mkdir()
     _git(project, "init", "-q", "-b", "main", ".")
-    _git(project, "config", "user.name", "<redacted-personal-name>")
-    _git(project, "config", "user.email", "<redacted-personal-email>")
+    _git(project, "config", "user.name", "Ambient Person")
+    _git(project, "config", "user.email", "ambient@agents.nidvue.com")
 
     assert names.commit_identity("developer", project) == names.role_identity("developer")
     assert names.commit_identity("ceo", project) == names.role_identity("ceo")
@@ -254,21 +254,23 @@ def test_the_machine_pair_never_authors_a_commit(tmp_path: Path) -> None:
 def test_an_in_domain_personal_pair_is_not_a_canonical_identity(tmp_path: Path) -> None:
     """A local audit must agree with CI about a personal in-domain author.
 
-    ``canonical_identities`` accepted the machine's pair, so a commit authored
-    ``<redacted-personal-name> <<redacted-personal-email>>`` passed ``identity --audit`` locally and
-    failed the same audit on the pushed revision. An address on the project's own
-    domain has to be a role mailbox; an outside contributor is still accepted.
+    ``canonical_identities`` accepted the machine's pair, so a commit authored with
+    an in-domain personal address passed ``identity --audit`` locally and failed the
+    same audit on the pushed revision. An address on the project's own domain has to
+    be a role mailbox; an outside contributor is still accepted. The pair is
+    fabricated: a test that hardcodes a real operator's address is the leak it is
+    testing for.
     """
     from teamwork import engine
 
     project = tmp_path / "repo"
     project.mkdir()
     _git(project, "init", "-q", "-b", "main", ".")
-    _git(project, "config", "user.name", "<redacted-personal-name>")
-    _git(project, "config", "user.email", "<redacted-personal-email>")
+    _git(project, "config", "user.name", "Ambient Person")
+    _git(project, "config", "user.email", "ambient@agents.nidvue.com")
 
     canonical = engine.canonical_identities(project)
-    assert "<redacted-personal-email>" not in canonical
+    assert "ambient@agents.nidvue.com" not in canonical
     assert "developer@agents.nidvue.com" in canonical
 
     _git(project, "config", "user.name", "Outside Contributor")
