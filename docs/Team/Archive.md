@@ -8744,3 +8744,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest -q tests/unit/test_mailmap.py tests/unit/test_hygiene.py tests/unit/test_commit_identity.py -> 67 passed; git log --all --use-mailmap -> NO-PERSONAL-ADDRESS
 - findings history: 
 - branch / merge: ceo/t-0006-map-the-operator-s-published-identity-to / 7bf336f5
+
+## T-0005 · Name the tree under review in the review packet  (ceo)
+- date: 2026-11-19
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: review
+- self-check: [pass] Boundary and the empty/duplicate/second-call case: _review_tree_lines returns the worktree when one exists, and falls back to the worktree-add command when it does not; a task with no branch never reaches it (the caller guards on branch and branch_exists); it is a pure read - task_worktree and Path.is_dir - so a second call prints the same lines and writes nothing. Contract surface: review_packet keeps its signature and every existing line; the block is appended after the diffstat and before the evidence fields, and only when the branch exists. Concurrency and shared writes: it reads a path and a bool, no lock, no write. Exact scope: one file, src/teamwork/engine.py, plus the board render the merge writes. The failure a hostile reviewer would name: that naming a worktree that a lane might delete mid-review makes the instruction stale - the block names the fallback command in the same breath, and the Reviewer has the branch name in the packet header; and that it adds lines to every packet - it adds seven, and the three findings it prevents each cost a 25-minute review round. | test: teamwork.py review ceo T-0003 --packet -> prints '- run every gate in the tree under review', the T-0003 worktree path, 'cd <path>', and the wrong-tree warning; pytest -q tests/unit -m 'not slow' -> 2783 passed, 8 skipped, 60 deselected (in the worktree; 2788 with the board tests in the base checkout); python -m mypy src/teamwork -> Success: no issues found in 35 source files; ruff check . -> All checks passed | preflight: PF-4cfd40fb522c @85a9209c40a6 (9 checks, 0 failed)
+- author evidence: commit 85a9209c
+- reviewer evidence: python -m pytest -q tests/unit -m "not slow" -> 2783 passed, 8 skipped; python -m mypy src/teamwork -> Success: no issues found
+- findings history: 
+- branch / merge: ceo/t-0005-name-the-tree-under-review-in-the-review / pending
