@@ -76,15 +76,26 @@ def test_the_related_line_makes_no_path_claim() -> None:
     assert "../" not in related, "an escaping path in the Related block"
 
 
-def test_the_documents_it_names_exist_where_it_says_they_do() -> None:
-    """An existence check on the documents, not on a path string.
+def test_the_documents_it_names_exist_in_both_layouts(tmp_path: Path) -> None:
+    """An existence check on the documents, in the checkout *and* installed.
 
     The skill says the four live in the teamwork skill's directory: the repository
-    root in the checkout, and beside this skill when installed. Both are checked, so
-    the sentence cannot quietly become false.
+    root in the checkout, and beside this skill when installed. The first version of
+    this test asserted only that `src/teamwork` was a directory for the installed
+    side, so the docstring claimed both layouts and the body proved one - the exact
+    kind of claim this skill exists to stop making. Both are resolved now.
     """
-    named = ["SKILL.md", "references/Roles.md", "references/Evidence.md", "references/Testing.md"]
+    named = ("SKILL.md", "references/Roles.md", "references/Evidence.md", "references/Testing.md")
     for rel in named:
         assert (ROOT / rel).is_file(), f"{rel} is not in the checkout the skill points at"
-    installed_teamwork = ROOT / "src" / "teamwork"
-    assert installed_teamwork.is_dir()
+
+    dest = tmp_path / "skills" / "teamwork"
+    dest.mkdir(parents=True)
+    bundle.sync(ROOT, dest, dry_run=False, quiet=True)
+    bundle.sync_siblings(ROOT, dest, dry_run=False, quiet=True)
+    installed_teamwork = tmp_path / "skills" / "teamwork"
+    for rel in named:
+        assert (installed_teamwork / rel).is_file(), (
+            f"{rel} is not beside the installed companion skill, so the sentence the "
+            "skill makes about where its related documents live is false when installed"
+        )
