@@ -3024,3 +3024,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git log --all --format='%an <%ae>' | sort -u -> the operator's personal pair on 21 author and 23 committer fields (the name and address are not repeated here; that is the point of the entry); git log --all --format='%B' matched 2 bodies; backup: git bundle create .pi/Backups/pre-identity-rewrite.bundle --all -> 9.3M, pre-rewrite head 830c04f0d88f000aa0151c13aeb445530267b5f1; after the rewrite: git log --all --format='%an <%ae>' | sort -u -> role mailboxes only, bodies 0 matches, and tests/unit/test_personal_identity.py -> 4 passed
 - falsified by: if after the rewrite git log --all --format='%an %ae %cn %ce' still matches the pair, or a tracked file still names it, the rewrite was incomplete
 - consequences: -
+
+## D-20261119-CEO-2 - LEDGER RESEAL (operator-directed, recorded because it is a...
+
+- date: 2026-11-19
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: LEDGER RESEAL (operator-directed, recorded because it is a history rewrite of the team's own audit trail): three records in Ledger.jsonl quoted the operator's personal name in a commit detail field. They were redacted and the chain was re-sealed from record 281 to 320.
+- why: the ledger is hash-chained so a record cannot be edited without invalidating every digest after it - which is the property that makes it evidence, and also why no existing command removes content (repair drops the tail, cut preserves the old file byte-identical, and a cut would keep the name on disk). The operator required the name to exist nowhere, so the only remaining option was a deliberate reseal, recorded here so the discontinuity is visible rather than silent: a reader who compares the pre-reseal head to the current one finds this record and its reason.
+- evidence: pre-reseal head a13c2a1433ecf14090958c37c88fb82227cda3ab98c695551bfa36d670a7fc10 at n=320; after redacting 3 record(s) and re-sealing from n=281: head 70c5eb76c5cac87b126184afd2e36a4ec9cececdea45e87bf43f24e474a54099 at n=320; teamwork.py ledger verify -> chain intact, every digest matches; grep -c for the name in Ledger.jsonl -> 0
+- falsified by: if any record before n=281 fails to verify against its own prev, the reseal touched more than the redacted tail; if the pre-reseal head hash above cannot be matched to a bundle, the discontinuity has no witness
+- consequences: -
