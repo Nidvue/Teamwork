@@ -3072,3 +3072,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: ledger #0412/#0414/#0416/#0418 review.pass Reviewer-1 @7c1123ba; L-0026.log 'Provider finish_reason: malformed_function_call' after the pass; L-0027.log 'Request was aborted' at 10m; L-0028 exited 0 in 46s with a 0-byte log; pr set P-0008 --status merged --merge-commit 689b120b14879e3ca850c4c8aa95e58e0ab50f75 --by ceo
 - falsified by: A Reviewer lane that completes a merge on this host makes this fallback unnecessary; retest after the provider instability is fixed.
 - consequences: -
+
+## D-20261120-CEO-2 - the fix reached main without a task-level Reviewer verdict
+
+- date: 2026-11-20
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: no history rewrite; the gap is closed by two Reviewer criteria verifications and the Tester's reproduction at 1bc0db626969, recorded as AC-3
+- why: the merge predates the staffed Reviewer lanes; rewriting published-adjacent history is a red line
+- evidence: criteria list @1bc0db626969 -> AC-3 verified by Tester (pre-fix repro assert 30.022 < 15, post-fix 3 passed); AC-1 by Reviewer-1, AC-2 by Reviewer-2, AC-4 by Reviewer-1
+- falsified by: if loop demanded a review=required task for this deliverable it would still report CONTINUE
+- consequences: -
+
+## D-20261120-CEO-3 - the two local commits stay unpushed until the user authorizes the push
+
+- date: 2026-11-20
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: hold the push; the Release Engineer owns it and CI must be green on the pushed SHA
+- why: pushing published history is external and irreversible from this machine's point of view and no authorization was recorded
+- evidence: git status -sb @1bc0db626969 -> ## main...origin/main [ahead 2]
+- falsified by: -
+- consequences: -
