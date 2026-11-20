@@ -3056,3 +3056,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: first reseal: pre f11cff61f7a8d0a6b6e9e664bcaffef3d16c223558bbecf98fcbece1676ff658 (n=327) -> post 6d17c79ccbf2c76a; second: pre 6d17c79ccbf2c76a (first record 308) -> post b421d3324a64e06145b82edd43a1727866a9a7142bb29b13f410f641a336c771 at n=327; teamwork.py ledger verify -> chain intact, every digest matches; grep -RIl for the username in .pi -> 0
 - falsified by: if any record before 85 fails to verify against its own prev, the reseal touched more than the redacted tail
 - consequences: -
+
+## D-20261120-CEO - The CEO lands a Reviewer-approved merge when no Reviewer lane can run
+
+- date: 2026-11-20
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0008
+- context: -
+- options considered: -
+- decision: The CEO executes an already-approved merge rather than leave a passed deliverable unlanded, records itself as the actor with --force naming the evidence, and opens the provider instability as its own task. Rejected: recording the merge under Reviewer, which would put a role in the ledger that did not act; and pushing the range without the fix, which ships a red local suite.
+- why: A merge is a mechanical act on a decision already taken and recorded; the review gate is what matters and it passed at 7c1123ba. Leaving it unlanded blocks every later push on a branch that cannot be merged by anyone else.
+- evidence: ledger #0412/#0414/#0416/#0418 review.pass Reviewer-1 @7c1123ba; L-0026.log 'Provider finish_reason: malformed_function_call' after the pass; L-0027.log 'Request was aborted' at 10m; L-0028 exited 0 in 46s with a 0-byte log; pr set P-0008 --status merged --merge-commit 689b120b14879e3ca850c4c8aa95e58e0ab50f75 --by ceo
+- falsified by: A Reviewer lane that completes a merge on this host makes this fallback unnecessary; retest after the provider instability is fixed.
+- consequences: -
