@@ -8796,3 +8796,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest tests/integration/test_status_contract.py @0c249f16dd6186a77502063030ee0f70f005ab0a -> 8 passed
 - findings history: 
 - branch / merge: ceo/t-0008-status-agent-empty-case-test-must-not-as / pending
+
+## T-0008 · status --agent empty-case test must not assume the CEO never ran a lane  (ceo)
+- date: 2026-11-20
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: one test function in tests/integration/test_status_contract.py; no product code touched. Empty/duplicate/second-call: the empty case is exactly what changed - the test now derives the instance with no lane row from the same payload it already fetches, so a second call with the same state picks the same instance, and a tree where every instance has a lane skips with a named reason instead of asserting something unmeasurable. Contract surface: the CLI, the JSON schema and counts.lanes are untouched; the assertions are byte-identical. Concurrency/shared writes: reads live team state, writes nothing. Scope: 1 file, 1 function. | test: pytest tests/integration/test_status_contract.py @0c249f16 -> 8 passed in a tree where CEO holds an exited lane row L-0022; preflight ceo T-0008 --run -> pass, 8 checks 0 failed; make ci-fast -> exit 0 | preflight: PF-b36cd7e11f40 @0c249f16dd61 (8 checks, 0 failed)
+- author evidence: commit 8a3fc109
+- reviewer evidence: pytest tests/integration/test_status_contract.py @7c1123ba11c1e550cda9c47e81cc56f91724f8d9 -> 8 passed
+- findings history: 
+- branch / merge: ceo/t-0008-status-agent-empty-case-test-must-not-as / pending
