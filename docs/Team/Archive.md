@@ -8822,3 +8822,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: make ci-fast PYTHON=.venv/bin/python @4c5bda8f0914 -> exit 0
 - findings history: 
 - branch / merge: ceo/t-0009-pr-set-status-merged-leaves-task-merge-c / a6bd1f6c
+
+## T-0001 · Study my-ai-coding-workflow: which review disciplines are machine-enforced here  (ceo)
+- date: 2026-11-20
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: team-records
+- self-check: [pass] boundary: only the enforcement axis was studied, 9 files at the pinned sha, not the whole repo; empty/duplicate case: the axes that looked like gaps (untracked files, test-cmd fail-closed, plan review, privacy deny rules) all map to an existing machine (engine.py:16075 review refuses uncommitted work outside docs/, engine.py:17271 gate fails UNVERIFIED with no PreflightCommand, tests layer plan, hooks.py privacy scan) so the verdict is none, not adopt; second call: a re-run of this study hits K-0001..3 by topic and the rejected D-...-6 stops a second proposal | test: PF-682be3f43d52 @dfb04ed2 -> 8 checks, 0 failed; TS-0006 @dfb04ed2 -> knowledge 3, decisions 2, integration task 1 | preflight: PF-682be3f43d52 @dfb04ed25294 (8 checks, 0 failed)
+- author evidence: commit dfb04ed2
+- reviewer evidence: in the tree under review .pi/.../Worktrees/CEO/T-0001 @dfb04ed2: teamwork.py links -> '# issues: 0'; privacy_scan.py --tree --allow .github/privacy-allow.txt -> 'privacy_scan: PASS - 0 finding(s) in tree'; pytest -q tests/unit/test_docs_contracts.py -> 20 passed; grep -n '20261120' docs/Team/Decisions.md -> D-...-5 at :3124, -6 at :3140, -7 at :3156 (three entries, diff main...HEAD = docs/Team/Decisions.md 48 insertions)
+- findings history: 
+- branch / merge: ceo/t-0001-study-my-ai-coding-workflow-which-review / pending
