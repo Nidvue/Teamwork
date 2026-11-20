@@ -3104,3 +3104,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git status -sb @1bc0db626969 -> ## main...origin/main [ahead 2]
 - falsified by: -
 - consequences: -
+
+## D-20261120-CEO-4 - push main 93a8203e..78f38b51 to origin/main
+
+- date: 2026-11-20
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: push the three local commits; the user authorized it in this turn
+- why: every pre-push gate is green on exactly 78f38b51 and the remote must not keep drifting behind the reviewed fix
+- evidence: user prompt 'push' @2026-11-20; pytest -q @78f38b51 -> 3356 passed, 7 skipped; links -> issues: 0; privacy_scan --tree --history --stores -> PASS 0 findings; identity --audit --strict-authors -> 3 commits problems: 0; mkdocs build --strict -> exit 0
+- falsified by: if CI on 78f38b51 comes back red the stage fails and the run is routed to its owner
+- consequences: -
