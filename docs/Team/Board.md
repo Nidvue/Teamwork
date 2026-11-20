@@ -88,6 +88,7 @@ under two roles is two tasks.
 | ceo | T-0005 | review | done | P-0005 | 37e42174 |
 | ceo | T-0006 | privacy | done | P-0006 | 7bf336f5 |
 | ceo | T-0007 | skill | done | P-0007 | 94447969 |
+| ceo | T-0008 | records | selfcheck | - | - |
 | reviewer | T-0001 | lanes | dropped | - | - |
 | reviewer | T-0002 | lanes | dropped | - | - |
 | reviewer | T-0003 | lanes | dropped | - | - |
@@ -111,6 +112,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0008 · status --agent empty-case test must not assume the CEO never ran a lane | P2 | selfcheck | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
