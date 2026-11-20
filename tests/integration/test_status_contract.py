@@ -258,6 +258,13 @@ def test_agent_filter_keeps_the_lane_count_equal_to_the_rows() -> None:
 
         pytest.skip("no live lane row in this tree, so no filter to measure")
     wanted = payload["lanes"][0]["instance"]
+    laned = {lane["instance"] for lane in payload["lanes"]}
+    idle = [row["instance"] for row in payload["instances"] if row["instance"] not in laned]
+    if not idle:
+        import pytest
+
+        pytest.skip("every instance has a lane row, so the empty case cannot be measured")
+    idle_instance = idle[0]
     done = run(
         [
             sys.executable,
@@ -279,7 +286,7 @@ def test_agent_filter_keeps_the_lane_count_equal_to_the_rows() -> None:
         "counts.lanes describes the rows the same call returns, even when the"
         " narrowed instance has none"
     )
-    _code, empty_lanes = status_json(project, team, "--agent", "CEO")
+    _code, empty_lanes = status_json(project, team, "--agent", idle_instance)
     assert empty_lanes["counts"]["lanes"] == 0 == len(empty_lanes["lanes"]), (
         "an instance with no lane must not inherit the team-wide lane count"
     )
