@@ -84,6 +84,7 @@ under two roles is two tasks.
 | ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
 | developer | T-0001 | evidence-staleness | doing | - | - |
 | developer | T-0002 | team-records | done | P-0002 | f9e0fab2 |
+| developer | T-0003 | lanes | doing | - | - |
 | tester | T-0001 | pi-package | doing | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -103,6 +104,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | developer | T-0001 · Integrate compaction staleness: a cited run that predates a context compaction is stale | P1 | doing | - |
+| developer | T-0003 · Clear the status panel when every seat is idle and nothing is in flight | P2 | doing | - |
 | tester | T-0001 · pack the skill tarball with the resolved npm path, not bare npm | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
