@@ -4,7 +4,7 @@
 dispatched them sees nothing on its own screen: the team works, the display stays
 empty, and no command says why. The picture is a separate one-way adapter - an
 extension that polls ``status --json`` and draws the rows - and it ships inside
-the bundle at ``extensions/teamwork-status.ts``. A second adapter,
+the bundle at ``extensions/tw-status.ts``. A second adapter,
 ``extensions/teamwork-bus.ts``, carries the push side: it registers the session's
 bus address, injects pending mail and refuses a write another live session claims.
 
@@ -34,7 +34,7 @@ from pathlib import Path
 
 from . import bundle
 
-EXT_FILES = ("teamwork-status.ts", "teamwork-bus.ts")
+EXT_FILES = ("tw-status.ts", "teamwork-bus.ts")
 
 EXT_NAME = EXT_FILES[0]
 
@@ -44,7 +44,7 @@ EXT_REL = EXT_DIR / EXT_NAME
 
 BUNDLED = EXT_REL
 
-RETIRED = ("teamwork-lanes.ts",)
+RETIRED = ("teamwork-lanes.ts", "teamwork-status.ts")
 
 SETTINGS_NAME = "settings.json"
 

@@ -24,7 +24,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 BUILD = ROOT / "scripts" / "build_pi_package.py"
-SKILL = "teamwork"
+SKILL = "tw"
 
 
 def pack(tmp_path: Path) -> tuple[Path, Path]:

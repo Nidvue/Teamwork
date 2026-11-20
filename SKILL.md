@@ -1,14 +1,15 @@
 ---
-name: teamwork
-description: "Nidvue Teamwork - run a user prompt to completion with an autonomous multi-agent company: CEO, CTO, COO, CFO, Architect, Product Manager, Project Manager, Designer, Release Engineer, Technical Writer, Data Engineer, Developer(s), Tester(s), Reviewer and Security Auditor. Use when the user invokes /teamwork, asks for a team of sub-agents with roles, wants an org chart of agents that plans, builds, tests and iterates until the goal is met, or wants long-running parallel work with per-agent memory. The user talks only to the CEO; every other agent communicates internally."
+name: tw
+description: "Nidvue Teamwork - run a user prompt to completion with an autonomous multi-agent company: CEO, CTO, COO, CFO, Architect, Product Manager, Project Manager, Designer, Release Engineer, Technical Writer, Data Engineer, Developer(s), Tester(s), Reviewer and Security Auditor. Use when the user invokes /tw, asks for a team of sub-agents with roles, wants an org chart of agents that plans, builds, tests and iterates until the goal is met, or wants long-running parallel work with per-agent memory. The user talks only to the CEO; every other agent communicates internally."
 compatibility: "python3 3.11 or newer on PATH - the engine is stdlib-only, so there is no pip install and no venv; git is required for every branch, commit and PR operation."
 ---
 
-# Nidvue Teamwork - `teamwork` skill
+# Nidvue Teamwork - `tw` skill
 
-> **Nidvue Teamwork** is the product brand; `teamwork` is the command, package and
-> workspace identifier. This is a **skill**, not a standalone application: the
-> engine is a stdlib-only tool the skill calls, and every agent runs through the
+> **Nidvue Teamwork** is the product brand; `tw` is the skill the host loads and
+> the command it maps, while `teamwork` stays the CLI, package and workspace
+> identifier. This is a **skill**, not a standalone application: the engine is a
+> stdlib-only tool the skill calls, and every agent runs through the
 > host's own LLM API with a model configured per agent (`references/Concurrency.md`).
 
 Turn one prompt into a functioning, self-organising team that keeps working until
@@ -19,9 +20,9 @@ parallel. Nothing is ever declared done on an unverified claim.
 ## Usage
 
 ```
-use the teamwork skill: <prompt>       # any host: the skill is loaded by its description
-/teamwork <prompt>                     # where the host maps skills to commands
-/teamwork --team <Name>                # use a specific per-team tree
+use the tw skill: <prompt>       # any host: the skill is loaded by its description
+/tw <prompt>                     # where the host maps skills to commands
+/tw --team <Name>                # use a specific per-team tree
 ```
 
 Anything else after the prompt is an instruction to the CEO in plain language
@@ -582,10 +583,10 @@ the one you need instead of the whole skill.
 | `references/Remotes.md` | git-host integrity: protection, checks, merge, tags |
 | `references/Loops.md` | loops, the task graph, failure routing, who signs off |
 
-## Companion skill: `teamwork-learn`
+## Companion skill: `tw-learn`
 
 One flow is a whole skill of its own, installed beside this one as the
-`teamwork-learn` skill (`/teamwork-learn`): study an outside article, repository,
+`tw-learn` skill (`/tw-learn`): study an outside article, repository,
 file or block of code systematically, compare it against this system, and adopt the
 **mechanism** rather than the expression. Load it when a prompt says "learn from
 this repo", "study how X does it", "compare us against Y" or "what should we adopt
@@ -597,8 +598,8 @@ revision, records the licence before the code, forces the comparison onto one ax
 at a time, requires a decision with a falsifier, and forbids the paste. A study with
 no verdict, no contrast and no revision is a summary, not a deliverable.
 
-`skills/teamwork-learn/SKILL.md` in this checkout is the source; `make sync-skill`
-mirrors it to `<skills>/teamwork-learn` and `sync-check` fails on drift, the same
+`skills/tw-learn/SKILL.md` in this checkout is the source; `make sync-skill`
+mirrors it to `<skills>/tw-learn` and `sync-check` fails on drift, the same
 way the main bundle is kept true.
 
 ## The bus and the claim register

@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
+EXTENSION = ROOT / "extensions" / "tw-status.ts"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 WIDTHS = (40, 80, 120)
 

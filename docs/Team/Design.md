@@ -38,7 +38,7 @@ the reader's own size settings, which is the most user-centred default available
 | A1 | Developers already using a coding agent | "multi-agent frameworks are demos, not teams" | Decide in 15 s whether this is a real, runnable system | Copies the install or quickstart command |
 | A2 | Engineers evaluating CrewAI/AutoGen/MetaGPT/LangGraph/Aider | "I need a comparison, not a slogan" | See the one structural difference that matters | Reads the comparison row and the evidence gate |
 | A3 | Tooling and security reviewers | "agent tools have no audit trail" | Confirm provenance, licensing and privacy posture | Opens the ledger and privacy claims |
-| A4 | Users of any coding agent | "is this just a prompt?" | Recognise a skill they can clone into the host | Clones the skill to `.agents/skills/teamwork` and names it in a request |
+| A4 | Users of any coding agent | "is this just a prompt?" | Recognise a skill they can clone into the host | Clones the skill to `.agents/skills/tw` and names it in a request |
 
 Primary job: **convert a skeptical developer into a first command run.** Everything
 above the fold serves A1; the proof sections serve A2-A4.
@@ -185,7 +185,7 @@ Assertable by a Tester on the merged README.
   command, `fade` reveals output lines, `blink` drives the cursor. Delays are
   absolute so the transcript reads in order in ~7 s.
 - The demo's first line is the skill install (one clone) and its second is the
-  host request `use the teamwork skill: ...` - the product is a skill, so the demo must not open
+  host request `use the tw skill: ...` - the product is a skill, so the demo must not open
   with an app-style `teamwork` subcommand. The engine transcript follows as
   evidence of what the skill does.
 - The banner org chart shows the CEO delegating to Architect, Developer and
@@ -583,7 +583,7 @@ Result: 1 952 B, 180x180, colourtype 2 (RGB), chunks `IHDR IDAT IEND`.
 
 ## 10. Agent-state widget (the pi status surface)
 
-Owner: Designer. The developer-ready spec for `extensions/teamwork-status.ts`:
+Owner: Designer. The developer-ready spec for `extensions/tw-status.ts`:
 what the operator must be able to answer, in what order, in how many lines, and
 what happens when the terminal is too narrow. It consumes `status --json`
 schema 4 and changes no engine behaviour.
@@ -712,7 +712,7 @@ Total `<= 12` lines.
 The overflow line is emitted after the rows: it is
 the last row-bearing line, and no row line follows it. Lane lines
 are drawn **last**, from what is left - the shipped renderer draws them first
-(`extensions/teamwork-status.ts:196`) and that is D-10.
+(`extensions/tw-status.ts:196`) and that is D-10.
 
 **INVARIANTS a Tester asserts** (10.6 names them, nothing else does):
 
@@ -763,11 +763,11 @@ names the delta.
 ### 10.7 Defects measured in this pass
 
 Measured at 2026-11-15 21:06 on the real payload; each is a code change in
-`extensions/teamwork-status.ts` and belongs to its owner, not to this document.
+`extensions/tw-status.ts` and belongs to its owner, not to this document.
 
 | # | defect | where | fix the spec asks for |
 |---|---|---|---|
-| D-1 | at 40 columns a row loses its glyph and instance: `clip()` gives the tail absolute priority (`room <= 0` returns the tail alone) | `extensions/teamwork-status.ts:227` | overflow rule 5: drop the row, never render it headless |
+| D-1 | at 40 columns a row loses its glyph and instance: `clip()` gives the tail absolute priority (`room <= 0` returns the tail alone) | `extensions/tw-status.ts:227` | overflow rule 5: drop the row, never render it headless |
 | D-2 | the optional progress bar makes the tail width per-row, so columns do not align | `bar()`, `:122` | render a fixed 9-column slot even when `progress_pct` is null |
 | D-3 | `provider/model` clipped to 22 reads `deepinfra/deepseek-ai…` on every row: the provider is constant, the model is the signal | `modelLabel()`, `:151` | model name only, provider in the tooltip or dropped |
 | D-4 | the header counts activated/live/review while the footer counts busy/total; `busy` is in neither header count and `activated 14` counts 13 retired seats against 6 live rows | `:191`, `:217` | header carries busy/live/review; `activated` is history |
@@ -858,7 +858,7 @@ applied in order until the line fits:
 The used clock is never dropped above 48 columns: it is H3.
 
 **Payload contract (schema 5).** `render(payload, width)` keeps its signature
-(`extensions/teamwork-status.ts:158`; the shipped file has no third parameter)
+(`extensions/tw-status.ts:158`; the shipped file has no third parameter)
 and schema 4 still renders - a missing field degrades to `-`, never to a crash
 or an invented value.
 
@@ -894,7 +894,7 @@ Requirement is the operator's brief at 2026-11-16 (D-20261116-CEO-2): drop the b
 and the percentage, shorten the realtime text, stop filling every line to the
 edge, and show only the seats that are really live. Every line number below was
 re-derived at this revision (L-0029); 10.8's citations predate the schema-5
-rewrite of `extensions/teamwork-status.ts` and are stale where they disagree.
+rewrite of `extensions/tw-status.ts` and are stale where they disagree.
 
 **The row.** One line, never wrapped, one column fewer than 10.8:
 
@@ -947,7 +947,7 @@ left: `1+1+15+1+7+1+5+1+1+5+1 = 39`; the model tail adds `1+20 = 21`; 10.8's bar
 | D-18 | the activity is clipped at 240 and its cell is padded to the free room, so the model is pushed to the right edge and every row is full width | `ACTIVITY_MAX = 240` `:15`, `:274`, `cell.padEnd(room)` `:339`, `trimEnd()` after the tail `:341` | cap 28, clip at a word boundary, no pad |
 | D-19 | `counts.activated` is history and reads 14 against 1 busy and 6 idle | `activated?: number` `:90`; `status --json`, same stamp | not a roster count; no surface prints it as one |
 | D-20 | the idle aggregate is drawn whenever any seat is idle, finished or not | `if (idle) lines.push(...)` `:396` | deleted - the widget never prints an idle count because a reconciled roster has none; the panel's `- idle: N seat(s)` line keeps its place as the CLI report |
-| D-21 | the extension draws a second surface: a footer status line `teamwork <busy>/<total> busy` repeating the count the header already prints, so two surfaces can disagree | `footer()` `:377` and `ctx.ui.setStatus(KEY, footer(payload))` `:425` @22e00336; repro `grep -n busy extensions/teamwork-status.ts @22e00336` -> `:383 return teamwork ${busy}/${payload.count ?? rows.length} busy` | deleted: the widget is the only surface, the busy count lives in the header, and an unreadable feed renders `⚠ teamwork: status unavailable` inside the widget |
+| D-21 | the extension draws a second surface: a footer status line `teamwork <busy>/<total> busy` repeating the count the header already prints, so two surfaces can disagree | `footer()` `:377` and `ctx.ui.setStatus(KEY, footer(payload))` `:425` @22e00336; repro `grep -n busy extensions/tw-status.ts @22e00336` -> `:383 return teamwork ${busy}/${payload.count ?? rows.length} busy` | deleted: the widget is the only surface, the busy count lives in the header, and an unreadable feed renders `⚠ teamwork: status unavailable` inside the widget |
 
 **Header and counts.** Two counts only, zeros omitted:
 `teamwork · <live> live · <review> review`
@@ -1003,7 +1003,7 @@ question (ambiguous-width shapes) and never a font's emoji decision.
 **Check added to 10.6**: `GLYPH-WIDTH` - every value of the renderer's glyph table
 is outside the emoji-capable blocks (U+2300-U+23FF, U+2600-U+27BF) and is not one
 of the two geometric shapes with emoji presentation (U+25B6, U+25C0). It reads the
-glyph table out of `extensions/teamwork-status.ts`, so a new glyph cannot be added
+glyph table out of `extensions/tw-status.ts`, so a new glyph cannot be added
 without passing it.
 
 ### 10.11 The panel: what the operator decides from it (T-0004/AC-D4, T-0005/AC-D6)

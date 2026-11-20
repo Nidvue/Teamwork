@@ -2,7 +2,7 @@
 
 Why this file exists: the lane log of L-0264 and L-0279 both end with the host
 message "This extension ctx is stale after session replacement or reload" raised
-at `get ui` from `refresh()` in extensions/teamwork-status.ts, followed by
+at `get ui` from `refresh()` in extensions/tw-status.ts, followed by
 `Node.js v26.13.0` - the interval touched a ctx captured at session_start after
 the session was replaced, the rejection reached process level and node exited,
 losing the lane's run. This probe loads the extension with a fake ctx whose `ui`
@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
+EXTENSION = ROOT / "extensions" / "tw-status.ts"
 STALE = (
     "This extension ctx is stale after session replacement or reload. "
     "Do not use a captured pi or command ctx after ctx.newSession()"

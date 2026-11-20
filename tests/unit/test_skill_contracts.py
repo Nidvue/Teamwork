@@ -95,7 +95,7 @@ def test_the_skill_declares_the_agent_skills_contract(root):
     and agree with the interpreter the Python distribution actually supports.
     """
     fields = frontmatter(root / "SKILL.md")
-    assert fields["name"] == "teamwork"
+    assert fields["name"] == "tw"
     assert 0 < len(fields["description"]) <= 1024, "the spec caps the description"
 
     compatibility = fields["compatibility"]
@@ -1388,13 +1388,13 @@ def test_install_is_one_clone_into_the_agent_host(root):
     install = install.split("## 30-second quickstart", 1)[0]
 
     assert "not a standalone" in head, "the README must say what this is not"
-    for host_path in (".agents/skills/teamwork", "~/.agents/skills/teamwork"):
+    for host_path in (".agents/skills/tw", "~/.agents/skills/tw"):
         assert host_path in install, host_path
     assert "git clone --depth 1 https://github.com/Nidvue/Teamwork.git" in install
     assert "npm install @nidvue/teamwork" in install
     assert "docs/guide/install.md" in install, "the README links the full comparison"
-    assert "use the teamwork skill" in readme
-    assert "/teamwork <prompt>" in read(root, "docs", "guide", "install.md")
+    assert "use the tw skill" in readme
+    assert "/tw <prompt>" in read(root, "docs", "guide", "install.md")
 
     guide = read(root, "docs", "guide", "install.md")
     for command in ("pipx install", "uvx --from", "pip install"):
@@ -1404,12 +1404,12 @@ def test_install_is_one_clone_into_the_agent_host(root):
 def test_quickstart_starts_with_the_skill_not_the_cli(root):
     readme = read(root, "README.md")
     quickstart = readme.split("## 30-second quickstart", 1)[1].split("## What you get", 1)[0]
-    assert ".agents/skills/teamwork" in quickstart
-    assert "use the teamwork skill: Build a URL shortener" in quickstart
+    assert ".agents/skills/tw" in quickstart
+    assert "use the tw skill: Build a URL shortener" in quickstart
 
     guide = read(root, "docs", "guide", "quickstart.md")
-    clone_at = guide.index(".agents/skills/teamwork")
-    prompt_at = guide.index("use the teamwork skill: build a small URL shortener")
+    clone_at = guide.index(".agents/skills/tw")
+    prompt_at = guide.index("use the tw skill: build a small URL shortener")
     init_at = guide.index("teamwork init")
     assert clone_at < prompt_at < init_at, "the clone and the prompt must precede the CLI"
 
@@ -1423,11 +1423,11 @@ def test_demo_shows_the_skill_install_and_the_host_prompt(root):
         demo[start:end] for start, end in zip(types, types[1:] + [len(demo)], strict=True)
     )
     assert "git clone --depth 1 https://github.com/Nidvue/Teamwork.git" in first
-    assert "&gt; " in second and "use the teamwork skill:" in second
+    assert "&gt; " in second and "use the tw skill:" in second
     assert "teamwork loop" in third
-    assert ".agents/skills/teamwork" in demo
-    assert "rm -rf .agents/skills/teamwork/.git" in demo
-    assert demo.index("rm -rf .agents/skills/teamwork/.git") < demo.index('class="t2"')
+    assert ".agents/skills/tw" in demo
+    assert "rm -rf .agents/skills/tw/.git" in demo
+    assert demo.index("rm -rf .agents/skills/tw/.git") < demo.index('class="t2"')
     assert "<title" in demo and "<desc" in demo
 
 
@@ -1437,14 +1437,14 @@ def test_docs_home_and_install_guide_are_skill_first(root):
     assert "**Skill** (the product)" in home
 
     guide = read(root, "docs", "guide", "install.md")
-    assert ".agents/skills/teamwork" in guide
+    assert ".agents/skills/tw" in guide
     assert guide.index("## Install the skill") < guide.index("## Optional: install the engine")
 
 
 def test_the_for_agents_guide_gives_install_and_use_instructions(root):
     section = read(root, "docs", "guide", "for-agents.md")
 
-    for host_path in (".agents/skills/teamwork", "~/.agents/skills/teamwork"):
+    for host_path in (".agents/skills/tw", "~/.agents/skills/tw"):
         assert host_path in section, host_path
     assert "scripts/teamwork.py selftest" in section
     for step in ("task next", "selfcheck", "pr open", "loop"):
@@ -1469,8 +1469,8 @@ def test_the_usage_guide_shows_real_cases_for_the_recurring_jobs(root):
         "teamwork model auto",
     ):
         assert command in examples, command
-    assert ".agents/skills/teamwork" in examples
-    assert "use the teamwork skill" in examples
+    assert ".agents/skills/tw" in examples
+    assert "use the tw skill" in examples
 
 
 HOST_PATTERNS = {
@@ -1662,15 +1662,15 @@ def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path)
     subprocess.run(["git", "init", "-q", "."], cwd=project, env=env, check=True)
     (project / ".agents" / "skills").mkdir(parents=True)
     subprocess.run(
-        ["git", "clone", "-q", str(remote), ".agents/skills/teamwork"],
+        ["git", "clone", "-q", str(remote), ".agents/skills/tw"],
         cwd=project,
         env=env,
         check=True,
     )
-    _delete_repository(project / ".agents" / "skills" / "teamwork" / ".git")
+    _delete_repository(project / ".agents" / "skills" / "tw" / ".git")
     subprocess.run(["git", "add", "-A"], cwd=project, env=env, check=True)
     listing = subprocess.run(
-        ["git", "ls-files", "-s", ".agents/skills/teamwork/SKILL.md"],
+        ["git", "ls-files", "-s", ".agents/skills/tw/SKILL.md"],
         cwd=project,
         env=env,
         capture_output=True,
@@ -1683,9 +1683,9 @@ def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path)
     assert problems == [], "\n".join(problems)
 
 
-CLONE_SNIPPET = re.compile(r"git clone[^\n]*\.agents/skills/teamwork")
+CLONE_SNIPPET = re.compile(r"git clone[^\n]*\.agents/skills/tw")
 
-NESTED_GIT_REMOVAL = "rm -rf .agents/skills/teamwork/.git"
+NESTED_GIT_REMOVAL = "rm -rf .agents/skills/tw/.git"
 
 CLONE_DISCOVERY_FILES = ("README.md", "AGENTS.md", "SKILL.md")
 
@@ -1720,7 +1720,7 @@ def clone_install_problems(root: Path) -> list[str]:
     if not pages:
         return ["no page documents the skill clone; the probe would be vacuous"]
     return [
-        f"{rel}: shows `git clone ... .agents/skills/teamwork` but not "
+        f"{rel}: shows `git clone ... .agents/skills/tw` but not "
         f"`{NESTED_GIT_REMOVAL}`, so a reader commits a gitlink"
         for rel, text in pages
         if NESTED_GIT_REMOVAL not in text
@@ -1733,8 +1733,7 @@ def test_a_new_page_documenting_the_clone_without_removing_git_is_reported(
     page = tmp_path / "docs" / "guide" / "new-clone.md"
     page.parent.mkdir(parents=True)
     page.write_text(
-        "# New clone page\n\ngit clone https://github.com/Nidvue/Teamwork.git "
-        ".agents/skills/teamwork\n",
+        "# New clone page\n\ngit clone https://github.com/Nidvue/Teamwork.git .agents/skills/tw\n",
         encoding="utf-8",
     )
 
@@ -1748,7 +1747,7 @@ def test_moving_the_clone_snippet_to_a_new_page_is_still_checked(tmp_path: Path)
     page.parent.mkdir(parents=True)
     page.write_text(
         "# Moved clone\n\ngit clone https://github.com/Nidvue/Teamwork.git "
-        ".agents/skills/teamwork\nrm -rf .agents/skills/teamwork/.git\n",
+        ".agents/skills/tw\nrm -rf .agents/skills/tw/.git\n",
         encoding="utf-8",
     )
     assert [rel for rel, _ in clone_install_pages(tmp_path)] == ["docs/guide/moved-clone.md"]

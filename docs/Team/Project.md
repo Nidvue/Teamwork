@@ -7,7 +7,7 @@ Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md)
 
 ## Objective
 
-Turn the private `teamwork` skill into a self-contained, reusable,
+Turn the private `tw` skill into a self-contained, reusable,
 cross-platform open-source **skill for coding agents**: one directory cloned into
 the host's skill location, with the stdlib-only engine bundled inside it and also
 distributable as the optional `teamwork-agents` package (built and released as a
@@ -111,8 +111,8 @@ released artifact — with no personal data anywhere in the tree or in git histo
       (README, `docs/index.md`, `docs/guide/install.md`, `docs/guide/quickstart.md`,
       `docs/guide/architecture.md`, `assets/demo.svg`, mkdocs nav) installs Teamwork
       by cloning the skill into the host (plain files, nested `.git` dropped) and
-      invokes it by naming the skill - `use the teamwork skill: <prompt>`, or
-      `/teamwork <prompt>` where the host maps skills to commands; the Python
+      invokes it by naming the skill - `use the tw skill: <prompt>`, or
+      `/tw <prompt>` where the host maps skills to commands; the Python
       package appears only as an optional engine; repository URLs use
       `Nidvue/Teamwork` in every tracked file except the historical audit records -
       proof: `tests/unit/test_skill_contracts.py`, `python3 scripts/teamwork.py links`
@@ -442,7 +442,7 @@ what, and is it moving". Contract: [PI-PACKAGING](Pi-Packaging.md) section 4.
 
 Second round (2026-11-15): the operator asked for the same thing **without
 duplicated or redundant information**. Measured at `7390d2f1`: two renderers
-exist - `extensions/teamwork-status.ts` (agents and lanes) and a second,
+exist - `extensions/tw-status.ts` (agents and lanes) and a second,
 lanes-only one under `templates/` (the file this milestone deletes) - and
 `scripts/build_pi_package.py` copies both into
 `dist/@nidvue/teamwork/extensions/`, which `pi.extensions: ["./extensions"]`
@@ -463,7 +463,7 @@ records the engine already writes.
 | criterion | state it asserts | owner | verifier |
 |---|---|---|---|
 | AC-M24-1 | `teamwork.py status` prints, for every instance, its role, `busy`/`idle`, the task id and title it holds when busy, elapsed seconds and a progress signal; `status --json` emits the same as one object with a schema version, each row carrying its live lane's id and state in `lane`/`lane_state`, so no live lane exists only in the `lanes` array | Developer | Reviewer |
-| AC-M24-2 | exactly one teamwork renderer exists in the tree, in the built package and on the host: `extensions/teamwork-status.ts` is shipped under `pi.extensions`, installed by `teamwork.py refresh` and registered once in `settings.json`, and a test fails when a second teamwork renderer file appears in any of those three places | Developer | Reviewer |
+| AC-M24-2 | exactly one teamwork renderer exists in the tree, in the built package and on the host: `extensions/tw-status.ts` is shipped under `pi.extensions`, installed by `teamwork.py refresh` and registered once in `settings.json`, and a test fails when a second teamwork renderer file appears in any of those three places | Developer | Reviewer |
 | AC-M24-3 | the widget shows a live lane exactly once: an instance holding a live lane renders as one row carrying its lane id and lane state, no separate lane block repeats that instance and task, and `tests/unit/test_pi_status_render.py` asserts the row count and that the lane id appears once | Developer | Reviewer |
 | AC-M24-4 | the footer status line carries only what the widget body does not (the busy/total count) and never repeats the header counts, asserted by the renderer test on a payload with busy, idle and live-lane rows | Developer | Reviewer |
 | AC-M24-5 | [PI-PACKAGING](Pi-Packaging.md) section 4 describes the single renderer with its measured output, no document or script names the removed renderer, and `teamwork.py links` reports 0 issues on the merged revision | Developer | Reviewer |
@@ -520,7 +520,7 @@ output written into [PI-PACKAGING](Pi-Packaging.md) 4.
 
 ## Sources
 
-- [The /teamwork skill](https://github.com/Nidvue/Teamwork/blob/main/SKILL.md) - accessed 2026-10-17
+- [The /tw skill](https://github.com/Nidvue/Teamwork/blob/main/SKILL.md) - accessed 2026-10-17
 - [GitHub Actions matrix builds](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs) - accessed 2026-10-17
 - [PyPA: packaging a Python project](https://packaging.python.org/en/latest/tutorials/packaging-projects/) - accessed 2026-10-17
 

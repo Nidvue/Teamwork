@@ -1,11 +1,11 @@
 <!-- BEGIN teamwork -->
-<!-- Managed by the /teamwork skill. The CEO owns this block; agents must obey it. -->
+<!-- Managed by the /tw skill. The CEO owns this block; agents must obey it. -->
 # Teamwork: how this project is staffed and run
 
 An autonomous team runs this project. The **user talks only to the CEO**. Every
 other role talks to its manager, escalates up that line, and goes sideways only
 for a fact a peer holds. Read your charter at `<Team>/Roles/<YourRole>/Role.md` and
-follow it with this file; the full policy is the `/teamwork` skill.
+follow it with this file; the full policy is the `/tw` skill.
 
 ## Team and reporting lines
 

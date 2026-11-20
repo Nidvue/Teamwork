@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560"
      role="img" aria-labelledby="demoTitle demoDesc" xml:space="preserve">
   <title id="demoTitle">Terminal animation: install the skill, then one request that names it</title>
-  <desc id="demoDesc">The skill is installed with a single git clone into the project skills directory. The agent then receives "use the teamwork skill: Build a URL shortener with a CLI, tests and docs": the CEO staffs the roster, writes AGENTS.md, the team documents, role-shared queues and the hash-chained ledger, and the loop gate reports CONTINUE until every acceptance criterion is verified. The same commands are in the README quickstart and in "Common ways to use it".</desc>
+  <desc id="demoDesc">The skill is installed with a single git clone into the project skills directory. The agent then receives "use the tw skill: Build a URL shortener with a CLI, tests and docs": the CEO staffs the roster, writes AGENTS.md, the team documents, role-shared queues and the hash-chained ledger, and the loop gate reports CONTINUE until every acceptance criterion is verified. The same commands are in the README quickstart and in "Common ways to use it".</desc>
 
   <style type="text/css"><![CDATA[
     text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
@@ -50,11 +50,11 @@
   <circle cx="96" cy="43" r="7" fill="#27c93f"/>
   <text x="480" y="49" text-anchor="middle" font-size="15" class="dim">my-project - agent</text>
 
-  <text x="48" y="104" font-size="15" class="t1" clip-path="inset(0 100% 0 0)"><tspan class="prompt">$ </tspan><tspan class="cmd">git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork</tspan></text>
-  <text x="48" y="134" font-size="15" class="t1b" clip-path="inset(0 100% 0 0)"><tspan class="prompt">$ </tspan><tspan class="cmd">rm -rf .agents/skills/teamwork/.git</tspan></text>
+  <text x="48" y="104" font-size="15" class="t1" clip-path="inset(0 100% 0 0)"><tspan class="prompt">$ </tspan><tspan class="cmd">git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw</tspan></text>
+  <text x="48" y="134" font-size="15" class="t1b" clip-path="inset(0 100% 0 0)"><tspan class="prompt">$ </tspan><tspan class="cmd">rm -rf .agents/skills/tw/.git</tspan></text>
   <text x="48" y="164" font-size="15" class="a1"><tspan class="ok">[skill] </tspan><tspan class="out">SKILL.md + 15 role charters + engine - installed, nothing to build</tspan></text>
 
-  <text x="48" y="210" font-size="15" class="t2" clip-path="inset(0 100% 0 0)"><tspan class="prompt">&gt; </tspan><tspan class="cmd">use the teamwork skill: Build a URL shortener with a CLI, tests and docs</tspan></text>
+  <text x="48" y="210" font-size="15" class="t2" clip-path="inset(0 100% 0 0)"><tspan class="prompt">&gt; </tspan><tspan class="cmd">use the tw skill: Build a URL shortener with a CLI, tests and docs</tspan></text>
   <text x="48" y="240" font-size="15" class="a2"><tspan class="ceo">[ceo] </tspan><tspan class="out">objective accepted: 5 roles staffed, 2 lanes running</tspan></text>
   <text x="48" y="270" font-size="15" class="a3"><tspan class="ok">  [ok] </tspan><tspan class="out">AGENTS.md constitution + docs/Team/ project documents</tspan></text>
   <text x="48" y="300" font-size="15" class="a4"><tspan class="ok">  [ok] </tspan><tspan class="out">Roles/ shared queues + Ledger.jsonl hash-chained</tspan></text>

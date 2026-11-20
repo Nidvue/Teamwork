@@ -1,15 +1,15 @@
 ---
-name: teamwork-learn
+name: tw-learn
 description: "Study an external target - an article, a repository, a file, a design doc or a block of code - comprehensively and systematically, compare how it does things against how this team does them, and adopt the mechanism rather than the expression. Use when asked to 'learn from this repo/article/code', 'study how X does it', 'compare us against Y', 'what should we adopt from Z', or to bring an outside idea into the system without copying it."
 ---
 
-# teamwork-learn - study an outside system, adopt its mechanism
+# tw-learn - study an outside system, adopt its mechanism
 
 Owner: CEO. This is the learning procedure: how the team reads something built by
 someone else, decides what is genuinely better, and integrates the idea into its
 own system without copying a line of it.
 
-Related, read alongside: the teamwork skill's own `SKILL.md`, and its
+Related, read alongside: the tw skill's own `SKILL.md`, and its
 `references/Roles.md`, `references/Evidence.md` and `references/Testing.md`.
 
 Those four documents sit in the **teamwork skill's directory** - at the repository

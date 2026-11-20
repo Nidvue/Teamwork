@@ -86,9 +86,9 @@ the file count and the unpacked size move with every edit, so they are read from
 ```text
 @nidvue/teamwork/
 ├── package.json                     # name, pi-package keyword, pi.skills/pi.prompts, peer deps
-├── skills/teamwork/                 # SKILL.md + references/ roles/ templates/ scripts/ src/
+├── skills/tw/                 # SKILL.md + references/ roles/ templates/ scripts/ src/
 ├── prompts/                         # teamwork-pulse.md, teamwork-review.md
-├── extensions/teamwork-status.ts    # the optional live agent widget (no dependency)
+├── extensions/tw-status.ts    # the optional live agent widget (no dependency)
 └── README.md CHANGELOG.md LICENSE NOTICE SECURITY.md
 ```
 
@@ -115,7 +115,7 @@ package and every `scripts/teamwork.py` reference already point there.
 - Parallel lanes each get their own git worktree (`lane start --worktree`,
   `Runtime/Worktrees/<Instance>/<T-id>`) and must commit with explicit `--paths`,
   so no lane sweeps a peer's uncommitted work.
-- The pi package ships the engine under `skills/teamwork/src`, so `python3` and
+- The pi package ships the engine under `skills/tw/src`, so `python3` and
   the standard library are the only runtime requirements - no node dependency.
 - No third-party package is declared, required or suggested: every lane runs
   through `lane start` / `swarm run`, which launch the host CLI itself.
@@ -123,7 +123,7 @@ package and every `scripts/teamwork.py` reference already point there.
 ## The status extension
 
 The package ships one optional pi extension of its own,
-`extensions/teamwork-status.ts`. It renders live agent state from
+`extensions/tw-status.ts`. It renders live agent state from
 `teamwork.py status --json` in the smallest shape that answers "who is working on
 what, and is it moving":
 
@@ -161,7 +161,7 @@ line and never wraps. It never exceeds 24 lines, the footer status line carries
 only the busy/total count the body omits (`teamwork 2/21 busy`) and repeats no
 header count, and it refreshes every 2 s by `execFile`-ing `python3 <engine>
 status --json` at the team tree found by walking up from the session cwd. It is
-silent when no engine is found, and `/teamwork-status` toggles it off and on.
+silent when no engine is found, and `/tw-status` toggles it off and on.
 
 It imports only `node:` built-ins and the host peer packages, so installing the
 package adds no dependency; removing the file changes nothing in the protocol.

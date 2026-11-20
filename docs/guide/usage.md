@@ -13,7 +13,7 @@ team records, and how you check it.
 
 ```console
 $ cd ~/code/url-shortener
-> use the teamwork skill: build a URL shortener - a CLI with shorten and expand,
+> use the tw skill: build a URL shortener - a CLI with shorten and expand,
   SQLite storage, a pytest suite and a README. Keep it dependency-free.
 ```
 
@@ -24,12 +24,12 @@ the lanes. You keep working in the host; the team reports through the CEO.
 
 ```console
 $ cd existing-repo
-$ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork && rm -rf .agents/skills/teamwork/.git
-> use the teamwork skill: add per-key rate limiting to the public API - 100
+$ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw && rm -rf .agents/skills/tw/.git
+> use the tw skill: add per-key rate limiting to the public API - 100
   requests/minute, 429 with Retry-After, and tests that prove the boundary.
 ```
 
-Committing `.agents/skills/teamwork` gives every teammate the same protocol on a
+Committing `.agents/skills/tw` gives every teammate the same protocol on a
 fresh clone. The acceptance criteria become records before any code is written,
 so "done" is the same definition in every session.
 
@@ -37,7 +37,7 @@ so "done" is the same definition in every session.
 
 ```console
 $ cd repo
-> use the teamwork skill: fix the failing CI job on main, prove the fix with the
+> use the tw skill: fix the failing CI job on main, prove the fix with the
   exact test command, and do not touch unrelated files.
 ```
 

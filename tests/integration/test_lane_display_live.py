@@ -1,6 +1,6 @@
 """Live proof that the lane display shows running lanes: two real lanes, one poll.
 
-The pi extension (extensions/teamwork-status.ts) renders only
+The pi extension (extensions/tw-status.ts) renders only
 `lane list --all --json` rows whose `live` is true. This probe starts two real
 lane processes with a stub host command, then asserts the exact command the
 extension runs reports both of them live, with the fields the footer draws.

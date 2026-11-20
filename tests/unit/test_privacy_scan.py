@@ -544,8 +544,8 @@ def test_sensitive_tracked_paths_are_recognised():
 
 def test_project_files_are_not_sensitive_paths():
     allowed = (
-        ".agents/skills/teamwork/SKILL.md",
-        ".claude/skills/teamwork/SKILL.md",
+        ".agents/skills/tw/SKILL.md",
+        ".claude/skills/tw/SKILL.md",
         ".env.example",
         ".env.dist",
         ".env.sample",

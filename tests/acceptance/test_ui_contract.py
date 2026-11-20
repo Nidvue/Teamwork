@@ -35,7 +35,7 @@ def agent(tmp_path: Path) -> Path:
 
 
 def dest(root: Path) -> Path:
-    return root / "skills" / "teamwork"
+    return root / "skills" / "tw"
 
 
 def test_status_is_non_zero_before_anything_is_installed(tmp_path: Path) -> None:

@@ -25,10 +25,10 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
+EXTENSION = ROOT / "extensions" / "tw-status.ts"
 ENGINE = ROOT / "scripts" / "teamwork.py"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
-KEY = "teamwork-status"
+KEY = "tw-status"
 
 RENDER_SCRIPT = """
 const mod = await import(process.env.TW_EXTENSION);

@@ -27,7 +27,7 @@ what your agent can load from them, not in what they do.
 | Channel | Get it with | What you receive | Pick it when |
 |---|---|---|---|
 | **Skill clone** (the product) | the `git clone` in [Install the skill](#install-the-skill) | `SKILL.md`, the role charters, `references/`, `templates/` and the engine, as plain tracked files | Your agent host loads a skill directory |
-| **npm package** | `npm install @nidvue/teamwork`, or your host's own package command | the same skill tree under `skills/teamwork/`, the prompts that ship beside it, and the project notices | Your host resolves skills from the npm registry |
+| **npm package** | `npm install @nidvue/teamwork`, or your host's own package command | the same skill tree under `skills/tw/`, the prompts that ship beside it, and the project notices | Your host resolves skills from the npm registry |
 | **GitHub-release wheel** | [the release asset](#install-from-the-github-release-wheel) | the Python package: the `teamwork` console script and `python -m teamwork` | You want `teamwork` on your PATH |
 | **Source** | `git clone` then `python -m pip install .` | everything, editable | You are working on the engine |
 
@@ -39,15 +39,15 @@ publishes on each face, and how to read the version it currently serves, is in
 
 ```console
 $ mkdir -p .agents/skills
-$ git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
-$ rm -rf .agents/skills/teamwork/.git
+$ git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw
+$ rm -rf .agents/skills/tw/.git
 ```
 
 Dropping the nested `.git` matters: a plain clone inside a repository is recorded
 as a gitlink (a submodule without `.gitmodules`), so a fresh clone of your project
 would contain an empty directory. The skill must be committed as plain files. A
 real submodule is a valid alternative:
-`git submodule add https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork`.
+`git submodule add https://github.com/Nidvue/Teamwork.git .agents/skills/tw`.
 
 That is the whole install: `SKILL.md`, the 16 role charters, `references/`,
 `templates/`, the engine and the docs arrive in one directory.
@@ -57,17 +57,17 @@ host scans, and the portable conventions are:
 
 | Scope | Path | Use it when |
 |---|---|---|
-| Project | `.agents/skills/teamwork/` | Commit it so every teammate, session and worktree gets the same protocol |
-| User | `~/.agents/skills/teamwork/` | The team should be available in every project |
+| Project | `.agents/skills/tw/` | Commit it so every teammate, session and worktree gets the same protocol |
+| User | `~/.agents/skills/tw/` | The team should be available in every project |
 
 If your host names its own skills directory, clone there instead; nothing else
 changes. A host with no skill loader uses the same protocol through `AGENTS.md`
 (`teamwork agents-md`). Where a host maps skills to slash commands, the request
-is `/teamwork <prompt>`; everywhere else, naming the skill in the request loads
+is `/tw <prompt>`; everywhere else, naming the skill in the request loads
 it:
 
 ```text
-> use the teamwork skill: <prompt>
+> use the tw skill: <prompt>
 ```
 
 Re-scan or reload skills after adding the directory. The skill is advertised at
@@ -83,7 +83,7 @@ message, schedule) is in
 
     ```console
     $ teamwork refresh                 # fetch origin/main, then mirror into the host's skills directory
-    $ teamwork refresh --dest ~/.agents/skills/teamwork
+    $ teamwork refresh --dest ~/.agents/skills/tw
     $ teamwork refresh --check          # drift check: writes nothing, exits 1 when stale
     $ teamwork refresh --dry-run        # what it would copy, deletes and writes nothing
     ```
@@ -96,7 +96,7 @@ message, schedule) is in
     created once with `--repo <url>` and updated from then on. The destination
     is resolved from the host's skills directory - `--dest` names one directly
     and `--host` selects a host's default - and the mirror sits beside it:
-    `~/.pi/agent/skills/teamwork` mirrors through
+    `~/.pi/agent/skills/tw` mirrors through
     `~/.pi/agent/.teamwork-source`, and `--host agents` uses
     `~/.agents/.teamwork-source`:
 
@@ -163,7 +163,7 @@ verify them, are listed in [Releases](../releases.md).
 
 The same skill tree is published to the npm registry as `@nidvue/teamwork`, for a
 host that resolves skills from packages rather than from a directory on disk. The
-bundle carries `skills/teamwork/` (the clone's own tree), the prompts that ship
+bundle carries `skills/tw/` (the clone's own tree), the prompts that ship
 beside it and the project notices:
 
 ```console
@@ -278,7 +278,7 @@ Check the skill first: reload the host and confirm the skill is listed. Then
 run the engine's offline smoke check - no network, no workspace needed:
 
 ```console
-$ python3 .agents/skills/teamwork/scripts/teamwork.py selftest
+$ python3 .agents/skills/tw/scripts/teamwork.py selftest
   PASS  bundled skill assets   ok
   PASS  core helpers           ok
   PASS  workspace init         ok
@@ -298,8 +298,8 @@ directory is incomplete; re-clone it.
 ## Uninstall
 
 ```console
-$ rm -rf .agents/skills/teamwork               # the skill (project)
-$ rm -rf ~/.agents/skills/teamwork              # the skill (user)
+$ rm -rf .agents/skills/tw               # the skill (project)
+$ rm -rf ~/.agents/skills/tw              # the skill (user)
 $ python -m pip uninstall teamwork-agents        # the optional engine (pip)
 $ pipx uninstall teamwork-agents                 # the optional engine (pipx)
 ```

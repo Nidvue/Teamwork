@@ -23,11 +23,13 @@ BUNDLE_FILES = ("SKILL.md", "AGENTS.md")
 
 BUNDLE_TREES = ("extensions", "references", "roles", "templates", "scripts", "src")
 
-SIBLING_SKILLS = {"skills/teamwork-learn": "teamwork-learn"}
+SIBLING_SKILLS = {"skills/tw-learn": "tw-learn"}
+
+PREVIOUS_SKILLS = {"tw": "teamwork", "tw-learn": "teamwork-learn"}
 
 HOST_DEFAULTS = {
-    "pi": Path("~/.pi/agent/skills/teamwork"),
-    "agents": Path("~/.agents/skills/teamwork"),
+    "pi": Path("~/.pi/agent/skills/tw"),
+    "agents": Path("~/.agents/skills/tw"),
 }
 
 _SKIP_SUFFIXES = (".pyc", ".pyo")
@@ -118,11 +120,25 @@ def sync(source: Path, dest: Path, *, dry_run: bool, quiet: bool = False) -> int
     return touched
 
 
+def stale_skill_copies(dest: Path) -> list[Path]:
+    """The installed directory a rename leaves behind, if it is still there.
+
+    A host loads every directory in the skills path, so an old copy keeps its
+    command alive next to the renamed one. Deleting another machine's directory
+    from here is not our call; naming it, with what to delete, is.
+    """
+    old = PREVIOUS_SKILLS.get(dest.name)
+    if not old:
+        return []
+    previous = dest.parent / old
+    return [previous] if previous.is_dir() else []
+
+
 def sibling_targets(source: Path, dest: Path) -> list[tuple[Path, Path]]:
     """``(source_dir, dest_dir)`` for every companion skill the bundle ships.
 
     The bundle mirrors one skill directory, so a second skill the teamwork system
-    installs - `teamwork-learn` - has no place inside it. It is a *sibling* of the
+    installs - `tw-learn` - has no place inside it. It is a *sibling* of the
     installed skill, with its own name so the host exposes its own command, and its
     source lives in the checkout under the same relative path. Mirroring it from the
     same manifest is what stops the two copies drifting: a skill the host loads and

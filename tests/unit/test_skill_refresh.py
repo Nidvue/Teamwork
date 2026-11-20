@@ -254,7 +254,7 @@ def test_an_operator_file_in_the_skills_directory_survives(
 def test_without_a_checkout_the_mirror_is_cloned_once_then_updated(
     cli, capsys, checkout: Path, remote: Path, tmp_path: Path
 ) -> None:
-    dest = tmp_path / "skills" / "teamwork"
+    dest = tmp_path / "skills" / "tw"
     code, out = refresh(cli, capsys, "--dest", dest, "--mirror", "--repo", str(remote))
     assert code == 0, out
     mirror = bundle.default_mirror_path(dest)
@@ -283,7 +283,7 @@ def test_an_unrelated_mirror_history_is_recreated_and_mirrored(
     copy kept the old engine and every lane ran the old protocol silently. A
     mirror is disposable state, so the fix recreates it instead of stopping.
     """
-    dest = tmp_path / "skills" / "teamwork"
+    dest = tmp_path / "skills" / "tw"
     mirror = bundle.default_mirror_path(dest)
     mirror.mkdir(parents=True)
     (mirror / "src" / "teamwork").mkdir(parents=True)
@@ -317,7 +317,7 @@ def test_a_force_pushed_remote_history_is_recreated_instead_of_stopping(
     and matching only the first left the tool-managed mirror stuck for good
     (``refresh --check`` -> ``cannot fast-forward 5108b90 -> 4d7c9f7``).
     """
-    dest = tmp_path / "skills" / "teamwork"
+    dest = tmp_path / "skills" / "tw"
     mirror = bundle.default_mirror_path(dest)
     (checkout / "SKILL.md").write_text("# SKILL.md v2\n", encoding="utf-8")
     git(checkout, "commit", "-qam", "v2")
@@ -355,7 +355,7 @@ def test_a_recreated_mirror_keeps_the_remote_name_it_was_given(
     next run with ``no branch or tag main on upstream`` - a one-time stop turned
     into a permanent one for every remote that is not named ``origin``.
     """
-    dest = tmp_path / "skills" / "teamwork"
+    dest = tmp_path / "skills" / "tw"
     mirror = bundle.default_mirror_path(dest)
     mirror.mkdir(parents=True)
     (mirror / "src" / "teamwork").mkdir(parents=True)
@@ -406,7 +406,7 @@ def test_lane_start_names_a_stale_installed_bundle(tmp_path: Path) -> None:
     ahead = git(project, "rev-parse", "--short", "HEAD")
     root = project / ".pi" / "Teamwork" / "Teams" / "Teamwork"
     root.mkdir(parents=True)
-    dest = tmp_path / "skills" / "teamwork"
+    dest = tmp_path / "skills" / "tw"
     dest.mkdir(parents=True)
     (dest / "SKILL.md").write_text("# old\n", encoding="utf-8")
     mirror = bundle.default_mirror_path(dest)
@@ -475,7 +475,7 @@ def test_the_engine_and_the_sync_script_share_one_manifest() -> None:
 
 def add_renderer(checkout: Path) -> Path:
     """Put the lane display extension into a miniature bundle and commit it."""
-    renderer = checkout / "extensions" / "teamwork-status.ts"
+    renderer = checkout / "extensions" / "tw-status.ts"
     renderer.parent.mkdir(parents=True, exist_ok=True)
     renderer.write_text("export default function () {}\n", encoding="utf-8")
     git(checkout, "add", "-A")
@@ -489,14 +489,14 @@ def test_refresh_also_makes_the_host_load_the_lane_display(
     """A mirrored bundle that the host never loads as an extension draws nothing."""
     add_renderer(checkout)
     agent = tmp_path / "agent"
-    dest = agent / "skills" / "teamwork"
+    dest = agent / "skills" / "tw"
 
     code, out = refresh(cli, capsys, "--source", checkout, "--dest", dest)
 
     assert code == 0, out
-    assert (agent / "extensions" / "teamwork-status.ts").is_file(), "the file must reach the host"
+    assert (agent / "extensions" / "tw-status.ts").is_file(), "the file must reach the host"
     settings = json.loads((agent / "settings.json").read_text(encoding="utf-8"))
-    assert settings["extensions"] == ["extensions/teamwork-status.ts"]
+    assert settings["extensions"] == ["extensions/tw-status.ts"]
     assert "lane display" in out
     assert refresh(cli, capsys, "--source", checkout, "--dest", dest, "--check")[0] == 0
 
@@ -506,7 +506,7 @@ def test_refresh_no_ui_mirrors_without_touching_the_host_settings(
 ) -> None:
     add_renderer(checkout)
     agent = tmp_path / "agent"
-    dest = agent / "skills" / "teamwork"
+    dest = agent / "skills" / "tw"
 
     code, out = refresh(cli, capsys, "--source", checkout, "--dest", dest, "--no-ui")
 

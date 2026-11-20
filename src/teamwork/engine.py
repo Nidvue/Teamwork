@@ -19982,6 +19982,8 @@ def cmd_refresh(args) -> int:
             die(f"refresh stopped: {detail}")
         print(f"# source {source.name}: {detail}")
     added, updated, removed = bundle.plan(source, dest)
+    for stale in bundle.stale_skill_copies(dest):
+        print(f"# stale skill copy: {stale} - this skill is now {dest.name}; delete that directory")
     if args.check:
         if added or updated or removed:
             print(

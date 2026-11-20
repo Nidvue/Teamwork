@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
+EXTENSION = ROOT / "extensions" / "tw-status.ts"
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -98,7 +98,7 @@ def feed(busy: int = 3, idle: int = 0, lanes: list[dict] | None = None, review: 
             "role": "developer",
             "state": "busy",
             "task": f"T-00{70 + index}",
-            "title": "pi extension teamwork-status",
+            "title": "pi extension tw-status",
             "elapsed_text": f"{index + 1}m",
             "progress_pct": (index + 1) * 20,
             "last": "tests.run TS-0001 - 76 passed in 35s",
@@ -570,7 +570,7 @@ def test_every_glyph_the_renderer_draws_is_one_cell_wide() -> None:
     `A` for all of them). The row is a fixed-width table, so the class is a defect
     whatever this font decides today.
     """
-    text = (ROOT / "extensions" / "teamwork-status.ts").read_text(encoding="utf-8")
+    text = (ROOT / "extensions" / "tw-status.ts").read_text(encoding="utf-8")
     table = re.search(r"const GLYPH = \{([^}]*)\}", text)
     assert table, "the renderer has no glyph table"
     glyphs = re.findall(r':\s*"([^"]+)"', table.group(1))

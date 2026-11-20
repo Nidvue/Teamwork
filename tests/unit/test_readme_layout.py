@@ -215,9 +215,9 @@ def test_the_quickstart_block_is_a_runnable_install(lines):
         assert len(line) > 2, f"empty command: {line!r}"
     joined = " ".join(commands)
     for required in (
-        "git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork",
-        "rm -rf .agents/skills/teamwork/.git",
-        "use the teamwork skill:",
+        "git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw",
+        "rm -rf .agents/skills/tw/.git",
+        "use the tw skill:",
     ):
         assert required in joined, f"the quickstart lost a step it documents: {required}"
     placeholders = re.findall(r"<[A-Za-z][\w-]*>", " ".join(block))

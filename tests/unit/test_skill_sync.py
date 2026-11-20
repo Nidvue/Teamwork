@@ -1,7 +1,7 @@
 """The installed skill must stay a mirror of the checkout (T-0044).
 
 The repository root *is* the skill, but an agent host loads a copy from its
-skills directory (``~/.pi/agent/skills/teamwork`` on pi). That copy is what every
+skills directory (``~/.pi/agent/skills/tw`` on pi). That copy is what every
 agent actually reads, so a stale copy is a live defect, not a cosmetic one:
 measured before this existed, the installed tree carried an old ``SKILL.md`` and
 was **missing 8 engine modules** - ``config.py``, ``gitutil.py``, ``io.py``,
@@ -174,7 +174,7 @@ def test_syncing_the_real_checkout_into_a_fresh_dir_produces_a_runnable_engine(
     repo_root: Path, tmp_path: Path
 ) -> None:
     """A full copy of the bundle runs the CLI - that is what 'in sync' has to mean."""
-    dest = tmp_path / "skills" / "teamwork"
+    dest = tmp_path / "skills" / "tw"
     assert sync_skill.main(["--dest", str(dest)]) == 0
     assert sync_skill.main(["--dest", str(dest), "--check"]) == 0
     engine = dest / "src" / "teamwork" / "engine.py"

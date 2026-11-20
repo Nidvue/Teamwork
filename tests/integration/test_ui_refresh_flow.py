@@ -22,7 +22,7 @@ from tests.gitenv import child_env
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SYNC = REPO_ROOT / "scripts" / "sync_skill.py"
 SHIM = REPO_ROOT / "scripts" / "teamwork.py"
-RENDERER = "teamwork-status.ts"
+RENDERER = "tw-status.ts"
 BUS = "teamwork-bus.ts"
 
 
@@ -31,7 +31,7 @@ def agent(tmp_path: Path) -> Path:
 
 
 def dest(root: Path) -> Path:
-    return root / "skills" / "teamwork"
+    return root / "skills" / "tw"
 
 
 def run(*argv: str, cwd: Path) -> subprocess.CompletedProcess:

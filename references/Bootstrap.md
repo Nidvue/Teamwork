@@ -2,7 +2,7 @@
 
 Owner: CEO.
 
-Reference for the /teamwork skill. Loaded on demand: `SKILL.md` carries the
+Reference for the /tw skill. Loaded on demand: `SKILL.md` carries the
 always-on contract and the run loop; this file carries the steps a project
 needs once - intake, the workspace, the plan, staffing - and the close.
 

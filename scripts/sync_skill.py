@@ -2,7 +2,7 @@
 """Mirror this checkout's skill bundle into an installed skill directory.
 
 Why: the repository root *is* the skill, but an agent host loads a **copy** from
-its skills directory (``~/.pi/agent/skills/teamwork`` on pi, or whatever the host
+its skills directory (``~/.pi/agent/skills/tw`` on pi, or whatever the host
 names). That copy is what every agent actually reads, so the moment the source
 tree changes the installed copy is stale: the host reads an old ``SKILL.md``, and
 an engine file the tree needs (``config.py``, ``gitutil.py``) is simply absent,

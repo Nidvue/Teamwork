@@ -177,11 +177,11 @@ task title, elapsed time and progress, plus a `# Lanes` block for the recent lan
 `lanes` array; every row names the `model` and `provider` it runs with, so a
 routing mistake is visible in the feed rather than inferred from a log.
 
-The packaged status extension (`extensions/teamwork-status.ts`) renders that feed as a
+The packaged status extension (`extensions/tw-status.ts`) renders that feed as a
 bounded widget - at most 12 lines and 100 columns, one line per lane, busy rows
 before idle, every idle instance collapsed into one counted line - and a footer
 status line with the busy/total count. It refreshes every 5 s, is silent when no
-engine is found, and `/teamwork-status` toggles it. It imports only `node:`
+engine is found, and `/tw-status` toggles it. It imports only `node:`
 built-ins and the host's own packages, so installing it adds no dependency, and
 removing it changes nothing in the protocol.
 

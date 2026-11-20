@@ -16,17 +16,17 @@ portable conventions below work.
 
 | Scope | Convention | When |
 |---|---|---|
-| Project | `.agents/skills/teamwork/` | The team protocol should travel with the repository |
-| User | `~/.agents/skills/teamwork/` | The team should be available in every project |
+| Project | `.agents/skills/tw/` | The team protocol should travel with the repository |
+| User | `~/.agents/skills/tw/` | The team should be available in every project |
 
 ```bash
 # already installed? any hit means yes
-ls .agents/skills/teamwork/SKILL.md ~/.agents/skills/teamwork/SKILL.md 2>/dev/null
+ls .agents/skills/tw/SKILL.md ~/.agents/skills/tw/SKILL.md 2>/dev/null
 
 # not installed: clone once into the directory your host scans
 mkdir -p .agents/skills
-git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
-rm -rf .agents/skills/teamwork/.git   # plain files, not a nested repo
+git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw
+rm -rf .agents/skills/tw/.git   # plain files, not a nested repo
 ```
 
 The installed layout and the optional package channels are compared in
@@ -35,7 +35,7 @@ The installed layout and the optional package channels are compared in
 ## 2. Verify before you promise anything
 
 ```console
-$ python3 .agents/skills/teamwork/scripts/teamwork.py selftest
+$ python3 .agents/skills/tw/scripts/teamwork.py selftest
 teamwork selftest: 5/5 checks passed
 ```
 

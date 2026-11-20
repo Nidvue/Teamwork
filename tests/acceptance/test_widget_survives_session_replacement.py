@@ -1,6 +1,6 @@
 """Acceptance: the status panel survives a session replacement.
 
-The operator-visible promise of the stale-ctx fix (extensions/teamwork-status.ts)
+The operator-visible promise of the stale-ctx fix (extensions/tw-status.ts)
 stated as three scenarios, each driven the way a person meets the widget - the
 shipped extension file, loaded through the host's own registration contract, with
 a session that is replaced and a command the operator types:
@@ -9,7 +9,7 @@ a session that is replaced and a command the operator types:
   refused, nothing is drawn afterwards and node exits clean,
 * a reload gives the panel back: the new session paints again and leaves exactly
   one live refresh timer,
-* the toggle still works: ``teamwork-status`` off clears the panel and stops the
+* the toggle still works: ``tw-status`` off clears the panel and stops the
   timer, and on paints it again.
 
 The payload comes from a stub engine this test writes, so the layer proves the
@@ -31,7 +31,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
+EXTENSION = ROOT / "extensions" / "tw-status.ts"
 
 STUB_ENGINE = """
 import json
@@ -133,7 +133,7 @@ out.timers_after_stale_start = running();
 
 await handlers.get("session_start")({}, live);
 mark = paints.length;
-const toggle = commands.get("teamwork-status").handler;
+const toggle = commands.get("tw-status").handler;
 out.off_threw = await threw(() => toggle("", live));
 out.off_cleared = since(mark).some((lines) => Array.isArray(lines) && lines.length === 0);
 out.timers_after_off = running();

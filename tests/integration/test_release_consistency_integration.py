@@ -305,7 +305,7 @@ PAYLOAD = {
 }
 
 
-def tarball(payload: Mapping[str, str], prefix: str = "package/skills/teamwork") -> bytes:
+def tarball(payload: Mapping[str, str], prefix: str = "package/skills/tw") -> bytes:
     """An npm-shaped ``.tgz`` whose shipped subtree is ``payload``."""
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:

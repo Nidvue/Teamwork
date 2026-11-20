@@ -15,13 +15,13 @@ for readability.
 ```console
 $ mkdir demo && cd demo
 $ mkdir -p .agents/skills
-$ git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
-$ rm -rf .agents/skills/teamwork/.git
+$ git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw
+$ rm -rf .agents/skills/tw/.git
 ```
 
 Dropping the nested `.git` keeps the skill as plain tracked files instead of an
 empty submodule in a fresh clone. Re-scan or reload skills in the host. A
-user-level clone (`~/.agents/skills/teamwork`, keep `.git` to pull updates) works
+user-level clone (`~/.agents/skills/tw`, keep `.git` to pull updates) works
 the same way; if the host names its own skills directory, clone there instead.
 Python 3.11+ runs the bundled engine; there are no dependencies to install.
 Details: [Installation](install.md).
@@ -35,7 +35,7 @@ what it does not publish at all.
 ## 2. Ask for the team
 
 ```text
-> use the teamwork skill: build a small URL shortener with a CLI, tests and docs
+> use the tw skill: build a small URL shortener with a CLI, tests and docs
 ```
 
 The CEO reads the skill, then staffs the roster, records the acceptance criteria,

@@ -28,7 +28,7 @@ import pytest
 from cli_harness import assert_ok, cli
 
 ROSTER = "ceo,architect,developer-1,tester-1,reviewer-1"
-EXTENSION = Path(__file__).resolve().parents[2] / "extensions" / "teamwork-status.ts"
+EXTENSION = Path(__file__).resolve().parents[2] / "extensions" / "tw-status.ts"
 
 NODE_SCRIPT = """
 const { render } = await import(process.env.TW_EXTENSION);

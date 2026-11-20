@@ -1,6 +1,6 @@
 """Why this file exists: ``status --json`` is a machine contract, not a panel.
 
-The pi status widget (`extensions/teamwork-status.ts`) shells out to
+The pi status widget (`extensions/tw-status.ts`) shells out to
 ``teamwork.py status --json`` and renders the fields by name, so a renamed key or a
 non-zero exit on an empty team silently blanks the operator's only live view - the
 widget swallows any failure into "no data". Nothing else in the suite executes the
@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ENGINE = ROOT / "scripts" / "teamwork.py"
 BUILD = ROOT / "scripts" / "build_pi_package.py"
-EXTENSION = "teamwork-status.ts"
+EXTENSION = "tw-status.ts"
 
 ENVELOPE = {"schema", "generated", "count", "counts", "instances", "lanes"}
 ROW = {
@@ -316,7 +316,7 @@ def test_built_package_ships_the_status_extension(tmp_path: Path) -> None:
 
 
 def test_widget_feed_rows_carry_every_field_the_extension_reads(tmp_path: Path) -> None:
-    """The extension reads each row field by name (`extensions/teamwork-status.ts`),
+    """The extension reads each row field by name (`extensions/tw-status.ts`),
     so a row missing one key renders as an empty column, not as an error."""
     project, team = populated(tmp_path)
     code, payload = status_json(project, team)

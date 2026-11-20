@@ -105,7 +105,7 @@ def package_json(ver: str) -> dict:
 
 
 def copy_skill(dest: Path) -> None:
-    skill = dest / "skills" / "teamwork"
+    skill = dest / "skills" / "tw"
     skill.mkdir(parents=True)
     for name in SKILL_FILES:
         shutil.copy2(ROOT / name, skill / name)

@@ -25,7 +25,7 @@ application. Install it like any other skill (one clone, no package manager), th
 ask your agent for the team:
 
 ```text
-> use the teamwork skill: Build a URL shortener with a CLI, tests and docs
+> use the tw skill: Build a URL shortener with a CLI, tests and docs
 ```
 
 That prompt becomes a team of AI agents that plans, builds, tests and
@@ -67,11 +67,11 @@ service, nothing to build:
 ```bash
 # project-local: plain files in your repository, not a nested git repo
 mkdir -p .agents/skills
-git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
-rm -rf .agents/skills/teamwork/.git
+git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw
+rm -rf .agents/skills/tw/.git
 ```
 
-Prefer a user-level install (`~/.agents/skills/teamwork`), a package manager
+Prefer a user-level install (`~/.agents/skills/tw`), a package manager
 (`npm install @nidvue/teamwork`) or the optional engine wheel? [Installation](docs/guide/install.md)
 compares all four channels, their commands and their requirements. Dropping the
 nested `.git` is deliberate: the skill must be committed as plain files, not a
@@ -84,10 +84,10 @@ gitlink.
 #    build; drop the nested .git so the skill is committed as plain files, not a
 #    submodule)
 $ mkdir my-project && cd my-project
-$ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork && rm -rf .agents/skills/teamwork/.git
+$ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw && rm -rf .agents/skills/tw/.git
 
 # 2. ask your agent for the team, from the project root
-> use the teamwork skill: Build a URL shortener with a CLI, tests and docs
+> use the tw skill: Build a URL shortener with a CLI, tests and docs
 ```
 
 The CEO writes `AGENTS.md`, staffs the roster, freezes the interfaces, records

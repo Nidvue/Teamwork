@@ -75,7 +75,7 @@ Design notes
   this repository, which must pass.
 
 Measurement behind ``TARBALL_LAYOUT`` (11.2.3): the npm tarball does *not* keep
-payload-relative paths. ``build_pi_package.copy_skill`` stages ``skills/teamwork/``
+payload-relative paths. ``build_pi_package.copy_skill`` stages ``skills/tw/``
 and ``prompts/`` (= the tag tree's ``templates/pi-package/``). Hashing the tarball where it sits produces a
 digest a tag can never reproduce, so the shipped subtrees are re-laid out under
 their payload paths before hashing. The retired ``skills/teamwork-pi/`` layer stays in
@@ -175,7 +175,7 @@ PAYLOAD_TREES = ("extensions", "references", "roles", "templates", "scripts", "s
 PAYLOAD_EXCLUDES = frozenset({"scripts/build_pi_package.py"})
 
 TARBALL_LAYOUT = (
-    ("skills/teamwork", ""),
+    ("skills/tw", ""),
     ("skills/teamwork-pi", "templates/pi-package/skills/teamwork-pi"),
     ("prompts", "templates/pi-package/prompts"),
     ("extensions", "extensions"),
@@ -689,7 +689,7 @@ def payload_digest(root: Path, rev: str | None) -> str:
 def _tarball_payload_digest(blob: bytes) -> str:
     """Digest of an npm tarball's shipped payload, on the payload's own paths.
 
-    11.2.3 publishes the tarball as ``package/skills/teamwork/`` and
+    11.2.3 publishes the tarball as ``package/skills/tw/`` and
     ``package/prompts/`` (see ``build_pi_package.copy_skill``). A tag tree keeps
     ``prompts/`` under ``templates/pi-package/``. The paths are therefore *mapped back* to the
     repository's payload layout before hashing - without the map a tag tree and a

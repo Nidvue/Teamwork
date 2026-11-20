@@ -30,7 +30,7 @@ import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 
-DEMO_COMMAND = "use the teamwork skill"
+DEMO_COMMAND = "use the tw skill"
 
 
 class ImageScan(HTMLParser):

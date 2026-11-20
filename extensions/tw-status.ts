@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-const KEY = "teamwork-status";
+const KEY = "tw-status";
 const REFRESH_MS = 2_000;
 const BUDGET = 12;
 const TITLE_MAX = 32;
@@ -116,7 +116,7 @@ function teamDir(cwd: string): string | null {
 }
 
 function skillEngine(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), "..", "skills", "teamwork", ...ENGINE);
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "skills", "tw", ...ENGINE);
 }
 
 function findEngine(cwd: string): Engine | null {
@@ -512,7 +512,7 @@ export default function teamworkStatus(pi: ExtensionAPI): void {
     context = null;
   });
 
-  pi.registerCommand("teamwork-status", {
+  pi.registerCommand("tw-status", {
     description: "toggle the live teamwork agent widget",
     handler: async (_args: string, ctx: ExtensionContext) => {
       if (!live(ctx)) return;

@@ -2,7 +2,7 @@
 
 Owner: Architect.
 
-Reference for the /teamwork skill. Loaded on demand; `SKILL.md` keeps the
+Reference for the /tw skill. Loaded on demand; `SKILL.md` keeps the
 operating procedure.
 
 Related: [SKILL](../SKILL.md)

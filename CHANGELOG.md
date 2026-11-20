@@ -9,6 +9,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The three installed skills are now `tw`, `tw-learn` and `tw-status`** - the host
+  command becomes `/tw`, and `teamwork` stays the CLI, the npm package name and the
+  workspace identifier, so no engine command changes. `refresh` names an installed
+  copy still sitting at the old path so it can be deleted, the extension installer
+  retires `teamwork-status.ts` from the host's `extensions` list, and
+  `tests/unit/test_skill_contracts.py` plus `tests/unit/test_pi_package.py` pin the
+  new names.
+
 ## [1.6.0] - 2026-11-17
 
 ### Fixed

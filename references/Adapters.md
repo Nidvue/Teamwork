@@ -27,7 +27,7 @@ host-private teammate tool.
 **A display adapter is optional and one-way.** `status --json` emits the reconciled
 table (instance, role, busy/idle, the task and lane it holds, elapsed, progress,
 model) so a host can *show* the wave. The shipped pi package carries one such
-renderer, `extensions/teamwork-status.ts`: a widget above the editor and a footer
+renderer, `extensions/tw-status.ts`: a widget above the editor and a footer
 status, polling that command every 2 s. It reads and draws only - it never starts,
 steers or stops a lane, so the engine stays the single source of truth and a host
 without it loses nothing but the picture. `TEAMWORK_ROOT` pins the repository,
@@ -37,7 +37,7 @@ without it loses nothing but the picture. `TEAMWORK_ROOT` pins the repository,
 directory and its `settings.json`, never from a skills directory, so a skill-only
 install carries the renderer and still draws nothing. `teamwork.py ui install`
 copies the shipped file to `<agent>/extensions/` and appends
-`extensions/teamwork-status.ts` to `<agent>/settings.json` once; `ui status`
+`extensions/tw-status.ts` to `<agent>/settings.json` once; `ui status`
 reports both halves without writing and fails when the host would draw nothing.
 `refresh` and `scripts/sync_skill.py` run the same install after mirroring, and
 their `--check` fails on a display the host would not load (`refresh --no-ui`
@@ -182,7 +182,7 @@ to follow the remote. One command owns that on every host:
 ```sh
 teamwork refresh            # fetch origin/main, then mirror into the host's skills dir
 teamwork refresh --check    # drift only, writes nothing, exit 1 when stale
-teamwork refresh --dest ~/.agents/skills/teamwork   # another host's directory
+teamwork refresh --dest ~/.agents/skills/tw   # another host's directory
 teamwork refresh --mirror --repo <url>             # no checkout yet: create the mirror once
 ```
 

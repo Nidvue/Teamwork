@@ -16,7 +16,7 @@ yourself instead of taking it on trust.
 |---|---|---|
 | **Tag** | `v<version>` on `main`. The pipeline refuses a tag whose number disagrees with `src/teamwork/version.py`, so the tag and the build cannot drift apart. | `git tag -l --sort=-v:refname \| head -1` |
 | **GitHub Release** | the wheel, the sdist, **one** `SHA256SUMS` covering both artefacts and both SBOMs, `sbom.cyclonedx.json`, `sbom.spdx.json`, and a build-provenance attestation | [Releases](https://github.com/Nidvue/Teamwork/releases) - accessed 2026-10-28 |
-| **npm package** | `@nidvue/teamwork`: `skills/teamwork/` - the same skill tree the clone installs - the prompts that ship beside it, and the project notices, published with `--provenance` | [npm](https://www.npmjs.com/package/@nidvue/teamwork) - accessed 2026-10-28 |
+| **npm package** | `@nidvue/teamwork`: `skills/tw/` - the same skill tree the clone installs - the prompts that ship beside it, and the project notices, published with `--provenance` | [npm](https://www.npmjs.com/package/@nidvue/teamwork) - accessed 2026-10-28 |
 | **Site** | this documentation site, rebuilt and deployed from the tagged revision | [teamwork.nidvue.com](https://teamwork.nidvue.com/) - accessed 2026-10-28 |
 
 `.github/workflows/release.yml` is the release pipeline: it runs the release
@@ -41,8 +41,8 @@ $ python -m pip install "https://github.com/Nidvue/Teamwork/releases/download/$t
 $ npm install @nidvue/teamwork
 
 # the skill as a plain directory (the product; no package manager involved)
-$ git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
-$ rm -rf .agents/skills/teamwork/.git
+$ git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw
+$ rm -rf .agents/skills/tw/.git
 ```
 
 None of those commands names a version: each resolves the tag or the registry

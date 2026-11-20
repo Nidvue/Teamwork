@@ -19,7 +19,7 @@ installing the engine as a Python package is optional.
 
 | Face | What it means |
 |---|---|
-| **Skill** (the product) | `SKILL.md`, `roles/`, `references/`, `templates/` and the engine in one directory, cloned into the skills directory an agent host scans (project `.agents/skills/teamwork/` or user `~/.agents/skills/teamwork/`). Hosts without a skill loader use the same protocol through `AGENTS.md`. Invoked by naming the skill in the request. |
+| **Skill** (the product) | `SKILL.md`, `roles/`, `references/`, `templates/` and the engine in one directory, cloned into the skills directory an agent host scans (project `.agents/skills/tw/` or user `~/.agents/skills/tw/`). Hosts without a skill loader use the same protocol through `AGENTS.md`. Invoked by naming the skill in the request. |
 | **Engine** (optional CLI) | `src/teamwork/`, exposing the `teamwork` console script and `python -m teamwork`. No third-party runtime dependencies. The skill runs the same engine from its own directory. It ships through three package channels - npm (`@nidvue/teamwork`), the GitHub-release wheel, and source - and the `teamwork-agents` distribution name exists but is **not yet on PyPI**, so index commands do not resolve. [Releases](releases.md) says what each channel carries. |
 | **Workspace format** | Markdown and JSON under `<project>/.pi/Teamwork/Teams/<Team>/`, hidden and local; project output is committed. |
 
@@ -50,8 +50,8 @@ One engine backs all three; the skill is how people install and use it.
 
 ```console
 $ mkdir my-project && cd my-project
-$ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork && rm -rf .agents/skills/teamwork/.git
-> use the teamwork skill: build a URL shortener with a CLI, tests and docs
+$ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/tw && rm -rf .agents/skills/tw/.git
+> use the tw skill: build a URL shortener with a CLI, tests and docs
 ```
 
 One clone installs the skill; the prompt starts the company. The CEO writes

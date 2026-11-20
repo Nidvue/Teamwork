@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
+EXTENSION = ROOT / "extensions" / "tw-status.ts"
 
 DRIVE = """
 const mod = await import(process.env.TW_EXTENSION);
@@ -82,7 +82,7 @@ if (tick) {
 await wait(200);
 const liveAfterStaleTick = running();
 try {
-  await commands.get("teamwork-status").handler("", dead);
+  await commands.get("tw-status").handler("", dead);
 } catch {
   commandThrew += 1;
 }
@@ -158,16 +158,16 @@ def checkout(base: Path) -> Path:
 
 def agent_home(base: Path) -> tuple[Path, Path]:
     """A host laid out like the pi install: the adapter under `<agent>/extensions`,
-    the engine only under `<agent>/skills/teamwork`, the project somewhere else.
+    the engine only under `<agent>/skills/tw`, the project somewhere else.
 
     The engine is never under the project here, which is the shape every repo but
     the skill checkout has: the hunt has to self-locate the bundle.
     """
     agent = base / "Agent"
     (agent / "extensions").mkdir(parents=True)
-    adapter = agent / "extensions" / "teamwork-status.ts"
+    adapter = agent / "extensions" / "tw-status.ts"
     shutil.copy(EXTENSION, adapter)
-    skill = agent / "skills" / "teamwork"
+    skill = agent / "skills" / "tw"
     (skill / "scripts").mkdir(parents=True)
     shutil.copy(ROOT / "scripts" / "teamwork.py", skill / "scripts" / "teamwork.py")
     (skill / "src").symlink_to(ROOT / "src", target_is_directory=True)

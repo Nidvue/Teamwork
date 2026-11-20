@@ -240,7 +240,7 @@ plus 8 engine modules that were simply missing.
    skills directory, one level higher when that directory is literally named
    `skills`. The destination is resolved from the host's skills directory -
    `--dest` names one directly, `--host` selects a host's default - so
-   `~/.pi/agent/skills/teamwork` mirrors through
+   `~/.pi/agent/skills/tw` mirrors through
    `~/.pi/agent/.teamwork-source`, and `--host agents` uses
    `~/.agents/.teamwork-source`.
 2. In a checkout: fetch `--remote/--branch` and fast-forward. A dirty tree is

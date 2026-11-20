@@ -25,7 +25,7 @@ import pytest
 
 from teamwork import lanedisplay
 
-RENDERER = Path("extensions") / "teamwork-status.ts"
+RENDERER = Path("extensions") / "tw-status.ts"
 
 BUS = Path("extensions") / "teamwork-bus.ts"
 
@@ -41,7 +41,7 @@ def skill(tmp_path: Path) -> Path:
 
 def host(tmp_path: Path) -> Path:
     """The host shape the agent directory is derived from."""
-    return tmp_path / "agent" / "skills" / "teamwork"
+    return tmp_path / "agent" / "skills" / "tw"
 
 
 def test_the_repository_ships_the_renderer() -> None:
@@ -67,13 +67,13 @@ def test_install_copies_the_renderer_and_registers_it_once(tmp_path: Path) -> No
     assert state.target.read_text(encoding="utf-8") == "export default function () {}\n"
     written = json.loads(settings.read_text(encoding="utf-8"))
     assert written["theme"] == "dark", "an unrelated setting is never dropped"
-    assert written["extensions"] == ["extensions/other.ts", "extensions/teamwork-status.ts"]
+    assert written["extensions"] == ["extensions/other.ts", "extensions/tw-status.ts"]
 
     again = lanedisplay.install(skill(tmp_path), skills=str(dest))
     assert again.live
     assert json.loads(settings.read_text(encoding="utf-8"))["extensions"] == [
         "extensions/other.ts",
-        "extensions/teamwork-status.ts",
+        "extensions/tw-status.ts",
     ], "a second install must not append the entry twice"
 
 
@@ -82,7 +82,7 @@ def test_a_settings_entry_in_another_spelling_is_already_registered(tmp_path: Pa
     dest.mkdir(parents=True)
     settings = dest.parent.parent / "settings.json"
     settings.write_text(
-        json.dumps({"extensions": ["/abs/path/extensions/teamwork-status.ts"]}),
+        json.dumps({"extensions": ["/abs/path/extensions/tw-status.ts"]}),
         encoding="utf-8",
     )
 
@@ -90,7 +90,7 @@ def test_a_settings_entry_in_another_spelling_is_already_registered(tmp_path: Pa
 
     assert state.registered
     assert json.loads(settings.read_text(encoding="utf-8"))["extensions"] == [
-        "/abs/path/extensions/teamwork-status.ts"
+        "/abs/path/extensions/tw-status.ts"
     ]
 
 
@@ -152,10 +152,10 @@ def test_the_cli_installs_and_then_reports_a_live_display(tmp_path: Path, cli) -
 def test_a_built_host_package_declares_its_own_extension(tmp_path: Path) -> None:
     """A package that ships ``extensions/`` beside ``skills/`` needs no install."""
     package = tmp_path / "package"
-    skill_dir = package / "skills" / "teamwork"
+    skill_dir = package / "skills" / "tw"
     skill_dir.mkdir(parents=True)
     (package / "extensions").mkdir()
-    (package / "extensions" / "teamwork-status.ts").write_text("x\n", encoding="utf-8")
+    (package / "extensions" / "tw-status.ts").write_text("x\n", encoding="utf-8")
 
     state = lanedisplay.status(skill_dir, skills=str(skill_dir))
 
@@ -180,7 +180,7 @@ def test_a_host_carrying_the_retired_renderer_is_cleaned_on_install(tmp_path: Pa
     assert state.live, state.detail
     assert not stale.exists(), "the host must load one renderer, not two"
     assert json.loads(settings.read_text(encoding="utf-8"))["extensions"] == [
-        "extensions/teamwork-status.ts"
+        "extensions/tw-status.ts"
     ]
 
 
@@ -191,7 +191,7 @@ def test_the_tree_ships_exactly_one_teamwork_renderer() -> None:
         for path in root.glob("extensions/*.ts")
         if "setWidget" in path.read_text(encoding="utf-8")
     )
-    assert shipped == ["extensions/teamwork-status.ts"], shipped
+    assert shipped == ["extensions/tw-status.ts"], shipped
     assert not (root / "templates" / "pi-package" / "extensions").exists(), (
         "the second renderer tree is gone, not merely unloaded"
     )
@@ -202,7 +202,7 @@ def pair(tmp_path: Path) -> Path:
     root = tmp_path / "bundle"
     folder = root / "extensions"
     folder.mkdir(parents=True, exist_ok=True)
-    for name in ("teamwork-status.ts", "teamwork-bus.ts"):
+    for name in ("tw-status.ts", "teamwork-bus.ts"):
         (folder / name).write_text("export default function () {}\n", encoding="utf-8")
     return root
 
@@ -215,10 +215,10 @@ def test_install_registers_every_shipped_adapter(tmp_path: Path) -> None:
     state = lanedisplay.install(pair(tmp_path), skills=str(dest))
 
     assert state.ok and state.live, state.detail
-    assert [path.name for path in state.files] == ["teamwork-status.ts", "teamwork-bus.ts"]
+    assert [path.name for path in state.files] == ["tw-status.ts", "teamwork-bus.ts"]
     written = json.loads(settings.read_text(encoding="utf-8"))
     assert written["extensions"] == [
-        "extensions/teamwork-status.ts",
+        "extensions/tw-status.ts",
         "extensions/teamwork-bus.ts",
     ]
 
@@ -232,9 +232,7 @@ def test_a_half_registered_pair_is_not_live(tmp_path: Path) -> None:
     dest.mkdir(parents=True)
     settings = dest.parent.parent / "settings.json"
     lanedisplay.install(pair(tmp_path), skills=str(dest))
-    settings.write_text(
-        json.dumps({"extensions": ["extensions/teamwork-status.ts"]}), encoding="utf-8"
-    )
+    settings.write_text(json.dumps({"extensions": ["extensions/tw-status.ts"]}), encoding="utf-8")
 
     state = lanedisplay.status(pair(tmp_path), skills=str(dest))
 
@@ -435,7 +433,7 @@ def test_ensure_writes_nothing_in_ci_or_without_a_host_directory(
     assert not (dest.parent.parent / "extensions").exists()
 
     monkeypatch.delenv("CI")
-    absent = tmp_path / "nowhere" / "skills" / "teamwork"
+    absent = tmp_path / "nowhere" / "skills" / "tw"
 
     assert "no agent directory" in lanedisplay.ensure(skill(tmp_path), skills=str(absent))
 

@@ -193,7 +193,7 @@ def test_the_demo_transcript_shows_the_commands_the_quickstart_documents(root, r
     block = quickstart.group(1)
     clone = re.search(r"git clone --depth 1 \S+ \S+", block)
     assert clone, "the quickstart no longer shows a clone command"
-    request = re.search(r"^> (use the teamwork skill: .+)$", block, re.MULTILINE)
+    request = re.search(r"^> (use the tw skill: .+)$", block, re.MULTILINE)
     assert request, "the quickstart no longer shows the request that starts the team"
     wanted_request = f"> {request.group(1).strip()}"
 

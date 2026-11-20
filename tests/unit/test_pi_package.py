@@ -110,20 +110,18 @@ def test_the_package_declares_no_third_party_package(tmp_path: Path) -> None:
     )
 
     skills = sorted(p.name for p in (pkg / "skills").iterdir() if p.is_dir())
-    assert skills == ["teamwork"], f"the package ships exactly one skill: {skills}"
+    assert skills == ["tw"], f"the package ships exactly one skill: {skills}"
     manifests = sorted(p.relative_to(pkg).as_posix() for p in (pkg / "skills").rglob("SKILL.md"))
-    assert manifests == ["skills/teamwork/SKILL.md"], manifests
+    assert manifests == ["skills/tw/SKILL.md"], manifests
     assert manifest["pi"]["skills"] == ["./skills"]
-    portable = (pkg / "skills" / "teamwork" / "SKILL.md").read_text(encoding="utf-8")
+    portable = (pkg / "skills" / "tw" / "SKILL.md").read_text(encoding="utf-8")
     for tool in ("subagent(", "schedule.create"):
         assert tool not in portable, tool
 
 
 def test_the_pi_layer_is_not_shipped_twice(tmp_path: Path) -> None:
     pkg = build(tmp_path)
-    adapters = (pkg / "skills" / "teamwork" / "references" / "Adapters.md").read_text(
-        encoding="utf-8"
-    )
+    adapters = (pkg / "skills" / "tw" / "references" / "Adapters.md").read_text(encoding="utf-8")
     for heading in (
         "## Packet shape that survives a bounded lane",
         "## Rules that cost us real time",
@@ -135,7 +133,7 @@ def test_the_pi_layer_is_not_shipped_twice(tmp_path: Path) -> None:
 def test_engine_and_skill_are_runnable_from_the_tarball(tmp_path: Path) -> None:
     """A pi package with no node dependency must still run the engine it ships."""
     pkg = build(tmp_path)
-    engine = pkg / "skills" / "teamwork" / "scripts" / "teamwork.py"
+    engine = pkg / "skills" / "tw" / "scripts" / "teamwork.py"
     assert engine.is_file()
     done = subprocess.run(
         [sys.executable, str(engine), "--version"], capture_output=True, text=True
@@ -250,9 +248,9 @@ def test_the_status_extension_ships_and_imports_only_host_peers(tmp_path: Path) 
 
     assert manifest["pi"]["extensions"] == ["./extensions"]
     assert "extensions" in manifest["files"], "npm drops a directory the files list omits"
-    assert (pkg / "extensions" / "teamwork-status.ts").is_file()
+    assert (pkg / "extensions" / "tw-status.ts").is_file()
 
-    source = (pkg / "extensions" / "teamwork-status.ts").read_text(encoding="utf-8")
+    source = (pkg / "extensions" / "tw-status.ts").read_text(encoding="utf-8")
     assert "status" in source and "--json" in source, "the widget must read the status feed"
     imports = re.findall(r'from\s+"([^"]+)"', source)
     assert imports, "the extension imports nothing, so it cannot compile"

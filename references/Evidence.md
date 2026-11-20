@@ -2,7 +2,7 @@
 
 Owner: CEO.
 
-Reference for the /teamwork skill. Loaded on demand; `SKILL.md` keeps the
+Reference for the /tw skill. Loaded on demand; `SKILL.md` keeps the
 operating procedure.
 
 Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.md) | [State](State.md) | [Concurrency](Concurrency.md) | [Roles](Roles.md) | [Testing](Testing.md) | [Audit](Audit.md) | [Coordination](Coordination.md)

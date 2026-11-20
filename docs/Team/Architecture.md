@@ -11,7 +11,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Decis
 
 1. **A skill** - `SKILL.md`, `roles/`, `references/`, `templates/` at the
    repository root, loadable from a project or user skills directory
-   (`.agents/skills/teamwork`).
+   (`.agents/skills/tw`).
 2. **A Python package** - `src/teamwork/`, installable with `pip install .`,
    exposing the `teamwork` console script and `python -m teamwork`.
 3. **A workspace format** - markdown + JSON under
@@ -1207,7 +1207,7 @@ applied to every npm version, never per-version:
 
 | Tarball prefix (under `package/`) | Payload prefix | Produced by |
 |---|---|---|
-| `skills/teamwork/` | `` (payload root) | `copy_skill`, the portable skill, `SKILL_FILES` + `SKILL_TREES` |
+| `skills/tw/` | `` (payload root) | `copy_skill`, the portable skill, `SKILL_FILES` + `SKILL_TREES` |
 | `prompts/` | `templates/pi-package/prompts/` | `copy_skill`, copied from that repository path |
 
 Everything else in the tarball (`package.json`, `README.md`, `LICENSE`,
@@ -3187,7 +3187,7 @@ session lifecycle:
 | `before_agent_start` | delivers pending mail via `pi.sendMessage(..., deliverAs: "nextTurn")` |
 | `write` tool call | refuses a path another live session claims, naming the holder |
 
-The installer ships it beside `teamwork-status.ts` and registers it, so a fresh checkout
+The installer ships it beside `tw-status.ts` and registers it, so a fresh checkout
 gains the bus on install instead of by hand.
 
 ### 18.5 Known limitation
