@@ -8834,4 +8834,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit dfb04ed2
 - reviewer evidence: in the tree under review .pi/.../Worktrees/CEO/T-0001 @dfb04ed2: teamwork.py links -> '# issues: 0'; privacy_scan.py --tree --allow .github/privacy-allow.txt -> 'privacy_scan: PASS - 0 finding(s) in tree'; pytest -q tests/unit/test_docs_contracts.py -> 20 passed; grep -n '20261120' docs/Team/Decisions.md -> D-...-5 at :3124, -6 at :3140, -7 at :3156 (three entries, diff main...HEAD = docs/Team/Decisions.md 48 insertions)
 - findings history: 
-- branch / merge: ceo/t-0001-study-my-ai-coding-workflow-which-review / pending
+- branch / merge: ceo/t-0001-study-my-ai-coding-workflow-which-review / 8cc5ac7e
