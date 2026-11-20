@@ -85,7 +85,7 @@ under two roles is two tasks.
 | developer | T-0001 | evidence-staleness | done | P-0003 | 4f46b4be |
 | developer | T-0002 | team-records | done | P-0002 | f9e0fab2 |
 | developer | T-0003 | lanes | done | P-0004 | c41880f0 |
-| tester | T-0001 | pi-package | doing | - | - |
+| tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -103,7 +103,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| tester | T-0001 · pack the skill tarball with the resolved npm path, not bare npm | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
