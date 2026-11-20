@@ -77,6 +77,16 @@ def detach(argv: list[str], stdout, env: dict, cwd: str) -> int:
     return pid
 
 
+def _stop(child: subprocess.Popen) -> int:
+    """Terminate the launcher, kill it if it ignores the grace, return its code."""
+    child.terminate()
+    try:
+        return child.wait(timeout=TERMINATE_GRACE)
+    except (subprocess.TimeoutExpired, KeyboardInterrupt):
+        child.kill()
+        return child.wait()
+
+
 def run(run_path: Path, timeout: float, argv: list[str]) -> int:
     """Start ``argv``, enforce ``timeout``, and return the launcher's exit code."""
     started = time.time()
@@ -100,16 +110,10 @@ def run(run_path: Path, timeout: float, argv: list[str]) -> int:
         code = child.wait(timeout=timeout if timeout > 0 else None)
     except subprocess.TimeoutExpired:
         state = "timeout"
-        child.terminate()
-        try:
-            code = child.wait(timeout=TERMINATE_GRACE)
-        except subprocess.TimeoutExpired:
-            child.kill()
-            code = child.wait()
+        code = _stop(child)
     except KeyboardInterrupt:
         state = "interrupted"
-        child.terminate()
-        code = child.wait()
+        code = _stop(child)
     write_outcome(
         run_path,
         {
