@@ -28,7 +28,8 @@ SKILL = "tw"
 
 
 def pack(tmp_path: Path) -> tuple[Path, Path]:
-    if shutil.which("npm") is None:
+    npm = shutil.which("npm")
+    if npm is None:
         pytest.skip("npm is not on PATH, so no tarball can be packed here")
     out = tmp_path / "dist"
     built = subprocess.run(
@@ -41,7 +42,7 @@ def pack(tmp_path: Path) -> tuple[Path, Path]:
     assert built.returncode == 0, built.stderr
     pkg = out / "@nidvue" / "teamwork"
     packed = subprocess.run(
-        ["npm", "pack", "--pack-destination", str(tmp_path)],
+        [npm, "pack", "--pack-destination", str(tmp_path)],
         cwd=pkg,
         capture_output=True,
         text=True,
