@@ -8821,4 +8821,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 963a93d2; commit 3c7bb626
 - reviewer evidence: make ci-fast PYTHON=.venv/bin/python @4c5bda8f0914 -> exit 0
 - findings history: 
-- branch / merge: ceo/t-0009-pr-set-status-merged-leaves-task-merge-c / pending
+- branch / merge: ceo/t-0009-pr-set-status-merged-leaves-task-merge-c / a6bd1f6c
