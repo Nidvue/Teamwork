@@ -44,6 +44,40 @@ def init(cli, project: Path) -> Path:
     return team_root(project)
 
 
+def test_the_all_roles_pointer_is_true_so_the_lane_gets_the_rules(cli, project: Path) -> None:
+    """A charter that says "read it in your packet" must be telling the truth.
+
+    Regression: the compaction moved hard rules - no blanket `noqa`, never commit
+    build output, delete scratch copies, CI warnings count - into the shared file
+    and told every charter the packet carried them, while `build_packet` injected
+    only memory and lessons. A lane was told it already had a rule it had never
+    been given, which is worse than the duplication the move removed.
+    """
+    root = init(cli, project)
+    assert cli("--project", project, "task", "add", "ceo", "a task", "--priority", "P1") == 0
+    task = engine.parse_tasks(layout.task_file(root, "ceo"))[0]
+    packet = lanes.build_packet(
+        root,
+        [lanes.Assignment("CEO", "ceo", task["id"], task["title"])],
+        "L-0001",
+        1,
+        2,
+        25,
+        16,
+        "pi",
+        "",
+        "default",
+    )
+    for rule in (
+        "no blanket `noqa`",
+        "Never commit build output",
+        "scratch copies, superseded drafts",
+        "deprecation notices count as warnings",
+    ):
+        assert rule in packet, f"the lane packet does not carry the all-roles rule {rule!r}"
+    assert len(packet.encode()) < lanes.MAX_PROMPT_BYTES, len(packet.encode())
+
+
 def fake_lane(tmp_path: Path, name: str = "fake_lane.py", body: str = "") -> Path:
     script = tmp_path / name
     script.write_text(

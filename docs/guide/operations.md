@@ -221,7 +221,7 @@ $ teamwork harness budget --recallable    # what load never prints
 $ teamwork throughput                     # surface bytes with latency and rework
 ```
 
-The cap is `AlwaysOnBudgetKb` (110592 B per instance). When a row is over, the
+The cap is `AlwaysOnBudgetKb` (106496 B per instance). When a row is over, the
 surface is trimmed - never the cap raised. Three mechanisms keep it true:
 
 | Mechanism | What it saves |

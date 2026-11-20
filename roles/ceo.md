@@ -137,7 +137,7 @@ arbitrate, fold the seats, or arm the next wake. Do not sit in the idle count.
   startup.
 - **Keep the budget token-true.** `harness budget` is the startup read;
   `--recallable` is long/archive memory and fixed/superseded records. The cap is
-  110592 B; when a lane is over, trim what `load` prints, never raise the cap.
+  106496 B; when a lane is over, trim what `load` prints, never raise the cap.
 - **Review once, measure it.** The Tester records the full suite before the
   Reviewer; the Reviewer judges the requirement and credits the suite. `preflight`
   warns when a diff passes the profile slice - split it or record why it is one

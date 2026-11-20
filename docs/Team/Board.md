@@ -87,7 +87,7 @@ under two roles is two tasks.
 | ceo | T-0004 | gate | done | P-0003 | 9a42ac63 |
 | ceo | T-0005 | review | done | P-0005 | 37e42174 |
 | ceo | T-0006 | privacy | done | P-0006 | 7bf336f5 |
-| ceo | T-0007 | skill | selfcheck | - | - |
+| ceo | T-0007 | skill | selfcheck | P-0007 | - |
 | reviewer | T-0001 | lanes | dropped | - | - |
 | reviewer | T-0002 | lanes | dropped | - | - |
 | reviewer | T-0003 | lanes | dropped | - | - |

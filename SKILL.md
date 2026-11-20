@@ -46,7 +46,7 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 ## Non-negotiable contract
 
 1. **One voice to the user.** Only the CEO reports, asks and accepts.
-2. **Run to completion.** Work ends only when every criterion is verified by executed evidence. Blocked is not done.
+2. **Run to completion.** Work ends only when every criterion is verified by executed evidence. Blocked is not done, and idle with executable work left is a bug.
 3. **Evidence or `UNVERIFIED`.** No claim without a path/command/revision/result; the engine refuses `done` without one.
 4. **Independent parallel lanes.** Freeze interfaces first, then developer, tester and designer run concurrently on the same contract.
 5. **Code, then tests, then docs.** Documentation never blocks code or tests.

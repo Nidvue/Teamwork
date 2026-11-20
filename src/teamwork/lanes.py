@@ -51,7 +51,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import bundle, engine, gitutil, lanerun, messages
+from . import bundle, config, engine, gitutil, lanerun, messages
 from .attention import new_attention, parse_attention, write_attention
 from .config import (
     DEFAULT_BASE,
@@ -701,6 +701,26 @@ def returned_lines(root: Path, item: Assignment) -> list:
     ]
 
 
+def all_roles_rules(root: Path) -> list:
+    """The all-roles blocks, read once from their single home.
+
+    These three blocks are identical for every role, so they live in one file
+    instead of fifteen charters. The charter carries the short form and points
+    here; the lane gets the full text in its packet, because a rule that only a
+    pointer carries is a rule no lane is guaranteed to read.
+    """
+    try:
+        text = (config.SKILL_DIR / "references" / "AllRoles.md").read_text(encoding="utf-8")
+    except OSError:
+        return []
+    lines = [
+        line
+        for line in text.splitlines()
+        if line.strip() and not line.startswith(("# ", "Owner:", "Related:"))
+    ]
+    return ["", *lines, ""] if lines else []
+
+
 def _open_lesson_lines(root: Path, role: str) -> list:
     """The role's open lessons, one rule per line, or nothing when there are none.
 
@@ -909,6 +929,7 @@ def build_packet(
         "```",
         "",
         "## Rules that are not negotiable",
+        *all_roles_rules(root),
         "- One task, one branch; never commit on the default branch.",
         "- Evidence is a command and its observed result at a revision:",
         "  `<cmd> @<sha> -> <result>`. A claim you cannot reproduce is not evidence.",
