@@ -1945,7 +1945,7 @@ def dispatch_plan(root: Path, limit: int = 0) -> list:
 
 def _review_can_credit(root: Path, owner: str, task: dict) -> bool:
     """True when another role already recorded a passing result at this revision."""
-    credits, _stale = engine.creditable_tests(root, owner, task)
+    credits, _stale, _context_stale = engine.creditable_tests(root, owner, task)
     return bool(credits)
 
 

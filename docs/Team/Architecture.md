@@ -45,6 +45,7 @@ Teamwork/
 │   ├── claims.py             # the live claim register: add/check/list/release, refuses an overlap
 │   ├── cli.py                # main(argv) -> int, delegates to engine.main
 │   ├── config.py             # workspace paths, record names, caps
+│   ├── ctxepoch.py           # context epoch: the compaction count of the session behind a claim
 │   ├── engine.py             # command layer: build_parser/main + gates, review/PR, memory, model
 │   ├── evolution.py          # the self-evolution books: check + snapshot, wired into audit
 │   ├── gitutil.py            # git plumbing (branch/merge/LFS)

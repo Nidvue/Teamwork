@@ -31,8 +31,14 @@ Claim discipline, per message and per artifact:
 4. External facts (market data, benchmarks, competitor behaviour) require a
    source and a date, or they are marked `UNVERIFIED` and cannot justify a
    decision.
-5. Revision binding: evidence is valid for one revision. If the tree changed
-   after the run, the evidence is stale and must be regenerated.
+5. Staleness has two axes. **Revision:** evidence is valid for one revision; if
+   the tree changed after the run, it is stale and must be regenerated.
+   **Context:** a run is valid only for the context that produced it. Every
+   `tests run` record carries the session epoch (`<session>@<compactions>`) of
+   the lane that ran it; when that lane's transcript compacts, the cited output
+   survives only as a summary, so `review --credit` refuses the record and tells
+   the reviewer to re-run it. A record with no epoch (a host that exports no
+   session) is never held stale on this axis.
 6. Contradiction check: before asserting a shared fact, `recall` global memory
    and your long-term memory; if it contradicts, resolve or escalate.
 7. Blast-radius check: if your change touches files or interfaces outside the

@@ -65,7 +65,7 @@ except ImportError:  # pragma: no cover
     from version import __version__ as VERSION  # type: ignore
 
 
-from . import grades, memorypack, memverify, transcripts, wiki
+from . import ctxepoch, grades, memorypack, memverify, transcripts, wiki
 from .attention import (
     ATTENTION_KINDS,
     STAGE_ORDER,
@@ -2812,6 +2812,7 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         if (getattr(args, "replay", "") or "").strip():
             rec["replay"] = args.replay.strip()
         rec["rev"] = args.rev or ""
+        rec["epoch"] = ctxepoch.epoch()
         rec["by"] = actor
         rec["updated"] = today_iso()
         if args.command:
@@ -3038,6 +3039,8 @@ def _tests_list(args, root: Path, records: list) -> int:
             print(f"    evidence: {r['evidence']}")
         if r.get("repro"):
             print(f"    repro: {r['repro']}")
+        if r.get("epoch"):
+            print(f"    epoch: {r['epoch']}")
         if r.get("artifacts"):
             print(f"    artifacts: {r['artifacts']}")
     gaps = test_gaps(root)
@@ -11631,18 +11634,23 @@ def actor_role(root: Path, name: str) -> str:
 
 
 def creditable_tests(root: Path, role: str, task: dict) -> tuple:
-    """(credits, stale): passing records another role ran at the revision under review.
+    """(credits, stale, context_stale): passing records another role ran at the
+    revision under review.
 
     A credit is a *result on a revision*, never an opinion: the record must be
     passing, its revision must be the one under review, and the role that ran it
     must not be the author's role. A record at another revision is stale and is
-    counted as such - the tree moved and the run has to follow it.
+    counted as such - the tree moved and the run has to follow it. A record at
+    this revision written in an earlier compaction of the *citing session* is
+    counted as context_stale: the tree did not move, but the model no longer
+    holds the output it saw, so the citation is a summary echo until it is re-run.
     """
     rev = review_revision(root, task)
     if not rev:
-        return [], 0
+        return [], 0, 0
     author_role = actor_role(root, task.get("claimed_by") or "") or resolve_role(role)
-    credits, stale = [], 0
+    live = ctxepoch.epoch()
+    credits, stale, context_stale = [], 0, 0
     for record in parse_tests(tests_path(root)):
         if record.get("status") != "passing":
             continue
@@ -11652,8 +11660,11 @@ def creditable_tests(root: Path, role: str, task: dict) -> tuple:
         if not _same_revision(record_revision(record), rev):
             stale += 1
             continue
+        if ctxepoch.stale(record.get("epoch", ""), live):
+            context_stale += 1
+            continue
         credits.append(record)
-    return credits, stale
+    return credits, stale, context_stale
 
 
 def uncovered_layers(root: Path, task: dict, credits: list) -> list:
@@ -11704,6 +11715,14 @@ def credit_refusal(root: Path, role: str, task: dict, handle: str) -> str:
             "run is never a credit (that is the check the review exists to make)"
         )
     rec_rev = record_revision(record)
+    if ctxepoch.stale(record.get("epoch", ""), ctxepoch.epoch()):
+        return (
+            f"{record['id']} ran at {rec_rev or 'an unrecorded revision'} in context "
+            f"{record.get('epoch') or 'no recorded context'} and this lane is at "
+            f"{ctxepoch.epoch() or 'unknown'} - a credit dies when the session compacts: "
+            "the output you remember is a summary, not a run you hold; re-run the command "
+            "and record it with `teamwork.py tests run --rev`"
+        )
     if not (rev and _same_revision(rec_rev, rev)):
         return (
             f"{record['id']} ran at {rec_rev or 'an unrecorded revision'} and the review is at "
@@ -11809,7 +11828,7 @@ def review_packet(root: Path, role: str, task: dict, full: bool = False) -> str:
         if value:
             lines.append(f"- {label}: {view_text(value, full)}")
     rev = review_revision(root, task)
-    credits, stale = creditable_tests(root, role, task) if rev else ([], 0)
+    credits, stale, context_stale = creditable_tests(root, role, task) if rev else ([], 0, 0)
     fails = int(task.get("review_fails") or 0)
     if fails:
         lines.append(f"- review round: {fails + 1} ({fails} previous fail)")
@@ -11858,6 +11877,12 @@ def review_packet(root: Path, role: str, task: dict, full: bool = False) -> str:
             lines.append(
                 f"- stale: {stale} passing record(s) at another revision - a credit "
                 "dies when the tree moves, so do not cite them"
+            )
+        if context_stale:
+            lines.append(
+                f"- stale context: {context_stale} passing record(s) at this revision "
+                "written before this session compacted - re-run them, do not cite them "
+                "(`teamwork.py tests list` shows each record's `epoch:`)"
             )
     lines += [
         "- rule: one run per fact per revision - cite a credit instead of repeating its",
@@ -16148,7 +16173,7 @@ def cmd_review(args) -> int:
         mechanical_why = ""
         detects = ""
         if args.result == "pass":
-            available, _stale = creditable_tests(root, role, t)
+            available, _stale, _context_stale = creditable_tests(root, role, t)
             for raw in [x.strip() for x in (getattr(args, "credit", "") or "").split(",")]:
                 if not raw:
                     continue
@@ -16243,7 +16268,7 @@ def cmd_review(args) -> int:
     if t.get("pr") and args.result == "fail":
         print(f"          PR {t['pr']}: changes requested - fix and re-submit")
     if args.result == "pass" and not credited:
-        available, _stale = creditable_tests(root, role, t)
+        available, _stale, _context_stale = creditable_tests(root, role, t)
         if available:
             print(
                 f"# note: {len(available)} creditable record(s) at "
