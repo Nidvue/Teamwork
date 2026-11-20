@@ -3120,3 +3120,51 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: user prompt 'push' @2026-11-20; pytest -q @78f38b51 -> 3356 passed, 7 skipped; links -> issues: 0; privacy_scan --tree --history --stores -> PASS 0 findings; identity --audit --strict-authors -> 3 commits problems: 0; mkdocs build --strict -> exit 0
 - falsified by: if CI on 78f38b51 comes back red the stage fails and the run is routed to its owner
 - consequences: -
+
+## D-20261120-CEO-5 - Compaction is a second staleness axis for evidence
+
+- date: 2026-11-20
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0001
+- context: -
+- options considered: -
+- decision: adopt a compaction check in the gate layer: a record whose producing run predates a context compaction in that lane is stale and must be re-run, the same way a record whose run predates a tree change is stale
+- why: references/Evidence.md:34 binds evidence to one revision only; a lane's model context also loses the run (PI_JEV_COMPACT=1 in this session env), and a compacted lane reports from a summary, not from output. Their prompt states the same rule as prose (production-readiness-review.md 'If this session was compacted, run this audit again from the real diff')
+- evidence: grep -ci compact src/teamwork/engine.py -> 2 (both row-drawing prose), lannerun.py -> 0, lanes.py -> 0 @HEAD 2026-11-20; no gate reads session state
+- falsified by: if a compacted lane's cited command output still survives verbatim in the lane's Artifacts or the hash-chained Ledger at the same revision, the summary is not the carrier and the check buys nothing
+- consequences: -
+
+## D-20261120-CEO-6 - Provider-side permissions.deny list
+
+- date: 2026-11-20
+- kind: technical
+- status: rejected
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0001
+- context: -
+- options considered: -
+- decision: reject the permissions.deny enforcement layer from my-ai-coding-workflow@5890e0d2: the host has no per-tool approval layer to attach it to
+- why: pi states it runs tools without asking for approval (docs/security.md:1); the deny patterns match command text and their own README admits variants slip past; our git hooks plus the review-time privacy scan already block force-push, secret content and identity drift at the git layer
+- evidence: pi docs/security.md:1 'it does not ask for approval before every tool call' - accessed 2026-11-20; enforcement/settings.example.json:2-7; src/teamwork/hooks.py:100 names --no-verify as a known bypass, engine.py:11481-11486 has privacy over tree and history inside the review profile
+- falsified by: a secret or a force-push reaching a Reviewer pass at a revision where the privacy scan ran would show the downstream gate is not the catch
+- consequences: -
+
+## D-20261120-CEO-7 - Red-first proof beyond --bug tasks
+
+- date: 2026-11-20
+- kind: technical
+- status: proposed
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0001
+- context: -
+- options considered: -
+- decision: proposed: require a tests repro (fail@pre -> pass@post) on the acceptance criterion a non-bug task claims, not only on --bug tasks
+- why: their readiness prompt makes red-first the default for every new test (production-readiness-review.md 'New tests must be shown failing first'); ours is required only for --bug (references/Evidence.md:106, audit reports a --bug task closed with no repro)
+- evidence: references/Evidence.md:106 @HEAD 2026-11-20; prompts/production-readiness-review.md 'New tests must be shown failing first (on the old code or a stub), then passing' - accessed 2026-11-20
+- falsified by: if the added repro runs per task rise and the defect rate that reaches review does not fall, the requirement is cost with no catch: drop it
+- consequences: -
