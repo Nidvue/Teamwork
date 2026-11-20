@@ -3168,3 +3168,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: references/Evidence.md:106 @HEAD 2026-11-20; prompts/production-readiness-review.md 'New tests must be shown failing first (on the old code or a stub), then passing' - accessed 2026-11-20
 - falsified by: if the added repro runs per task rise and the defect rate that reaches review does not fall, the requirement is cost with no catch: drop it
 - consequences: -
+
+## D-20261120-Developer-2 - The three installed skills become tw, tw-learn and tw-status
+
+- date: 2026-11-20
+- kind: scope
+- status: accepted
+- deciders: Developer-2 (developer)
+- decided by: Developer-2
+- task: T-0002
+- context: -
+- options considered: -
+- decision: Rename the skills the host loads: tw, tw-learn, tw-status. The CLI `teamwork`, the npm package `@nidvue/teamwork`, `scripts/teamwork.py`, `src/teamwork/` and the `.pi/Teamwork` workspace keep their names.
+- why: the host maps a skill to a slash command by its name, so /tw costs the user less than /teamwork and the two companions read as one family; leaving the CLI, package and engine names alone keeps every recorded command, doc line and script working
+- evidence: python3 -m pytest -q tests/unit -m 'not slow' @developer-2/t-0002 -> 2794 passed, 9 skipped, 60 deselected in 243.42s; ruff check . -> All checks passed; mypy src/teamwork -> no issues found in 35 source files; scripts/check_comments.py -> 0 explanatory commentary; grep of the old tokens in living files -> 0 hits
+- falsified by: a host that still loads a skill dir named teamwork: `refresh` prints 'stale skill copy: <path> - this skill is now tw; delete that directory', so a surviving copy is named, not hidden
+- consequences: existing installs keep the old directory until the user deletes it; the extension installer retires `teamwork-status.ts` from the host extensions list; the docs clone one-liner now targets `.agents/skills/tw`
