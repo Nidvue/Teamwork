@@ -571,3 +571,44 @@ def test_a_repair_moves_the_task_too_so_the_two_records_cannot_disagree(
     assert repaired["status"] == "done", repaired
     assert repaired["merge_commit"], "the repair must carry the revision onto the task"
     assert "not merged" not in audit_lines(cli, project, capsys)
+
+
+def test_a_second_repair_is_a_no_op_but_still_repairs_the_task(cli, project, capsys) -> None:
+    """Idempotent means "safe to re-run", not "does nothing when half the job is done".
+
+    T-0009 follow-up: the early return on `already merged` skipped the task sync,
+    so a record repaired before the fix could never be brought into line by
+    re-running the same command.
+    """
+    root = seed(cli, project)
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["merge_commit"] = ""
+    engine.write_tasks(path, tasks, "developer")
+    prs = engine.parse_reviews(engine.reviews_path(root))
+    prs[0]["status"] = "merged"
+    records.write_reviews(engine.reviews_path(root), prs)
+    assert only_pr(root)["status"] == "merged", "the seed must start from the no-op path"
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "pr",
+            "set",
+            "--pr",
+            "P-0001",
+            "--status",
+            "merged",
+            "--merge-commit",
+            only_pr(root)["merge_commit"],
+            "--by",
+            "Reviewer-1",
+            "--force",
+            "the PR is already merged and the task record has not caught up",
+        )
+        == 0
+    )
+    assert engine.parse_tasks(path)[0]["merge_commit"], (
+        "re-running the repair must carry the revision onto the task"
+    )

@@ -1309,6 +1309,14 @@ def _pr_set(args, root: Path, project: Path, path: Path) -> int:
         pr = prs[idx]
     old = pr["status"] or "(none)"
     if old == status:
+        if status == "merged" and (args.merge_commit or pr.get("merge_commit")):
+            _sync_task_after_repair(
+                root,
+                pr,
+                str(args.merge_commit or pr["merge_commit"]).strip().lower(),
+                actor,
+                "the PR was already merged and the task record had not caught up",
+            )
         print(f"# {pr['id']} is already {status}; nothing to repair")
         return 0
     role = resolve_role(pr["role"] or pr["author"])
