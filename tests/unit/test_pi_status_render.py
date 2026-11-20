@@ -170,7 +170,7 @@ def test_the_frozen_budget_holds_for_every_fixture() -> None:
         for width in (24, 40, 60, 80, 100):
             lines = render(payload, width)
             assert len(lines) <= 12, (payload["count"], width, lines)
-            assert max(len(line) for line in lines) <= width, (width, lines)
+            assert not lines or max(len(line) for line in lines) <= width, (width, lines)
 
 
 def test_a_dropped_seat_is_always_counted_and_the_count_is_exact() -> None:
@@ -295,6 +295,23 @@ def test_an_empty_feed_stays_silent_and_draws_no_footer() -> None:
     empty = {"schema": 4, "count": 0, "counts": {"busy": 0}, "instances": [], "lanes": []}
     assert render(empty) == []
     assert footer_surface(empty) == "undefined"
+
+
+def test_an_all_idle_roster_with_nothing_in_flight_clears_the_table() -> None:
+    """The table is empty when every job is done, not a bare `teamwork` line."""
+    done = schema5(
+        [
+            {"instance": "Developer", "role": "developer", "state": "idle"},
+            {"instance": "Reviewer-1", "role": "reviewer", "state": "idle"},
+        ],
+        {"busy": 0, "stalled": 0, "idle": 2, "lanes_live": 0, "review": 0},
+    )
+    assert render(done, 100) == [], "an idle seat is not work"
+    held = schema5(
+        [{"instance": "Developer", "role": "developer", "state": "idle"}],
+        {"busy": 0, "stalled": 0, "idle": 1, "lanes_live": 0, "review": 1},
+    )
+    assert render(held, 100) != [], "a deliverable awaiting a verdict is still in flight"
 
 
 def test_two_calls_on_one_payload_return_the_same_lines() -> None:

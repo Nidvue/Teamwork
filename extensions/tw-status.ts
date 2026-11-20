@@ -399,6 +399,7 @@ export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): stri
   const laneOnly = live.filter((lane) => !named.has((lane.instance ?? "").trim() || "-"));
   const liveCount = counts.lanes_live ?? live.length;
   const reviewCount = counts.review ?? 0;
+  if (!drawable.length && !liveCount && !reviewCount) return [];
   const header: string[] = [];
   if (liveCount) header.push(`${liveCount} live`);
   if (reviewCount) header.push(`${reviewCount} review`);

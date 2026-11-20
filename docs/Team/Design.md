@@ -758,7 +758,8 @@ names the delta.
 | `ONE-LINE-PER-AGENT` (10.8) | the count of lines beginning with a row glyph equals the number of distinct instances drawn, and no instance appears twice |
 | no colour-only meaning | stripping ANSI from every line leaves each state's word intact |
 | determinism | two calls on one payload return identical lines |
-| empty feed | no instances and no lanes -> `[]`, and the extension exports no footer |
+| `EMPTY-FEED` | no instances and no lanes -> `[]`, and the extension exports no footer |
+| `QUIET-CLEAR` | every seat idle, no live lane and `counts.review == 0` -> `[]`: the panel clears when the last job is done instead of keeping a bare `teamwork` line (`extensions/tw-status.ts`, `tests/unit/test_pi_status_render.py::test_an_all_idle_roster_with_nothing_in_flight_clears_the_table`) |
 
 ### 10.7 Defects measured in this pass
 
@@ -955,7 +956,8 @@ left: `1+1+15+1+7+1+5+1+1+5+1 = 39`; the model tail adds `1+20 = 21`; 10.8's bar
 and `<stalled> stalled` from this line: the rows already say which seat is busy
 or stalled, so the header carried the same fact twice, and it read 0 against a
 full roster whenever no lane was live. With no live lane and nothing in review
-the line is the bare word `teamwork`, never a trailing separator. Every number
+the line is the bare word `teamwork`, never a trailing separator, and `QUIET-CLEAR`
+(10.6) deletes the whole panel when every seat is idle too. Every number
 the widget and the panel print is the **current staffed set**, never the
 historical activated total: `counts.activated` is history, is not a roster count,
 and no surface may print it as one. The `+N more busy` overflow line is a row
