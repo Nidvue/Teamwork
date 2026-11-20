@@ -83,7 +83,8 @@ under two roles is two tasks.
 |---|---|---|---|---|---|
 | ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
 | developer | T-0001 | - | todo | - | - |
-| tester | T-0001 | - | doing | - | - |
+| developer | T-0002 | skill-naming | done | P-0002 | f9e0fab2 |
+| tester | T-0001 | pi-package | doing | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
