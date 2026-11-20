@@ -22,8 +22,10 @@ import json
 import os
 import re
 import shlex
+import subprocess
 import sys
 import time
+import types
 from pathlib import Path
 
 import pytest
@@ -763,6 +765,112 @@ def test_an_unwritable_launcher_records_its_failure(tmp_path: Path) -> None:
     outcome = json.loads(lanerun.outcome_path(run_path).read_text(encoding="utf-8"))
     assert code == lanerun.MISSING_BINARY_EXIT
     assert outcome["state"] == "failed"
+
+
+STUBBORN_LAUNCHER = (
+    "import pathlib, signal, sys, time\n"
+    "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+    "pathlib.Path(sys.argv[1]).write_text('ready', encoding='utf-8')\n"
+    "time.sleep(30)\n"
+)
+
+
+class _InterruptOnce:
+    """A real child whose first wait is the operator's Ctrl-C."""
+
+    def __init__(self, proc: subprocess.Popen) -> None:
+        self._proc = proc
+        self._raised = False
+
+    def __getattr__(self, name: str):
+        return getattr(self._proc, name)
+
+    def wait(self, timeout: float | None = None) -> int:
+        if not self._raised:
+            self._raised = True
+            raise KeyboardInterrupt
+        return self._proc.wait(timeout=timeout)
+
+
+def _start_when_ready(real, sentinel: Path):
+    """Start the real child, then wait until it has installed its SIG_IGN."""
+
+    def start(argv, **kwargs):
+        proc = real(argv, **kwargs)
+        deadline = time.time() + 20
+        while not sentinel.exists() and time.time() < deadline:
+            time.sleep(0.01)
+        assert sentinel.exists(), "the launcher never became ready"
+        return _InterruptOnce(proc)
+
+    return start
+
+
+def test_a_timeout_kills_a_launcher_that_ignores_the_grace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SIGTERM is a request: a launcher that ignores it must still be stopped."""
+    from teamwork import lanerun
+
+    monkeypatch.setattr(lanerun, "TERMINATE_GRACE", 0.2)
+    sentinel = tmp_path / "ready"
+    run_path = tmp_path / "L-0001.json"
+    run_path.write_text("{}", encoding="utf-8")
+    started = time.time()
+    code = lanerun.run(run_path, 1, [sys.executable, "-c", STUBBORN_LAUNCHER, str(sentinel)])
+    elapsed = time.time() - started
+    outcome = json.loads(lanerun.outcome_path(run_path).read_text(encoding="utf-8"))
+    assert code == lanerun.TIMEOUT_EXIT
+    assert outcome["state"] == "timeout"
+    assert outcome["exit"] == -9
+    assert elapsed < 15
+
+
+def test_an_interrupted_runner_stops_a_launcher_that_ignores_the_grace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ctrl-C must not hang the wrapper on a launcher that ignores SIGTERM."""
+    from teamwork import lanerun
+
+    monkeypatch.setattr(lanerun, "TERMINATE_GRACE", 0.2)
+    sentinel = tmp_path / "ready"
+    monkeypatch.setattr(
+        lanerun,
+        "subprocess",
+        types.SimpleNamespace(
+            Popen=_start_when_ready(subprocess.Popen, sentinel),
+            DEVNULL=subprocess.DEVNULL,
+            TimeoutExpired=subprocess.TimeoutExpired,
+        ),
+    )
+    run_path = tmp_path / "L-0001.json"
+    run_path.write_text("{}", encoding="utf-8")
+    started = time.time()
+    code = lanerun.run(run_path, 0, [sys.executable, "-c", STUBBORN_LAUNCHER, str(sentinel)])
+    elapsed = time.time() - started
+    outcome = json.loads(lanerun.outcome_path(run_path).read_text(encoding="utf-8"))
+    assert code == lanerun.INTERRUPTED_EXIT
+    assert outcome["state"] == "interrupted"
+    assert elapsed < 15
+
+
+def test_the_runner_cli_refuses_no_launcher(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from teamwork import lanerun
+
+    assert lanerun.main(["--run", str(tmp_path / "L-0001.json")]) == 2
+    assert "no launcher command given" in capsys.readouterr().err
+
+
+def test_the_runner_cli_strips_the_argument_separator(tmp_path: Path) -> None:
+    from teamwork import lanerun
+
+    run_path = tmp_path / "L-0001.json"
+    code = lanerun.main(["--run", str(run_path), "--", sys.executable, "-c", "print(1)"])
+    outcome = json.loads(lanerun.outcome_path(run_path).read_text(encoding="utf-8"))
+    assert code == 0
+    assert outcome["state"] == "exited"
 
 
 @pytest.mark.slow
