@@ -528,3 +528,46 @@ def test_an_unknown_repairer_is_refused(cli, project, capsys) -> None:
     assert "unknown repairer 'Ghost-9'" in capsys.readouterr().err
     assert only_pr(root)["status"] == "approved"
     assert repairs(root) == []
+
+
+def test_a_repair_moves_the_task_too_so_the_two_records_cannot_disagree(
+    cli, project, capsys
+) -> None:
+    """A repair that fixes only the PR leaves the audit line it exists to clear.
+
+    T-0009 repro: a task in ``done`` with a PR and no ``merge_commit`` is reported
+    as "PR approved but not merged", because the audit reads the TASK. The seed
+    here is exactly that shape - the PR says merged, the task says nothing - and
+    repairing the PR alone left the report standing.
+    """
+    root = seed(cli, project)
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["merge_commit"] = ""
+    engine.write_tasks(path, tasks, "developer")
+    assert "not merged" in audit_lines(cli, project, capsys)
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "pr",
+            "set",
+            "--pr",
+            "P-0001",
+            "--status",
+            "merged",
+            "--merge-commit",
+            landed(root) or only_pr(root)["merge_commit"],
+            "--by",
+            "Reviewer-1",
+            "--force",
+            "the work landed and the task record lost the revision",
+        )
+        == 0
+    )
+
+    repaired = engine.parse_tasks(path)[0]
+    assert repaired["status"] == "done", repaired
+    assert repaired["merge_commit"], "the repair must carry the revision onto the task"
+    assert "not merged" not in audit_lines(cli, project, capsys)

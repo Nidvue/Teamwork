@@ -1351,6 +1351,8 @@ def _pr_set(args, root: Path, project: Path, path: Path) -> int:
             + f": {reason}"
         )
         write_reviews(path, fresh)
+    if status == "merged":
+        _sync_task_after_repair(root, pr, merge_commit, actor, reason)
     ledger_append(
         root,
         "pr.repair",
@@ -1366,6 +1368,34 @@ def _pr_set(args, root: Path, project: Path, path: Path) -> int:
         + (f" at {merge_commit}" if merge_commit else "")
     )
     return 0
+
+
+def _sync_task_after_repair(root: Path, pr: dict, sha: str, actor: str, reason: str) -> None:
+    """Carry a repaired `merged` status onto the task that owns the PR.
+
+    `pr merge` writes both records; a repair wrote only the PR, so `audit` kept
+    reporting a merged PR as unmerged because it reads `task.merge_commit`. Two
+    records that disagree about one fact are worse than no repair, so the repair
+    moves the task to `done` with the same revision it just wrote to the PR.
+    """
+    role = resolve_role(str(pr.get("role") or pr.get("agent") or ""))
+    if not role:
+        return
+    tpath = task_file(root, role)
+    if not tpath.is_file():
+        return
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        tasks = parse_tasks(tpath)
+        tidx = find_task(tasks, pr["task"])
+        if tidx is None:
+            return
+        tasks[tidx]["merge_commit"] = sha
+        tasks[tidx]["status"] = "done"
+        tasks[tidx]["updated"] = today_iso()
+        tasks[tidx]["forced"] = (
+            tasks[tidx].get("forced", "") + f" | merged by repair at {sha} by {actor}: {reason}"
+        ).strip(" |")
+        write_tasks(tpath, tasks, role)
 
 
 def _merge_branch_hint(root: Path, handle: str) -> str:

@@ -89,6 +89,7 @@ under two roles is two tasks.
 | ceo | T-0006 | privacy | done | P-0006 | 7bf336f5 |
 | ceo | T-0007 | skill | done | P-0007 | 94447969 |
 | ceo | T-0008 | records | done | P-0008 | - |
+| ceo | T-0009 | records | selfcheck | - | - |
 | reviewer | T-0001 | lanes | dropped | - | - |
 | reviewer | T-0002 | lanes | dropped | - | - |
 | reviewer | T-0003 | lanes | dropped | - | - |
@@ -113,6 +114,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0009 · pr set --status merged leaves task.merge_commit empty, so audit calls a merged PR unmerged | P1 | selfcheck | - |
 | reviewer | T-0007 · Root cause: L-0027 timed out (budget) on Reviewer | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
