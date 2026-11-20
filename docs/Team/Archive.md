@@ -8809,3 +8809,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest tests/integration/test_status_contract.py @7c1123ba11c1e550cda9c47e81cc56f91724f8d9 -> 8 passed
 - findings history: 
 - branch / merge: ceo/t-0008-status-agent-empty-case-test-must-not-as / pending
+
+## T-0009 · pr set --status merged leaves task.merge_commit empty, so audit calls a merged PR unmerged  (ceo)
+- date: 2026-11-20
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: cmd_pr_set only; no other command, schema or CLI flag changed. Empty/duplicate/second-call: the second call is exactly the defect - an already-merged PR used to return early and leave the task without the revision, so re-running the repair could never heal a record written before the fix; it now syncs the task on that path too, and a PR with no role still returns silently rather than crashing. Contract surface: pr set still refuses a merged status with no full 40-hex --merge-commit, still requires --force with a reason, and still refuses when the review did not pass. Concurrency/shared writes: both writes take their existing locks (reviews.lock, role-<role>.lock) and the task write is a re-read under the lock, not a stale copy. Scope: src/teamwork/engine.py, tests/unit/test_pr_repair.py, docs/Team/Board.md. Both new tests were shown failing with their fix reverted before being counted; the bug task carries the repro record. | test: pytest tests/unit/test_pr_repair.py @4c5bda8f -> 17 passed; tests repro T-0009 -> fail @863a67c8 -> pass @4c5bda8f; preflight ceo T-0009 --run -> pass 8 checks 0 failed; make ci-fast -> exit 0; audit --no-gates -> # problems found: 0 | preflight: PF-be8cb5bedb68 @4c5bda8f0914 (8 checks, 0 failed)
+- author evidence: commit 963a93d2; commit 3c7bb626
+- reviewer evidence: make ci-fast PYTHON=.venv/bin/python @4c5bda8f0914 -> exit 0
+- findings history: 
+- branch / merge: ceo/t-0009-pr-set-status-merged-leaves-task-merge-c / pending
