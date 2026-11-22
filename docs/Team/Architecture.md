@@ -2989,6 +2989,7 @@ and no marker substitutes for a gate.
 | `DEFAULT_TOOL_BUDGET` | 16 | tool calls a lane is told it may spend |
 | `DEFAULT_LANE_MAX` | 8 | lanes in flight at once |
 | `SILENCE_DIVISOR` | 3 | `silence_seconds(minutes) = minutes * 60 / 3` |
+| `cpu_observable()` | `/proc/self/stat` exists | whether silence can be judged at all |
 | `PROFILE_TOOL_BUDGET` | fast 10, standard 16, deep 24 | per-profile tool budget |
 | `PROFILE_MINUTES_FACTOR` | fast 0.4, standard 1.0, deep 1.6 | per-profile lease factor |
 
@@ -2998,6 +2999,15 @@ override a default through `_setting`/`_setting_int` (the `Settings.json` key or
 the environment variable named there), so a consumer reads `lanes.lane_minutes`,
 `lanes.lane_attempts`, `lanes.lane_tool_budget` and `lanes.swarm_minutes` rather
 than the constants.
+
+Silence needs a CPU tick: `child_cpu` sums the lane's whole process tree from
+`/proc`, and the log is not a liveness signal because a launcher buffers its
+transcript until it exits (`K-0051`). Where the host exposes no `/proc` (Windows,
+macOS), `child_cpu` returns `None`, the silence rule is **not evaluated**, the
+run record carries `silence: not judgeable: this host has no per-process CPU
+time`, and only the deadline ends the lane. A supervisor never kills a lane it
+cannot prove is idle; the early kill is a Linux-only optimisation, and the
+upgrade path is a per-host CPU probe, not the log.
 
 ### 17.5 The CLI surface a lane may depend on
 

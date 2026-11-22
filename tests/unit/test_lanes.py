@@ -474,12 +474,20 @@ def test_a_lane_alive_but_silent_dies_at_a_third_of_its_budget(
     record["minutes"] = 3
     record["created"] = silent_since
     record["deadline"] = time.time() + 600
-    record["activity_cpu"] = (lanes.child_cpu(record["pid"]) or 0.0) + 1000
+    tick = lanes.child_cpu(record["pid"])
+    if tick is None:
+        assert not lanes.cpu_observable()
+    else:
+        record["activity_cpu"] = tick + 1000
     lanes.write_run(root, record)
     os.utime(record["log"], (silent_since, silent_since))
     assert cli("--project", project, "lane", "status", "L-0001") == 0
     time.sleep(0.2)
     finished = runs(root)[0]
+    if tick is None:
+        assert finished["state"] != lanes.TIMEOUT
+        assert "no per-process CPU time" in str(finished["silence"])
+        return
     assert finished["state"] == lanes.TIMEOUT
     assert finished["cause"] == "silent"
     assert "silent" in finished["error"]
@@ -487,6 +495,31 @@ def test_a_lane_alive_but_silent_dies_at_a_third_of_its_budget(
     items = engine.open_attention(engine.parse_attention(engine.attention_path(root)))
     assert [item["task"] for item in items] == ["T-0001"]
     assert "silent" in items[0]["text"]
+
+
+def test_a_lane_without_a_cpu_signal_is_never_called_silent(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a unit on a host with no /proc")
+    launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
+    monkeypatch.setattr(lanes, "child_cpu", lambda pid: None)
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        == 0
+    )
+    record = runs(root)[0]
+    silent_since = time.time() - lanes.silence_seconds(3) - 1
+    record["minutes"] = 3
+    record["created"] = silent_since
+    record["deadline"] = time.time() + 600
+    record["activity_cpu"] = 0.0
+    lanes.write_run(root, record)
+    os.utime(record["log"], (silent_since, silent_since))
+    refreshed = lanes.refresh(root, runs(root)[0])
+    assert refreshed["state"] != lanes.TIMEOUT
+    assert "no per-process CPU time" in str(refreshed["silence"])
+    assert cli("--project", project, "lane", "stop", "L-0001") == 0
 
 
 def test_a_buffered_log_is_not_silence_while_the_child_burns_cpu(

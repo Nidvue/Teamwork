@@ -233,6 +233,11 @@ def _children(pid: int) -> list[int]:
     return found
 
 
+def cpu_observable() -> bool:
+    """Whether this host exposes per-process CPU time at all."""
+    return Path("/proc/self/stat").exists()
+
+
 def child_cpu(pid: int) -> float | None:
     """CPU seconds the lane's whole process tree has burned; ``None`` without /proc.
 
@@ -242,7 +247,7 @@ def child_cpu(pid: int) -> float | None:
     supervisor can actually observe - a streaming launcher and the tool calls it
     spawns burn ticks, a hung one burns none.
     """
-    if pid <= 0 or not Path("/proc/self/stat").exists():
+    if pid <= 0 or not cpu_observable():
         return None
     ticks = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
     total = 0.0
@@ -1270,7 +1275,7 @@ def refresh(root: Path, run: dict) -> dict:
             run["cause"] = "budget"
             run["finished"] = _stamp()
             run["error"] = "the supervisor killed it at the minute budget"
-        elif silent_for >= silence_seconds(minutes):
+        elif cpu is not None and silent_for >= silence_seconds(minutes):
             terminate(int(run.get("pid") or 0))
             run["state"] = TIMEOUT
             run["cause"] = "silent"
@@ -1281,6 +1286,8 @@ def refresh(root: Path, run: dict) -> dict:
             )
         else:
             run["heartbeat"] = _stamp()
+            if cpu is None:
+                run["silence"] = "not judgeable: this host has no per-process CPU time"
             write_run(root, run)
             return run
     run["result"] = read_result(Path(str(run.get("log") or "")))
