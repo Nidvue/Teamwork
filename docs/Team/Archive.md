@@ -8938,4 +8938,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 4231751a
 - reviewer evidence: review at @ede35715: python3 /home/pingz/Storage/Projects/Nidvue/Teamwork/.pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0011_acceptance.py ede35715 . -> 6 checks, 0 failed; the shipped tests/unit/test_lanes.py in this worktree -> 70 passed; the same script with main's lanes.py @cf42d04d restored -> 4 failed | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0011_review.md:d2878ed9df6cf896:2374 | credited: TS-0019 integration/engine by Tester @ede35715
 - findings history: 
-- branch / merge: ceo/t-0011-the-lane-silence-check-depends-on-proc-c / pending
+- branch / merge: ceo/t-0011-the-lane-silence-check-depends-on-proc-c / 1d069dda
