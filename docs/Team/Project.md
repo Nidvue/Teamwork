@@ -150,10 +150,12 @@ wakes a session on arrival.
 | AC | requirement | task | artifact | evidence |
 |---|---|---|---|---|
 | AC-BUS-1 | `bus_root` is `$TEAMWORK_BUS`, else `<project>/.pi/Teamwork/Bus`; one message is one file under its address key | T-0133 | `docs/Team/Architecture.md` 17.1 | commit 17cc7aba |
-| AC-BUS-2 | `*`, `role:`, `team:` are read-only announcements, closed by the sender or by TTL; `session:` is take-able and a second taker is refused | T-0133 | `docs/Team/Architecture.md` 17.2 | commit 96ce8ea6 |
+| AC-BUS-2 | `team:` is a read-only bus announcement closed by the sender or TTL and `session:` is take-able with a second taker refused; `*` and `role:` resolve to roster instances at send time and land in the mailbox | T-0133 | `docs/Team/Architecture.md` 18.2 | commit 96ce8ea6 |
 | AC-BUS-3 | `message inbox --for <instance>` is team rows then bus rows in one `(priority rank, created)` sort | T-0133 | `references/State.md` (The bus and the claim register) | commit 96ce8ea6 |
 | AC-CLM-1 | `claim add` refuses a live, unexpired claim on the same path, task or area and names the holder; TTL defaults to 120 minutes | T-0134 | `docs/Team/Architecture.md` 17.3 | UNVERIFIED - the frozen target of D-20261117-CEO part 4, not implemented on `main`: `src/teamwork/claims.py` is absent and `teamwork.py claim list` exits 2 with an argparse error; the unmerged deliverable is commit ca6bde25 |
 | AC-BUS-4 | `teamwork-bus.ts` registers the session key, delivers pending mail at `before_agent_start`, refuses a `write` to a claimed path, and is shipped and registered by the installer | T-0135 | `docs/Team/Architecture.md` 17.4 | commit 76d970d0 |
+| AC-BUS-5 | the bus directory a reader opens is the encoded key, and `busKey` in `extensions/teamwork-bus.ts` names a directory exactly as `messages.bus_key` does in the engine | T-0010 | `tests/unit/test_lane_display.py` (`test_the_shipped_bus_extension_drives_its_handlers`) | this commit |
+| AC-BUS-6 | no bus path component carries a character a Windows filesystem refuses (`*`, `:`, `?`, `"`, `<`, `>`, `|`) | T-0139 | the same test: `no bus key carries an illegal path character` | this commit |
 | AC-DOC-1 | the three surfaces are documented once each, in the record that owns them, with the known limitation named | T-0011 | this section, section 17, `references/State.md`, `SKILL.md` | this commit |
 
 Non-goals: no daemon, no socket, no cross-machine transport, no change to the team tree.

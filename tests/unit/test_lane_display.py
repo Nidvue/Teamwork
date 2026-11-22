@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from teamwork import lanedisplay
+from teamwork import lanedisplay, messages
 
 RENDERER = Path("extensions") / "tw-status.ts"
 
@@ -281,8 +281,25 @@ mod.default(pi);
 const ctx = { cwd: root };
 const checks = [];
 
+const busKey = mod.busKey;
+checks.push(["busKey is exported", typeof busKey === "function"]);
+checks.push([
+  "busKey matches the engine for every address",
+  typeof busKey === "function" &&
+    busKey("*") === "all" &&
+    busKey("role:developer") === "role-developer" &&
+    busKey(`session:${session}`) === "session-sess-1",
+]);
+const keys = typeof busKey === "function" ? ["*", "role:developer", `session:${session}`].map(busKey) : [];
+checks.push(["no bus key carries an illegal path character", keys.length === 3 && keys.every((k) => !/[\\/:*?"<>|]/.test(k))]);
+checks.push([
+  "addresses names only the scopes the engine writes to the bus",
+  JSON.stringify(mod.addresses({ TEAMWORK_TEAM: "Teamwork", TEAMWORK_ROLE: "developer", PI_SESSION_ID: session })) ===
+    JSON.stringify(["team:Teamwork", `session:${session}`]),
+]);
+
 await handlers.get("session_start")({}, ctx);
-checks.push(["session address", existsSync(join(bus, `session:${session}`))]);
+checks.push(["session address", existsSync(join(bus, busKey(`session:${session}`)))]);
 
 await handlers.get("before_agent_start")({}, ctx);
 const mail = sent[0] || {};
@@ -291,13 +308,15 @@ checks.push(["one message", sent.length === 1]);
 checks.push(["next turn", Boolean(mail.options && mail.options.deliverAs === "nextTurn")]);
 checks.push(["mail id", content.includes("M-0001")]);
 checks.push(["mail subject", content.includes("hello")]);
+checks.push(["a colliding id in another folder is still read", content.includes("session-twin")]);
+checks.push(["a fan-out address is not read from the bus", !content.includes("not-a-bus-scope")]);
 
 await handlers.get("before_agent_start")({}, ctx);
 await handlers.get("before_agent_start")({}, ctx);
 checks.push(["no replay on turn 2 and 3", sent.length === 1]);
 checks.push([
-  "broadcast stays pending",
-  JSON.parse(readFileSync(join(bus, "*", "M-0001.json"), "utf-8")).state === "pending",
+  "an address the engine fans out is never taken from the bus",
+  JSON.parse(readFileSync(join(bus, busKey("*"), "M-0002.json"), "utf-8")).state === "pending",
 ]);
 
 const blocked = await handlers.get("tool_call")(
@@ -330,7 +349,9 @@ process.exit(failed.length ? 1 : 0);
 
 
 def test_the_shipped_bus_extension_drives_its_handlers(tmp_path: Path) -> None:
-    """AC-BUS-4/5: load the shipped file and drive session, mail and refusal."""
+    """AC-BUS-4/5/6: drive session, mail and refusal through the shipped file, over
+    the directory name the engine itself would write - so a key that drifts between
+    the two halves, or a name a Windows filesystem refuses, fails here."""
     node = shutil.which("node")
     if node is None:
         pytest.skip("node is a host tool, not a test dependency")
@@ -339,8 +360,9 @@ def test_the_shipped_bus_extension_drives_its_handlers(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     (root / ".pi").mkdir(parents=True)
     bus = tmp_path / "bus"
-    (bus / "*").mkdir(parents=True)
-    (bus / "*" / "M-0001.json").write_text(
+    team_bus = bus / messages.bus_key(*messages.parse_address("team:Teamwork"))
+    team_bus.mkdir(parents=True)
+    (team_bus / "M-0001.json").write_text(
         json.dumps(
             {
                 "id": "M-0001",
@@ -353,7 +375,37 @@ def test_the_shipped_bus_extension_drives_its_handlers(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    session_bus = bus / messages.bus_key(*messages.parse_address("session:sess-1"))
+    session_bus.mkdir(parents=True)
+    (session_bus / "M-0001.json").write_text(
+        json.dumps(
+            {
+                "id": "M-0001",
+                "from": "Developer-1",
+                "subject": "session-twin",
+                "priority": "high",
+                "state": "pending",
+                "created": "2026-11-17T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
     (bus / "claims").mkdir()
+    fan_out = bus / messages.bus_key(*messages.parse_address("*"))
+    fan_out.mkdir(parents=True)
+    (fan_out / "M-0002.json").write_text(
+        json.dumps(
+            {
+                "id": "M-0002",
+                "from": "CEO",
+                "subject": "not-a-bus-scope",
+                "priority": "high",
+                "state": "pending",
+                "created": "2026-11-17T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
     future = "2099-01-01T00:00:00Z"
     for claim in (
         {

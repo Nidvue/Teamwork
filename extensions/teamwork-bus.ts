@@ -72,6 +72,22 @@ export function sessionId(env: NodeJS.ProcessEnv = process.env): string {
   return (env.PI_SESSION_ID || "").trim();
 }
 
+function safeComponent(name: string): string {
+  const text = String(name || "")
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^[.-]+/, "")
+    .replace(/[.-]+$/, "")
+    .slice(0, 80);
+  return text || "Team";
+}
+
+export function busKey(address: string): string {
+  const clean = (address || "").trim();
+  if (clean === "*") return safeComponent("all-*");
+  const match = /^(role|team|session):\s*(.+)$/.exec(clean);
+  return match ? safeComponent(`${match[1]}-${match[2].trim()}`) : safeComponent(clean);
+}
+
 export function parseAddress(value: string): string | null {
   const clean = (value || "").trim();
   if (clean === "*") return "*";
@@ -82,11 +98,9 @@ export function parseAddress(value: string): string | null {
 }
 
 export function addresses(env: NodeJS.ProcessEnv = process.env): string[] {
-  const out = ["*"];
-  const role = (env.TEAMWORK_ROLE || "").trim();
+  const out: string[] = [];
   const team = (env.TEAMWORK_TEAM || "").trim();
   const session = sessionId(env);
-  if (role) out.push(`role:${role}`);
   if (team) out.push(`team:${team}`);
   if (session) out.push(`session:${session}`);
   return out;
@@ -131,13 +145,15 @@ export function pendingMail(
   const bus = busRoot(root);
   const seen = new Map<string, Mail & { key?: string }>();
   for (const key of keys) {
-    for (const row of records(join(bus, key))) {
+    for (const row of records(join(bus, busKey(key)))) {
       const mail = row as Mail;
       if ((mail.state || "pending").trim().toLowerCase() !== "pending") continue;
       if (!live(mail, now)) continue;
       const id = String(mail.id || "");
-      if (!id || seen.has(id)) continue;
-      seen.set(id, { ...mail, key });
+      if (!id) continue;
+      const ref = `${key}/${id}`;
+      if (seen.has(ref)) continue;
+      seen.set(ref, { ...mail, key });
     }
   }
   return [...seen.values()].sort(
@@ -192,11 +208,15 @@ function delivered(session: string): Set<string> {
   return seen;
 }
 
+function ref(row: Mail & { key?: string }): string {
+  return `${row.key || ""}/${row.id || ""}`;
+}
+
 function take(bus: string, rows: (Mail & { key?: string })[], session: string): void {
   for (const row of rows) {
     const key = row.key || "";
     if (!key.startsWith("session:")) continue;
-    const path = join(bus, key, `${row.id}.json`);
+    const path = join(bus, busKey(key), `${row.id}.json`);
     const row_ = readJson(path);
     if (!row_) continue;
     writeFileSync(
@@ -212,17 +232,17 @@ export default function teamworkBus(pi: ExtensionAPI): void {
     const session = sessionId();
     if (!session) return;
     const bus = busRoot(projectRoot(cwdOf(ctx)));
-    mkdirSync(join(bus, `session:${session}`), { recursive: true });
+    mkdirSync(join(bus, busKey(`session:${session}`)), { recursive: true });
   });
 
   pi.on("before_agent_start", async (_event, ctx) => {
     const root = projectRoot(cwdOf(ctx));
     const session = sessionId();
     const seen = delivered(session);
-    const rows = pendingMail(root, addresses()).filter((row) => !seen.has(String(row.id || "")));
+    const rows = pendingMail(root, addresses()).filter((row) => !seen.has(ref(row)));
     if (!rows.length) return;
     pi.sendMessage({ customType: KEY, content: mailText(rows) }, { deliverAs: "nextTurn" });
-    for (const row of rows) seen.add(String(row.id || ""));
+    for (const row of rows) seen.add(ref(row));
     take(busRoot(root), rows, session);
   });
 

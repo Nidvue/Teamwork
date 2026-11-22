@@ -84,6 +84,25 @@ def test_a_broadcast_with_no_target_is_refused(root):
         messages.send(root, sender="CEO", recipient="role:designer", subject="x", roster=ROSTER)
 
 
+def test_only_the_team_and_session_scopes_reach_the_bus(root):
+    """`*` and `role:` resolve to instances at send time and land in the team
+    mailbox; `team:` and `session:` are the bus, and the bus names its folders
+    with the encoded key, so no folder carries `:` or `*`."""
+    fan = messages.send_all(root, sender="CEO", recipient="*", subject="stand up", roster=ROSTER)
+    assert [r["to"] for r in fan] == ["CEO", "Developer-1", "Developer-2", "Tester-1"]
+    assert not messages.bus_root(root).exists()
+    roles = messages.send_all(
+        root, sender="CEO", recipient="role:developer", subject="pair up", roster=ROSTER
+    )
+    assert [r["to"] for r in roles] == ["Developer-1", "Developer-2"]
+    assert not messages.bus_root(root).exists()
+    messages.send(root, sender="CEO", recipient="team:Teamwork", subject="freeze")
+    messages.send(root, sender="CEO", recipient="session:s9", subject="ping", session="s0")
+    folders = sorted(q.name for q in messages.bus_root(root).iterdir() if q.is_dir())
+    assert folders == ["session-s9", "team-Teamwork"]
+    assert not any(bad in q for q in folders for bad in ("*", ":", "?", '"', "<", ">", "|"))
+
+
 def test_the_default_bus_is_repo_rooted(root):
     assert messages.bus_root(root) == root / ".pi" / "Teamwork" / "Bus"
 

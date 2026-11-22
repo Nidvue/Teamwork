@@ -3125,16 +3125,27 @@ two lanes from writing one file.
 
 `bus_root(root) = $TEAMWORK_BUS` when set, else `project_of(root)/".pi/Teamwork/Bus"`.
 
-One message is one JSON record at `<bus_root>/<key>/M-nnnn.json`: the mailbox record
+One message is one JSON record at `<bus_root>/<key-dir>/M-nnnn.json`: the mailbox record
 shape plus `scope`, `sender_session` and `expires`. Every mutation holds
 `<bus_root>/.lock`, so two sessions in two checkouts of one project share one store
-without sharing one checkout.
+without sharing one checkout. `<key-dir>` is the encoded form of the key, never the key:
+the engine's `messages.bus_key` folds `*` to `all`, `role:<r>` to `role-<r>`, `team:<n>`
+to `team-<n>` and `session:<id>` to `session-<id>`, then replaces every run outside
+`[A-Za-z0-9._-]` with `-`. No path component may carry `*` or `:` - a Windows
+filesystem refuses both, so the broadcast address would otherwise be unrepresentable
+where the operator runs. `busKey` in `extensions/teamwork-bus.ts` is the same function
+in TypeScript; `AC-BUS-5` pins the two to one name per address, and `AC-BUS-6` pins
+that name to the characters every filesystem accepts.
 
 | key | scope | read by | closed by |
 |---|---|---|---|
-| `*` | broadcast | every session on the bus | the sender, or `--ttl` expiry |
-| `role:<role>` | role | every instance of that role | the sender, or `--ttl` expiry |
 | `team:<Name>` | team | every session of that team | the sender, or `--ttl` expiry |
+
+Only these two scopes reach the bus: `messages.BUS_SCOPES` is `("team", "session")`.
+`*` and `role:<r>` are addresses that resolve to roster instances, and `send_all`
+queues one mailbox copy per instance for them (18.2). A bus record therefore crosses
+a checkout and a broadcast does not; `team:<Name>` is the address a lane uses when it
+means every session of the team, in every checkout.
 | `session:<PI_SESSION_ID>` | point-to-point | that one session | the recipient (`take` then `done`) |
 
 ### 18.2 Addressing and matching, at read time
@@ -3144,19 +3155,22 @@ without sharing one checkout.
 | `--to` | destination |
 |---|---|
 | `<Instance>` | this team's `Runtime/Mailbox/<Instance>/` - unchanged |
-| `*`, `role:<r>`, `team:<n>`, `session:<id>` | one file under `<bus_root>/<key>/` |
+| `*`, `role:<r>` | that roster at send time, one mailbox copy per instance |
+| `team:<n>`, `session:<id>` | one file under `<bus_root>/<key-dir>/` (see 18.1) |
 
-Matching happens when a reader reads: it reads the keys it holds (`*`, its role, its
-team, its session), and nothing is fanned out at send time. One announcement therefore
-costs one file for N readers, and a reader that starts later still sees it.
+A bus address costs one file for N readers and a reader that starts later still
+sees it; an instance address costs one copy per roster match. `send_all` refuses a
+`*` or `role:` send whose roster resolves to nobody, so the address the sender writes
+chooses the shape - no registry decides it.
 
 `message inbox --for <instance>` returns the team rows, then the bus rows for the
 instance's addresses, sorted once by `(priority rank, created)` - the same order and the
 same priority table the team mailbox uses.
 
-Announcement keys are read-only for recipients: a `*`, `role:` or `team:` record is
-never taken, it is closed by its sender or by `--ttl` expiry, so every reader keeps it
-until then. A `session:` record is point-to-point and take-able; `take` refuses a second
+An announcement is read-only for recipients: a `team:` bus record is never taken, it
+is closed by its sender or by `--ttl` expiry, so every reader keeps it until then. A
+`*` or `role:` notice is already a mailbox row and closes with `message done` from
+its recipient. A `session:` record is point-to-point and take-able; `take` refuses a second
 taker, so one session processes it once.
 
 ### 18.3 The claim register
