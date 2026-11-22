@@ -8912,4 +8912,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: ruff format --check @09c9afc4 -> 2 files would be reformatted | pytest tests/unit/test_ledger_actions.py @09c9afc4 -> 1 failed, 4 passed; commit 329ece63
 - reviewer evidence: .venv/bin/python .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0002_acceptance.py 329ece63 @329ece63 -> 6 checks, 0 failed; same script @df1ec6d1 -> 6 checks, 3 failed | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0002_review.md:f4024905d06b72bf:2466, .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0002_acceptance.py:7e79d0ef46e16028:2727 | credited: TS-0019 integration/engine by Tester @329ece63 | baseline: the merged T-0001 revision @df1ec6d1: the drift test red, 2 files unformatted | replay: run the script with the revision and the tree as argv
 - findings history: 
-- branch / merge: developer/t-0002-the-merged-repro-override-fix-left-the-g / pending
+- branch / merge: developer/t-0002-the-merged-repro-override-fix-left-the-g / ed809422
