@@ -3184,3 +3184,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: python3 -m pytest -q tests/unit -m 'not slow' @developer-2/t-0002 -> 2794 passed, 9 skipped, 60 deselected in 243.42s; ruff check . -> All checks passed; mypy src/teamwork -> no issues found in 35 source files; scripts/check_comments.py -> 0 explanatory commentary; grep of the old tokens in living files -> 0 hits
 - falsified by: a host that still loads a skill dir named teamwork: `refresh` prints 'stale skill copy: <path> - this skill is now tw; delete that directory', so a surviving copy is named, not hidden
 - consequences: existing installs keep the old directory until the user deletes it; the extension installer retires `teamwork-status.ts` from the host extensions list; the docs clone one-liner now targets `.agents/skills/tw`
+
+## D-20261122-Reviewer - retire the duplicate reviewer T-0007 worktree; the same...
+
+- date: 2026-11-22
+- kind: technical
+- status: accepted
+- deciders: Reviewer (reviewer)
+- decided by: Reviewer
+- task: -
+- context: -
+- options considered: -
+- decision: retire the duplicate reviewer T-0007 worktree; the same tree merged as P-0014 at 6dba0ef0
+- why: -
+- evidence: git diff bbd91cc9 751d2bc4 --stat -> empty, so the reviewer/t-0007 branch tree equals the merged fix
+- falsified by: -
+- consequences: -
+
+## D-20261122-CEO - adopt the typed decision layer for three named judgments only
+
+- date: 2026-11-22
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0013
+- context: -
+- options considered: routing work to a lane: REJECT - pulse/swarm already assign deterministically, a second path is a defect; is the work done: REJECT - done is test evidence plus a Reviewer verdict, a probability may never close a task; model tiering: DEFERRED - pi ships examples/extensions/jev-router.ts as a virtual model, install it only when a real tier problem is measured
+- decision: adopt TypeSafe Jev as the team's decision layer for exactly three judgments: which record kind owns a defect, is this action destructive, and keep-or-drop before compaction. Every other decision stays where it is
+- why: a decision answered in prose costs a chat-model turn and leaves an unreadable number; a classifier answers the same state with a probability in 272 ms for 401 input tokens at the vendor rate of $0.042 per Mtok (docs.typesafe.ai/models - accessed 2026-11-22), and the probability can be compared against a written threshold instead of argued
+- evidence: pi --print -ne -e jev_probe.ts @6a5b4842 -> CLASSIFIERS=[typesafe/jev-latest], owner choice task_id p=0.96, risky bool p=0.05, usage input=401 output=60, exit 0, zero chat tokens; POST api.typesafe.ai/v1/systemone -> HTTP 200 wall 272 ms
+- falsified by: if the classifier's probability for the same state varies across runs by more than 0.15, or a decision routed to it ends up needing a re-ask, the layer is noise and the skill is deleted
+- consequences: state sent to the classifier must carry no secret, credential or personal data: the call leaves the machine; TYPESAFE_API_KEY aliases JEV_API_KEY in ~/.bashrc; codemode enabled in ~/.pi/agent/settings.json
