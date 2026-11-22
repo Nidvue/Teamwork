@@ -475,6 +475,25 @@ Exit: AC-M24-1..AC-M24-5 verified by a role other than their owner on the merged
 revision, the integration layer recorded for `area=ui`, and the measured widget
 output written into [PI-PACKAGING](Pi-Packaging.md) 4.
 
+## M25 - A decision layer that answers in numbers (this engagement)
+
+Owner: Product Manager. The engine already decides mechanically - `pulse` and
+`swarm` assign work, gates fail on digests and exit codes - so this layer covers
+only the three judgments a lane would otherwise make in prose, where the number
+belongs in the record. The classifier runs in the pi harness, never in the engine:
+`Runtime third-party deps | 0` still holds, and no task state may leave the machine
+with a secret in it.
+
+| AC | Criterion | Task | Artifact | Evidence |
+|---|---|---|---|---|
+| AC-DEC-1 | `.agents/skills/tw-decision-first/SKILL.md` exists, names the three judgments with their question type and numeric threshold, and refuses every other question | T-0013 | `.agents/skills/tw-decision-first/SKILL.md` | this commit |
+| AC-DEC-2 | a decision made through the layer is recorded as `choice|bool|score p=... confidence=... threshold=... model=... @<rev>`, quoted and never paraphrased | T-0013 | `docs/Team/Decisions.md` D-20261122-CEO, `Knowledge.md` K-0004 | this commit |
+| AC-DEC-3 | the layer never closes a task, never replaces a gate or a red line, and state sent to it carries no secret, credential or personal data | T-0013 | the skill's Pitfalls table; `SKILL.md` red lines | this commit |
+
+Exit: AC-DEC-1..AC-DEC-3 verified by a role other than their owner on the merged
+revision, the `skill` area records re-run at that revision, and D-20261122-CEO
+kept with its falsifier so a future agent can retire the layer on measurement.
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`
@@ -526,6 +545,8 @@ output written into [PI-PACKAGING](Pi-Packaging.md) 4.
 - [The /tw skill](https://github.com/Nidvue/Teamwork/blob/main/SKILL.md) - accessed 2026-10-17
 - [GitHub Actions matrix builds](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs) - accessed 2026-10-17
 - [PyPA: packaging a Python project](https://packaging.python.org/en/latest/tutorials/packaging-projects/) - accessed 2026-10-17
+- [TypeSafe Models: Jev pricing and context limits](https://docs.typesafe.ai/models) - accessed 2026-11-22
+- [pi: Use classifier models](https://github.com/earendil-works/pi/blob/main/docs/models.md#use-classifier-models) - accessed 2026-11-22
 
 ## Traceability - AC to task to test
 
