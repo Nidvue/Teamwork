@@ -2876,8 +2876,15 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
                 t["repro_artifacts"] = artifacts
             t["repro_by"] = actor
             t["updated"] = today_iso()
+            parts = [part for part in (t.get("forced", "") or "").split(" | ") if part]
             if force:
-                t["forced"] = (t.get("forced", "") + f" | repro by {actor}: {force}").strip(" |")
+                t["forced"] = " | ".join(parts + [f"repro by {actor}: {force}"])
+                dropped: list[str] = []
+            else:
+                dropped = [part for part in parts if part.startswith("repro by ")]
+                t["forced"] = " | ".join(
+                    part for part in parts if not part.startswith("repro by ")
+                )
             write_tasks(tpath, tasks, role)
         ledger_append(
             root,
@@ -2890,6 +2897,20 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
             post_rev,
             role,
         )
+        if dropped:
+            ledger_append(
+                root,
+                "tests.repro.supersede",
+                actor,
+                t["id"],
+                "a clean repro record supersedes the older override: " + " | ".join(dropped),
+                post_rev,
+                role,
+            )
+            print(
+                f"# {t['id']} repro override cleared: fail -> pass now reproduces, "
+                f"so the {len(dropped)} older note(s) are off the gate"
+            )
         print(f"# {t['id']} repro proved by {actor}: fail @{pre_rev} -> pass @{post_rev}")
         return 0
 
