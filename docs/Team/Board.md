@@ -81,11 +81,25 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
-| ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
-| developer | T-0001 | evidence-staleness | done | P-0003 | 4f46b4be |
-| developer | T-0002 | team-records | done | P-0002 | f9e0fab2 |
-| developer | T-0003 | lanes | done | P-0004 | c41880f0 |
-| tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
+| ceo | T-0001 | records | done | P-0001 | 070513da |
+| ceo | T-0002 | gate | done | P-0002 | b6d7240f |
+| ceo | T-0003 | widget | done | P-0004 | a5064c31 |
+| ceo | T-0004 | gate | done | P-0003 | 9a42ac63 |
+| ceo | T-0005 | review | done | P-0005 | 37e42174 |
+| ceo | T-0006 | privacy | done | P-0006 | 7bf336f5 |
+| ceo | T-0007 | skill | done | P-0007 | 94447969 |
+| ceo | T-0008 | records | done | P-0008 | 689b120b14879e3ca850c4c8aa95e58e0ab50f75 |
+| ceo | T-0009 | records | done | P-0009 | a6bd1f6c |
+| ceo | T-0010 | bus | todo | P-0010 | - |
+| ceo | T-0011 | - | todo | - | - |
+| developer | T-0001 | engine | done | P-0011 | df1ec6d1 |
+| reviewer | T-0001 | lanes | dropped | - | - |
+| reviewer | T-0002 | lanes | dropped | - | - |
+| reviewer | T-0003 | lanes | dropped | - | - |
+| reviewer | T-0004 | lanes | dropped | - | - |
+| reviewer | T-0005 | lanes | dropped | - | - |
+| reviewer | T-0006 | lanes | dropped | - | - |
+| reviewer | T-0007 | lanes | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -103,6 +117,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0010 · the '*' bus address cannot exist as a directory on Windows, so broadcast mail is unrepresentable there | P1 | todo | - |
+| ceo | T-0011 · the lane silence check depends on /proc CPU, so a silent lane reads as alive on Windows and macOS | P1 | todo | - |
+| reviewer | T-0007 · Root cause: L-0027 timed out (budget) on Reviewer | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
