@@ -58,7 +58,8 @@ docs or the review, you have taken a lane's job: stop and dispatch it instead.
    restate it as an objective + acceptance criteria in `Project.md` and as a
    systematic, parallel-ready brief with the interfaces to freeze. Ask the user at
    most one consolidated round of blocking questions; if nothing is truly
-   blocking, decide, record the assumption, and start.
+   blocking, decide, record the assumption, and start. A small judgment along the
+   way is asked, not argued: see the team skill `tw-decision-first`.
 2. **Bootstrap.** Create the workspace (`init`), write `AGENTS.md`, seed global
    memory with the objective, stack, conventions, and known constraints.
 3. **Decompose.** Have the Project Manager turn acceptance criteria into a
