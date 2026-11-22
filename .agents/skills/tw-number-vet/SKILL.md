@@ -8,6 +8,9 @@ kind: workflow
 
 Owner role: **reviewer** (created by CEO on 2026-11-18).
 
+Related: [tw-decision-first](../tw-decision-first/SKILL.md) - that skill produces
+the number, this one vets it before it leaves the machine.
+
 Use this skill when: a measured number is about to leave the machine - a
 before/after in a self-check note, a regression in a review finding, a baseline in
 `docs/Team/Throughput.md`, a speedup in a PR body, or an eval result that decides
