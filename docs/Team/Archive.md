@@ -8964,4 +8964,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 91619d1f; commit 0981ee77; commit a3a1307d; commit 4a5f13db; commit aac85670
 - reviewer evidence: .venv/bin/python .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0013_acceptance.py @aac85670 -> AC-DEC 23 checks, 0 failed; unit/skill 150 passed; integration/skill 29 passed; harness lint 0 problems; links 0 issues | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0013_review.md:7705142afdc3f1ca:3491 | credited: TS-0022 integration/skill by Tester @aac85670
 - findings history: 
-- branch / merge: ceo/t-0013-a-decision-made-in-prose-leaves-no-numbe / pending
+- branch / merge: ceo/t-0013-a-decision-made-in-prose-leaves-no-numbe / 797deb89
