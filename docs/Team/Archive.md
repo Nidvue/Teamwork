@@ -8899,4 +8899,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: audit @7972f71d -> 1 problem: forced repro note on ceo T-0010; commit 23714fd3
 - reviewer evidence: AC-OVR @23714fd3 -> 10 checks, 0 failed (same artifact @20e81179 -> 3 failed: AC-OVR-3, AC-OVR-4, AC-OVR-5) | preflight PF-4be16b6f5a72 @23714fd39a75 -> 8 checks, 0 failed | repro fail @20e81179 -> pass @23714fd3 | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0001_review.md:ab8fd8b00b9e0fb1:3023 | credited: TS-0002 integration/records by Tester @23714fd3
 - findings history: 
-- branch / merge: developer/t-0001-a-re-recorded-repro-leaves-a-superseded / pending
+- branch / merge: developer/t-0001-a-re-recorded-repro-leaves-a-superseded / df1ec6d1
