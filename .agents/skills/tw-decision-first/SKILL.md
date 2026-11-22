@@ -41,6 +41,11 @@ The probability and the threshold go in the record, next to the reasoning —
 Every run records command + revision + observed result, as the team requires.
 
 - verdict: no observed effect
+- answer: `defect_ownership choice task p=0.96 confidence=0.94 threshold=0.60
+  model=typesafe/jev-latest @6a5b4842` (probe `pi --print -ne -e jev_probe.ts`,
+  401 input tokens, 272 ms, exit 0)
+- answer: `is_destructive bool false p=0.05 confidence=0.94 threshold=0.80
+  model=typesafe/jev-latest @6a5b4842` (same probe run, same state)
 - contrast: prose decisions in `Decisions.md` (for example `D-20261122-Reviewer`
   on the retired T-0007 worktree) carry reasoning but no number; the same
   question asked of the classifier returns `defect_ownership` choice `task`
