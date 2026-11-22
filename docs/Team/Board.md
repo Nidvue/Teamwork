@@ -92,6 +92,8 @@ under two roles is two tasks.
 | ceo | T-0009 | records | done | P-0009 | a6bd1f6c |
 | ceo | T-0010 | bus | done | P-0010 | 9c3acd36 |
 | ceo | T-0011 | engine | done | P-0013 | 1d069dda |
+| ceo | T-0012 | bus | doing | - | - |
+| ceo | T-0013 | skill | done | P-0015 | 797deb89 |
 | developer | T-0001 | engine | done | P-0011 | df1ec6d1 |
 | developer | T-0002 | records | done | P-0012 | ed809422 |
 | developer | T-0003 | engine | done | P-0014 | 6dba0ef0 |
@@ -119,6 +121,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0012 · the bus acceptance row cites task T-0139, which no record carries, so the Windows-path rule has no traceable owner | P3 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
