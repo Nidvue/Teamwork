@@ -93,6 +93,7 @@ under two roles is two tasks.
 | ceo | T-0010 | bus | todo | P-0010 | - |
 | ceo | T-0011 | - | todo | - | - |
 | developer | T-0001 | engine | done | P-0011 | df1ec6d1 |
+| developer | T-0002 | records | done | P-0012 | ed809422 |
 | reviewer | T-0001 | lanes | dropped | - | - |
 | reviewer | T-0002 | lanes | dropped | - | - |
 | reviewer | T-0003 | lanes | dropped | - | - |
