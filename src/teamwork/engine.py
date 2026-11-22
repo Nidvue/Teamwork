@@ -2882,9 +2882,7 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
                 dropped: list[str] = []
             else:
                 dropped = [part for part in parts if part.startswith("repro by ")]
-                t["forced"] = " | ".join(
-                    part for part in parts if not part.startswith("repro by ")
-                )
+                t["forced"] = " | ".join(part for part in parts if not part.startswith("repro by "))
             write_tasks(tpath, tasks, role)
         ledger_append(
             root,
@@ -3170,6 +3168,7 @@ LEDGER_ACTIONS = (
     "task.status",
     "tests.add",
     "tests.repro",
+    "tests.repro.supersede",
     "tests.require",
     "tests.rm",
     "tests.run",

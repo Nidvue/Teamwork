@@ -21,9 +21,7 @@ def team_root(project: Path) -> Path:
 
 
 def init(cli, project: Path) -> Path:
-    assert (
-        cli("--project", project, "init", "--agents", "ceo,developer-1", "--no-git") == 0
-    )
+    assert cli("--project", project, "init", "--agents", "ceo,developer-1", "--no-git") == 0
     return team_root(project)
 
 
