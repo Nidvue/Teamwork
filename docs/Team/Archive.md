@@ -8926,3 +8926,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: .venv/bin/python .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0010_acceptance.py 03c4f45d @03c4f45d -> 14 checks, 0 failed; the same script @624cd763 -> 14 checks, 4 failed | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0010_acceptance.py:b531fd9d38d4d32b:5624 | credited: TS-0017 integration/bus by Tester @03c4f45d | baseline: the fan-out addresses polled bus/* and bus/role-x, which messages.BUS_SCOPES never writes; bus/team-Teamwork, which it does write, was never polled; dedupe was per bare id | replay: run the script with the revision and the tree as argv
 - findings history: detects: a CEO broadcast or role notice that no agent reads: the extension polls directories the engine never writes, so the announcement is invisible to every lane | F4: the self-check note asserted engine-side bus directories bus/all and bus/role-developer that this reproduction refutes; preflight accepted weak evidence at 624cd763. | scope: extensions/teamwork-bus.ts reader set; docs/Team/Project.md AC-BUS rows and Architecture.md section 18 prose; a unit test pinning which scopes land on the bus; do not change messages.BUS_SCOPES or send_all fan-out
 - branch / merge: ceo/t-0010-the-bus-address-cannot-exist-as-a-direct / 9c3acd36
+
+## T-0011 · the lane silence check depends on /proc CPU, so a silent lane reads as alive on Windows and macOS  (ceo)
+- date: 2026-11-22
+- priority: P1
+- owner: ceo role (work by: ceo)
+- reviewer: Reviewer
+- task / issue: -
+- area: engine
+- self-check: [pass] silence judged only where a CPU tick exists: cpu_observable() names the host's capability, child_cpu returns None with no /proc, the silence branch requires a signal, and a lane it cannot measure records 'not judgeable: this host has no per-process CPU time' instead of a guess. Boundary: the deadline and the pid checks are untouched, so an unmeasurable lane can only end on time or on its pid dying; second call (unobservable host) is proven by tests/unit/test_lanes.py::test_a_lane_without_a_cpu_signal_is_never_called_silent, empty case is a lane with no /proc at all. Contract: Lanes.json gains the 'silence' note on the unmeasurable path only; the CLI output is unchanged on a Linux host, pinned by the 70 tests in tests/unit/test_lanes.py. | test: python3 .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0011_acceptance.py ede35715 <worktree> -> 6 checks, 0 failed | preflight: PF-6563d85fa545 @ede35715df87 (9 checks, 0 failed)
+- author evidence: commit 4231751a
+- reviewer evidence: review at @ede35715: python3 /home/pingz/Storage/Projects/Nidvue/Teamwork/.pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0011_acceptance.py ede35715 . -> 6 checks, 0 failed; the shipped tests/unit/test_lanes.py in this worktree -> 70 passed; the same script with main's lanes.py @cf42d04d restored -> 4 failed | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0011_review.md:d2878ed9df6cf896:2374 | credited: TS-0019 integration/engine by Tester @ede35715
+- findings history: 
+- branch / merge: ceo/t-0011-the-lane-silence-check-depends-on-proc-c / pending
