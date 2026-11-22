@@ -1232,6 +1232,31 @@ def capture_short_layer(root: Path, run: dict) -> dict:
         return parse_memory(path)[-1]
 
 
+ABORTED_REQUEST = ("request was aborted", "this operation was aborted")
+
+
+def transcript_aborted(log: object) -> str:
+    """The whole transcript is one of the host's aborted-request lines: no call ran."""
+    try:
+        text = Path(str(log or "")).read_text(errors="ignore").strip().lower()
+    except OSError:
+        return ""
+    return text if text in ABORTED_REQUEST else ""
+
+
+ABORT_NOTE = (
+    "the whole transcript is an aborted request: no tool call ran, so the packet "
+    "goes back smaller, not longer"
+)
+
+
+def name_the_abort(run: dict) -> None:
+    """Say what ended the lane: a request that never ran, not a clock."""
+    run["state"] = FAILED
+    run["cause"] = "request aborted"
+    run["error"] = ABORT_NOTE
+
+
 def refresh(root: Path, run: dict) -> dict:
     """Reconcile one record with its process, its outcome file and its budget."""
     if run.get("state") not in LIVE:
@@ -1249,6 +1274,8 @@ def refresh(root: Path, run: dict) -> dict:
         run["seconds"] = outcome.get("seconds")
         if outcome.get("error"):
             run["error"] = outcome["error"]
+        if transcript_aborted(run.get("log")):
+            name_the_abort(run)
     elif not int(run.get("pid") or 0) and run.get("state") == STARTING:
         created = float(run.get("created") or 0)
         if not created or time.time() - created < STARTING_GRACE_SECONDS:
@@ -1259,17 +1286,25 @@ def refresh(root: Path, run: dict) -> dict:
         run["finished"] = _stamp()
         run["error"] = "never produced a pid inside the start grace window"
     elif not pid_alive(int(run.get("pid") or 0)):
-        run["state"] = LOST
         run["finished"] = _stamp()
-        run["error"] = "the process ended without writing an outcome file (crash or kill -9)"
+        if transcript_aborted(run.get("log")):
+            name_the_abort(run)
+        else:
+            run["state"] = LOST
+            run["error"] = "the process ended without writing an outcome file (crash or kill -9)"
     else:
         deadline = float(run.get("deadline") or 0)
         minutes = int(run.get("minutes") or 0) or lane_minutes(root)
         when, cpu = activity(run, finished)
+        aborted = transcript_aborted(run.get("log"))
         if cpu is not None:
             run["activity_cpu"] = cpu
         silent_for = finished - when
-        if deadline and finished > deadline:
+        if aborted:
+            terminate(int(run.get("pid") or 0))
+            run["finished"] = _stamp()
+            name_the_abort(run)
+        elif deadline and finished > deadline:
             terminate(int(run.get("pid") or 0))
             run["state"] = TIMEOUT
             run["cause"] = "budget"
@@ -1306,7 +1341,9 @@ def refresh(root: Path, run: dict) -> dict:
         str(run.get("role") or ""),
     )
     write_run(root, run)
-    if run.get("state") == TIMEOUT and not run.get("cause_opened"):
+    if not run.get("cause_opened") and (
+        run.get("state") == TIMEOUT or run.get("cause") == "request aborted"
+    ):
         run["cause_opened"] = True
         write_run(root, run)
         open_timeout_cause(root, run)
@@ -1326,7 +1363,8 @@ def open_timeout_cause(root: Path, run: dict) -> dict:
     cause = str(run.get("cause") or "budget")
     minutes = int(run.get("minutes") or 0)
     reason = str(run.get("error") or "no cause recorded")
-    title = f"Root cause: {task or run.get('id')} timed out ({cause}) on {agent}"
+    what = "timed out" if run.get("state") == TIMEOUT else "ended"
+    title = f"Root cause: {task or run.get('id')} {what} ({cause}) on {agent}"
     body = (
         f"Lane {run.get('id')} ({agent}, {role}, {minutes}m budget) ended {cause}: {reason}. "
         f"Task: {task or '-'}. Name why the unit did not fit its profile budget and fix "
@@ -1354,7 +1392,7 @@ def open_timeout_cause(root: Path, run: dict) -> dict:
             role,
         )
     text = (
-        f"{agent} lane {run.get('id')} timed out ({cause}) on {task or 'no task'} "
+        f"{agent} lane {run.get('id')} {what} ({cause}) on {task or 'no task'} "
         f"after {minutes}m: {reason}. Root cause dug out in {record.get('id') or 'the queue'}."
     )
     named = task.upper() if re.fullmatch(r"T-\d+", task.upper()) else ""

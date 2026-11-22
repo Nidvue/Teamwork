@@ -497,6 +497,69 @@ def test_a_lane_alive_but_silent_dies_at_a_third_of_its_budget(
     assert "silent" in items[0]["text"]
 
 
+def test_a_lane_that_exits_naming_only_an_aborted_request_is_not_a_crash(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "reviewer", "land one approved revision")
+    launcher(
+        monkeypatch,
+        fake_lane(
+            tmp_path,
+            name="abort_lane.py",
+            body="print('Request was aborted')\n",
+        ),
+        "{packet}",
+    )
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "reviewer-1", "--task", "T-0001") == 0
+    )
+    cli("--project", project, "lane", "wait", "L-0001", "--timeout", "20")
+    settled = runs(root)[0]
+    assert settled["state"] == lanes.FAILED
+    assert settled["cause"] == "request aborted"
+    assert "crash" not in str(settled["error"])
+    assert "goes back smaller" in str(settled["error"])
+
+
+def test_a_lane_that_only_reports_an_aborted_request_names_that_cause(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "reviewer", "land one approved revision")
+    launcher(
+        monkeypatch,
+        fake_lane(
+            tmp_path,
+            body="print('Request was aborted')\nimport time\ntime.sleep(30)\n",
+        ),
+        "{packet}",
+    )
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "reviewer-1", "--task", "T-0001") == 0
+    )
+    record = runs(root)[0]
+    record["deadline"] = time.time() + 600
+    lanes.write_run(root, record)
+    Path(record["log"]).write_text("Request was aborted\n", encoding="utf-8")
+    refreshed = lanes.refresh(root, runs(root)[0])
+    assert refreshed["state"] == lanes.FAILED
+    assert refreshed["cause"] == "request aborted"
+    assert "goes back smaller" in str(refreshed["error"])
+    assert cli("--project", project, "lane", "status", "L-0001") == 0
+    settled = runs(root)[0]
+    assert settled["cause_opened"] is True
+    causes = [
+        t
+        for t in engine.parse_tasks(engine.task_file(root, "reviewer"))
+        if "Root cause" in t["title"]
+    ]
+    assert len(causes) == 1, causes
+    assert "request aborted" in causes[0]["title"]
+    items = engine.open_attention(engine.parse_attention(engine.attention_path(root)))
+    assert "request aborted" in items[-1]["text"]
+
+
 def test_a_lane_without_a_cpu_signal_is_never_called_silent(
     cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -2989,6 +2989,7 @@ and no marker substitutes for a gate.
 | `DEFAULT_TOOL_BUDGET` | 16 | tool calls a lane is told it may spend |
 | `DEFAULT_LANE_MAX` | 8 | lanes in flight at once |
 | `SILENCE_DIVISOR` | 3 | `silence_seconds(minutes) = minutes * 60 / 3` |
+| `ABORTED_REQUEST` | "request was aborted", "this operation was aborted" | the whole transcript that ends a lane as `request aborted` |
 | `cpu_observable()` | `/proc/self/stat` exists | whether silence can be judged at all |
 | `PROFILE_TOOL_BUDGET` | fast 10, standard 16, deep 24 | per-profile tool budget |
 | `PROFILE_MINUTES_FACTOR` | fast 0.4, standard 1.0, deep 1.6 | per-profile lease factor |
@@ -3008,6 +3009,20 @@ run record carries `silence: not judgeable: this host has no per-process CPU
 time`, and only the deadline ends the lane. A supervisor never kills a lane it
 cannot prove is idle; the early kill is a Linux-only optimisation, and the
 upgrade path is a per-host CPU probe, not the log.
+
+An aborted request is not a slow unit. `transcript_aborted` compares the **whole**
+transcript with `ABORTED_REQUEST`; a lane whose only output is one of those lines
+ends `FAILED` with `cause: request aborted` instead of waiting out its clock, and
+one helper `name_the_abort` stamps that cause on every settle path - outcome file,
+dead process, live process - so an aborted request is never filed as `exited`,
+`lost` or "crash or kill -9". `open_timeout_cause` files the root-cause task and the
+attention item for it, worded "ended", not "timed out". A lane that worked and then
+hit one abort is untouched:
+the match is on the whole transcript, so a real run is never called dead.
+Measured cause of attention `A-0009` and `A-0010`: `L-0020` ran 840.1 s and
+`L-0027` 600.1 s, both killed at exit 143, their logs 19 and 20 bytes reading
+`This operation was aborted` and `Request was aborted` - the model call never ran,
+so the "budget" in the attention line named the clock, not the cause.
 
 ### 17.5 The CLI surface a lane may depend on
 
