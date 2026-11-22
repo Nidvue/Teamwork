@@ -8939,3 +8939,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: review at @ede35715: python3 /home/pingz/Storage/Projects/Nidvue/Teamwork/.pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0011_acceptance.py ede35715 . -> 6 checks, 0 failed; the shipped tests/unit/test_lanes.py in this worktree -> 70 passed; the same script with main's lanes.py @cf42d04d restored -> 4 failed | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0011_review.md:d2878ed9df6cf896:2374 | credited: TS-0019 integration/engine by Tester @ede35715
 - findings history: 
 - branch / merge: ceo/t-0011-the-lane-silence-check-depends-on-proc-c / 1d069dda
+
+## T-0003 · a lane whose whole transcript is an aborted request is filed as a timeout, so the cause never reaches the record  (developer)
+- date: 2026-11-22
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer
+- task / issue: -
+- area: engine
+- self-check: [pass] Boundary: transcript_aborted compares the WHOLE transcript with ABORTED_REQUEST, so a lane that worked and then hit one abort keeps its normal settle path (AC-ABT-10 control, predicate falsy for 'worked on 8 files\nRequest was aborted'). Empty/missing case: no log file or an unreadable one returns falsy and the lane falls through to exited/lost/timeout exactly as before. Second call: refresh returns early for a record outside LIVE, and cause_opened guards open_timeout_cause, so a re-peek cannot stamp twice or file a second root-cause task. Contract surface: state/cause/error fields unchanged in shape; new cause value 'request aborted' plus title wording 'ended'. Concurrency and shared writes: one record per lane, stamped under the same write_run path, no new lock and no shared file. Scope: lanes.py cause naming on all three settle paths and open_timeout_cause wording; no change to budgets, slots, silence or the deadline rule. | test: PYTHONPATH=src .venv/bin/python -m pytest -q tests/unit/test_lanes.py @bbd91cc9 -> 72 passed | preflight: PF-832add09ffed @bbd91cc93b9e (9 checks, 0 failed)
+- author evidence: L-0020 and L-0027 both ended on 'This operation was aborted' and 'Request was aborted', recorded as state=timeout cause=budget; commit bbd91cc9
+- reviewer evidence: AC-ABT @bbd91cc9 -> 11 checks, 0 failed; baseline same script with lanes.py @3945f335 -> 11 checks, 4 failed (state=exited cause=None) | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0003_review.md:17e94e56f4e6f885:2151 | credited: TS-0019 integration/engine by Tester @bbd91cc9 | baseline: author's self-check gate PF-832add09ffed @bbd91cc93b9e (9 checks, 0 failed) | replay: .venv/bin/python .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0007_acceptance.py bbd91cc9 .
+- findings history: 
+- branch / merge: developer/t-0003-a-lane-whose-whole-transcript-is-an-abor / pending
