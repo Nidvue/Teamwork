@@ -90,7 +90,7 @@ under two roles is two tasks.
 | ceo | T-0007 | skill | done | P-0007 | 94447969 |
 | ceo | T-0008 | records | done | P-0008 | 689b120b14879e3ca850c4c8aa95e58e0ab50f75 |
 | ceo | T-0009 | records | done | P-0009 | a6bd1f6c |
-| ceo | T-0010 | bus | todo | P-0010 | - |
+| ceo | T-0010 | bus | done | P-0010 | 9c3acd36 |
 | ceo | T-0011 | - | todo | - | - |
 | developer | T-0001 | engine | done | P-0011 | df1ec6d1 |
 | developer | T-0002 | records | done | P-0012 | ed809422 |
@@ -118,7 +118,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0010 · the '*' bus address cannot exist as a directory on Windows, so broadcast mail is unrepresentable there | P1 | todo | - |
 | ceo | T-0011 · the lane silence check depends on /proc CPU, so a silent lane reads as alive on Windows and macOS | P1 | todo | - |
 | reviewer | T-0007 · Root cause: L-0027 timed out (budget) on Reviewer | P1 | todo | - |
 
