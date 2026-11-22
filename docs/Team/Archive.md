@@ -8900,3 +8900,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: AC-OVR @23714fd3 -> 10 checks, 0 failed (same artifact @20e81179 -> 3 failed: AC-OVR-3, AC-OVR-4, AC-OVR-5) | preflight PF-4be16b6f5a72 @23714fd39a75 -> 8 checks, 0 failed | repro fail @20e81179 -> pass @23714fd3 | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0001_review.md:ab8fd8b00b9e0fb1:3023 | credited: TS-0002 integration/records by Tester @23714fd3
 - findings history: 
 - branch / merge: developer/t-0001-a-re-recorded-repro-leaves-a-superseded / df1ec6d1
+
+## T-0002 · the merged repro-override fix left the gate red on main  (developer)
+- date: 2026-11-22
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer
+- task / issue: -
+- area: records
+- self-check: [pass] P0 cleanup of the revision T-0001 merged: engine.LEDGER_ACTIONS now declares tests.repro.supersede (the drift test gates it) and ruff format is clean over the tree. Boundary: a future undeclared ledger action fails unit; the format check covers every file, not just the touched ones. The clearing logic itself is untested here - T-0001 owns that. | test: .venv/bin/python -m ruff check src tests @329ece63 -> All checks passed | preflight: PF-07224ee8b866 @329ece63c385 (8 checks, 0 failed)
+- author evidence: ruff format --check @09c9afc4 -> 2 files would be reformatted | pytest tests/unit/test_ledger_actions.py @09c9afc4 -> 1 failed, 4 passed; commit 329ece63
+- reviewer evidence: .venv/bin/python .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0002_acceptance.py 329ece63 @329ece63 -> 6 checks, 0 failed; same script @df1ec6d1 -> 6 checks, 3 failed | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0002_review.md:f4024905d06b72bf:2466, .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0002_acceptance.py:7e79d0ef46e16028:2727 | credited: TS-0019 integration/engine by Tester @329ece63 | baseline: the merged T-0001 revision @df1ec6d1: the drift test red, 2 files unformatted | replay: run the script with the revision and the tree as argv
+- findings history: 
+- branch / merge: developer/t-0002-the-merged-repro-override-fix-left-the-g / pending
