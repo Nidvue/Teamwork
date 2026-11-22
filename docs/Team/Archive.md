@@ -8887,3 +8887,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: cd /home/pingz/Code/Nidvue/Teamwork/.pi/Teamwork/Teams/Teamwork/Runtime/Worktrees/Tester/T-0001 && /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python -m pytest -q tests/acceptance -m 'not slow' @2f89fd3 -> 89 passed, 1 skipped; pytest -q tests/integration/test_pi_package_install.py @2f89fd3 -> 2 passed; preflight PF-5f572d0ec367 @2f89fd3 -> 8 checks, 0 failed incl. 'make ci-fast -> exit 0'; read tests/integration/test_pi_package_install.py:31,45 - npm = shutil.which('npm') is used for both the guard and the ['npm','pack'] argv, so the Windows .cmd path is resolved instead of exec'd bare | artifacts: tests/integration/test_pi_package_install.py:76e651644a93c76d:3409 | credited: TS-0011 acceptance/pi-package by Reviewer-1 @2f89fd3b18646549b8e026eb5d7391c7c7f5249a | baseline: pre @932672c6 CI job 136424389350 -> FileNotFoundError [WinError 2] at ['npm','pack'] | replay: pytest -q tests/integration/test_pi_package_install.py
 - findings history: 
 - branch / merge: tester/t-0001-pack-the-skill-tarball-with-the-resolved / 366a4cdd
+
+## T-0001 · a re-recorded repro leaves a superseded gate override in force forever  (developer)
+- date: 2026-11-22
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer
+- task / issue: -
+- area: engine
+- self-check: [pass] Ladder: the clearing is one filter in the repro writer, no new field, no new subcommand. Boundary: a clean record drops only entries starting "repro by ", so an unrelated override survives; an empty forced field stays empty; a second --force appends rather than replaces; the supersede ledger entry is written once, only when a note was actually dropped. Contract: the task keeps one repro packet (last write wins) and audit stops counting a cleared override; the trail keeps both tests.repro entries plus one tests.repro.supersede. Scope: src/teamwork/engine.py repro writer plus tests/unit/test_repro_override_supersede.py; no schema, migration, auth, payment or release-path change. | test: PYTHONPATH=src .venv/bin/python -m pytest -q tests/unit/test_repro_override_supersede.py @23714fd3 -> 3 passed | preflight: PF-4be16b6f5a72 @23714fd39a75 (8 checks, 0 failed)
+- author evidence: audit @7972f71d -> 1 problem: forced repro note on ceo T-0010; commit 23714fd3
+- reviewer evidence: AC-OVR @23714fd3 -> 10 checks, 0 failed (same artifact @20e81179 -> 3 failed: AC-OVR-3, AC-OVR-4, AC-OVR-5) | preflight PF-4be16b6f5a72 @23714fd39a75 -> 8 checks, 0 failed | repro fail @20e81179 -> pass @23714fd3 | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0001_review.md:ab8fd8b00b9e0fb1:3023 | credited: TS-0002 integration/records by Tester @23714fd3
+- findings history: 
+- branch / merge: developer/t-0001-a-re-recorded-repro-leaves-a-superseded / pending
