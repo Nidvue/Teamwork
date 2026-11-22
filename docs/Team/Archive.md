@@ -8951,4 +8951,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: L-0020 and L-0027 both ended on 'This operation was aborted' and 'Request was aborted', recorded as state=timeout cause=budget; commit bbd91cc9
 - reviewer evidence: AC-ABT @bbd91cc9 -> 11 checks, 0 failed; baseline same script with lanes.py @3945f335 -> 11 checks, 4 failed (state=exited cause=None) | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Reports/T-0003_review.md:17e94e56f4e6f885:2151 | credited: TS-0019 integration/engine by Tester @bbd91cc9 | baseline: author's self-check gate PF-832add09ffed @bbd91cc93b9e (9 checks, 0 failed) | replay: .venv/bin/python .pi/Teamwork/Teams/Teamwork/Agents/Reviewer/Artifacts/T-0007_acceptance.py bbd91cc9 .
 - findings history: 
-- branch / merge: developer/t-0003-a-lane-whose-whole-transcript-is-an-abor / pending
+- branch / merge: developer/t-0003-a-lane-whose-whole-transcript-is-an-abor / 6dba0ef0
