@@ -76,9 +76,11 @@ docs or the review, you have taken a lane's job: stop and dispatch it instead.
    independent ready work: Ollama Cloud takes 64 concurrent lanes, the DeepSeek
    API ~2500. Scale `developer-*` / `tester-*` / `designer-*` to the available
    capacity, not to a fixed number, and hand the next task to a lane that is
-   already running before spawning a new one. When two verification lanes are
-   staffed, set `TEAMWORK_MODEL_ALT` and run `model auto --apply` so independent
-   review is not the same model twice.
+   already running before spawning a new one. Lanes keep the model the user
+   configured. Do not switch models at intake: automatic routing is off by default.
+   If two verification lanes must differ, ask the user for an explicit demand first,
+   then set `TEAMWORK_MODEL_ALT` and run
+   `model auto --apply --allow-switch --reason '<who asked>'`.
 5. **Run the loop.** Unblock, arbitrate conflicts, resolve duplicate work,
    update global memory, and report progress to the user. Keep the team in
    parallel lanes; never serialise work that has no dependency.
@@ -155,8 +157,9 @@ teamwork.py coordination --strict     # exit 1 while a high finding is open
 
 - `C-DIV-BRANCH` / `C-DIV-TASK` / `C-DIV-SHARED`: merge, re-scope or hand one owner
   the shared reference. Duplicate work is not parallelism.
-- `C-DIV-MODEL`: set `TEAMWORK_MODEL_ALT` and re-apply; two Reviewer lanes on one
-  model share one blind spot.
+- `C-DIV-MODEL`: two Reviewer lanes on one model share one blind spot, but a switch
+  needs the user's explicit demand. Ask first; on approval set `TEAMWORK_MODEL_ALT`
+  and run `model auto --apply --allow-switch --reason '<who asked>'`.
 - `C-TRUST-ECHO` / `C-TRUST-MONOCULTURE`: fan the review queue, and sample a
   second review; never accept a verdict agreed before it was recorded.
 - `C-MERGE-RATE` / `C-MERGE-ABANDONED`: land, close or re-scope
@@ -299,8 +302,10 @@ suppress only narrowly with a reason for third-party code.
 
 ### Your model (all roles)
 
-`teamwork.py model get <you>` shows your model; the CEO sets the lanes with `model
-auto --apply`. Model choice never changes the protocol, the gates or the ledger.
+`teamwork.py model get <you>` shows your model; the model the user configured is the
+default and nobody switches it for you. A change needs the user's explicit demand:
+the CEO runs `model auto --apply --allow-switch --reason '<who asked>'`. Model choice
+never changes the protocol, the gates or the ledger.
 
 The full text of these three blocks is `references/AllRoles.md`, injected verbatim
 into your lane packet - read it there rather than re-deriving it.

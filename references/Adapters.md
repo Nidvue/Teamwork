@@ -168,11 +168,13 @@ Every lane child gets `TEAMWORK_ROOT`, `TEAMWORK_TEAM`, `TEAMWORK_LANE` and
 
 ## Host detection also drives model routing
 
-The same detection that picks the launcher picks the model: `model auto` reads
-the host (pi, claude, opencode, codex, cursor, gemini) and the model
-that host exposes, then routes the strongest available model to the decision lanes
-and the economy model to the mechanical lanes; `TEAMWORK_AGENT_HOST` pins the
-detection when the markers are ambiguous. Policy: [Concurrency](Concurrency.md).
+The same detection that picks the launcher informs `model auto`: it reads the host
+(pi, claude, opencode, codex, cursor, gemini) and the model that host exposes, then
+*plans* the strongest available model for the decision lanes and the economy model
+for the mechanical lanes. Automatic routing is off by default: the plan writes
+nothing unless the user's explicit demand switches it with
+`model auto --apply --allow-switch --reason '<who asked>'`. `TEAMWORK_AGENT_HOST`
+pins detection when the markers are ambiguous. Policy: [Concurrency](Concurrency.md).
 
 ## The skill copy is the thing that runs
 

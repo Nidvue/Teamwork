@@ -43,10 +43,12 @@ team is judged by its records rather than its intentions.
 Two lanes with the same model, the same context and the same queue are not two
 independent checks; they are one check sampled twice.
 
-- **Verification lanes use a different model when one is available.** Set
-  `TEAMWORK_MODEL_ALT`; `model auto --apply` alternates it across Reviewer,
-  Tester and Security Auditor instances. `coordination` reports
-  `C-DIV-MODEL` when every lane still resolves to one model.
+- **Verification lanes share the user's configured model by default.** A different
+  model is an explicit demand, never a background change: the user asks, then the
+  CEO sets `TEAMWORK_MODEL_ALT` and runs
+  `model auto --apply --allow-switch --reason '<who asked>'` to alternate Reviewer,
+  Tester and Security Auditor instances. `coordination` reports `C-DIV-MODEL` when
+  every lane resolves to one model; the remedy is to ask the user, not to switch.
 - **One task, one branch, one claim.** `branch start` names the branch from the
   task id, so two tasks can never share one by accident. A duplicate title or a
   shared board reference is a defect (`C-DIV-TASK`, `C-DIV-SHARED`), not parallel

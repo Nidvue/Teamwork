@@ -13710,9 +13710,9 @@ def coordination_report(root: Path) -> dict:
                     ", ".join(lanes),
                     f"every {role} lane resolves to the same model ({label}), so the "
                     "independent check shares one set of blind spots",
-                    "set TEAMWORK_MODEL_ALT to a second model and run `model auto "
-                    "--apply`, or pin one lane with `model set <lane> --provider ... "
-                    "--model ...`",
+                    "pin one lane with `model set <lane> --provider ... --model ...`; "
+                    "switching every lane needs the user's explicit demand "
+                    "(`model auto --apply --allow-switch --reason '<who asked>'`)",
                 )
             )
 
@@ -20343,11 +20343,13 @@ def host_default_model(env=None) -> str:
     return host_default(env)[1]
 
 
-def resolve_model_plan(root: Path, env=None) -> dict:
-    """Route every staffed role to a model: strong lanes first, cost last.
+def resolve_model_plan(root: Path, env=None, allow_switch: bool = False) -> dict:
+    """Plan the lanes' models; switching happens only on an explicit demand.
 
     Every assignment carries the variable its model came from, so a caller can
     tell a model the operator named from one the host happened to configure.
+    With ``allow_switch`` false the plan never alternates models across lanes:
+    the model the user configured is the one every lane keeps.
     """
     env = os.environ if env is None else env
     host = detect_agent_host(env)
@@ -20366,7 +20368,7 @@ def resolve_model_plan(root: Path, env=None) -> dict:
         env.get("PI_PROVIDER") or ""
     ).strip()
     assignments, missing = {}, []
-    alternate = (env.get("TEAMWORK_MODEL_ALT") or "").strip()
+    alternate = (env.get("TEAMWORK_MODEL_ALT") or "").strip() if allow_switch else ""
     alternate_provider = provider
     if alternate and "/" in alternate:
         head, tail = alternate.split("/", 1)
@@ -20400,10 +20402,16 @@ def resolve_model_plan(root: Path, env=None) -> dict:
             "named": named,
         }
     notes = [f"host: {host}"]
+    notes.append(
+        "model switching authorized by an explicit demand"
+        if allow_switch
+        else "model switching is off: the model configured in Settings.json is kept; "
+        "only `model auto --apply --allow-switch --reason '<who asked>'` changes it"
+    )
     if len(instances_of(root, "reviewer")) > 1 and not alternate:
         notes.append(
-            "reviewer lanes share one model: set TEAMWORK_MODEL_ALT to a second "
-            "model so `model auto --apply` decorrelates independent review"
+            "reviewer lanes share one model: changing it needs the user's explicit "
+            "demand (`model auto --apply --allow-switch --reason '<who asked>'`)"
         )
     if missing:
         notes.append(
@@ -20421,15 +20429,29 @@ def resolve_model_plan(root: Path, env=None) -> dict:
         "economy": economy or strong,
         "assignments": assignments,
         "notes": notes,
+        "allow_switch": allow_switch,
     }
 
 
 def cmd_model_auto(args) -> int:
-    """`teamwork model auto [--apply] [--json]` - cost-aware automatic routing."""
+    """`teamwork model auto [--apply] [--json]` - a plan; switching needs a demand."""
     import json
 
     root = project_root(args)
-    plan = resolve_model_plan(root)
+    apply_change = getattr(args, "apply", False)
+    allow_switch = getattr(args, "allow_switch", False)
+    reason = (getattr(args, "reason", "") or "").strip()
+    if allow_switch and not reason:
+        die("--allow-switch requires --reason '<who asked>' so the demand is recorded")
+    if apply_change and not allow_switch:
+        die(
+            "refusing to switch models: automatic model routing is off by default and "
+            "the model the user configured in Settings.json is kept. Change it only on "
+            "an explicit demand: `teamwork model auto --apply --allow-switch "
+            "--reason '<who asked>'`, or pin one lane with `teamwork model set "
+            "<lane> --provider ... --model ...`"
+        )
+    plan = resolve_model_plan(root, allow_switch=allow_switch)
     if getattr(args, "json", False):
         print(json.dumps({"command": "model.auto", **plan}, indent=2, sort_keys=True))
     else:
@@ -20439,9 +20461,12 @@ def cmd_model_auto(args) -> int:
             print(f"- {role:18s} {entry['tier']:8s} {entry['model']}  (from {origin})")
         for note in plan["notes"]:
             print(f"# {note}")
-    if not getattr(args, "apply", False):
+    if not apply_change:
         if not getattr(args, "json", False):
-            print("# dry run: rerun with --apply to write these into Settings.json")
+            print(
+                "# dry run: rerun with --apply --allow-switch --reason '<who asked>' "
+                "to write these into Settings.json"
+            )
         return 0
     if not plan["assignments"]:
         die("nothing to apply: no model found in the environment")
@@ -20469,7 +20494,7 @@ def cmd_model_auto(args) -> int:
         "model.auto",
         plan["host"],
         f"{len(plan['assignments'])} lanes",
-        f"strong={plan['strong'] or '-'} economy={plan['economy'] or '-'}",
+        f"strong={plan['strong'] or '-'} economy={plan['economy'] or '-'} reason={reason}",
     )
     print(f"# applied to {len(plan['assignments'])} lanes")
     return 0
@@ -22226,10 +22251,20 @@ def _parsers_model(sub, common) -> None:
     p = msub.add_parser("list", parents=[common], help="every agent and its model")
     p.set_defaults(func=cmd_model)
     p = msub.add_parser(
-        "auto", parents=[common], help="route every lane to the best model the environment offers"
+        "auto", parents=[common], help="plan lane models; switching needs an explicit demand"
     )
     p.add_argument(
         "--apply", action="store_true", help="write the plan into Settings.json (default: dry run)"
+    )
+    p.add_argument(
+        "--allow-switch",
+        action="store_true",
+        help="explicitly authorize a model change (requires --reason)",
+    )
+    p.add_argument(
+        "--reason",
+        default="",
+        help="who demanded the switch (required with --allow-switch; recorded in the ledger)",
     )
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p.set_defaults(func=cmd_model)

@@ -279,7 +279,7 @@ Offline smoke test of the install; no network, no workspace required.
 teamwork model set <role|instance> --provider P --model M
 teamwork model get <role|instance>
 teamwork model list
-teamwork model auto [--apply] [--json]
+teamwork model auto [--apply] [--allow-switch --reason '<who asked>'] [--json]
 ```
 
 The skill ships no model and calls no LLM API: every agent runs through the host's
@@ -290,13 +290,15 @@ own API, so the model is a property of the **agent**, not of the project.
 - `get` prints the effective model and where it came from (`agent`, `role` or
   `unset`); `list` prints the whole roster.
 - `auto` reads the **runtime environment** - the running agent host and the model
-  it exposes - and routes the strongest available model to the decision lanes
-  (Reviewer, Architect,
-  Security Auditor, CEO, CTO) and the economy model to the mechanical lanes
-  (developers, testers, writers, formatting, link checks). It is a dry run by
-  default; `--apply` writes it and records `model.auto` in the ledger. It never
-  invents a model id: a lane with nothing available is reported `unset` together
-  with the variable to set (`TEAMWORK_MODEL_STRONG`, `TEAMWORK_MODEL_ECONOMY`).
+  it exposes - and plans the strongest available model for the decision lanes
+  (Reviewer, Architect, Security Auditor, CEO, CTO) and the economy model for the
+  mechanical lanes (developers, testers, writers, formatting, link checks).
+  Automatic routing is off by default: it is a dry run, and `--apply` alone refuses
+  to change the configured model. Only an explicit demand switches lanes:
+  `--apply --allow-switch --reason '<who asked>'` writes the plan and records the
+  reason in the ledger as `model.auto`. It never invents a model id: a lane with
+  nothing available is reported `unset` together with the variable to set
+  (`TEAMWORK_MODEL_STRONG`, `TEAMWORK_MODEL_ECONOMY`).
   `TEAMWORK_AGENT_HOST` pins host detection when the markers are ambiguous.
 
 Automatic routing policy: [references/Concurrency.md](https://github.com/Nidvue/Teamwork/blob/main/references/Concurrency.md).

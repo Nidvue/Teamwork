@@ -1287,7 +1287,17 @@ def test_auto_reads_the_environment_and_never_invents_a_model(cli, project, caps
     monkeypatch.setenv("CLAUDECODE", "1")
     monkeypatch.setenv("TEAMWORK_MODEL_STRONG", "a-strong-model")
     monkeypatch.setenv("TEAMWORK_MODEL_ECONOMY", "a-cheap-model")
-    assert cli("model", "auto", "--apply") == 0
+    assert (
+        cli(
+            "model",
+            "auto",
+            "--apply",
+            "--allow-switch",
+            "--reason",
+            "the test named both tiers",
+        )
+        == 0
+    )
     assert cli("model", "get", "reviewer-1") == 0
     assert "a-strong-model" in capsys.readouterr().out
     assert cli("model", "get", "developer-1") == 0
@@ -1308,6 +1318,8 @@ def test_concurrency_reference_documents_automatic_routing(root):
     assert "model auto --apply" in text
     assert "never invents a model id" in text
     assert "quality where it compounds" in text.lower()
+    assert "off by default" in text
+    assert "--allow-switch --reason" in text
 
 
 def test_the_custom_domain_is_configured_everywhere(root):
@@ -1325,7 +1337,12 @@ def test_automatic_routing_is_documented_everywhere(root):
 
     def mentions(text):
         low = text.lower()
-        return "model auto" in low and "routing" in low
+        return (
+            "model auto" in low
+            and "routing" in low
+            and "off by default" in low
+            and "explicit demand" in low
+        )
 
     surfaces = {
         "README": root / "README.md",

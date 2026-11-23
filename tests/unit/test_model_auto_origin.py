@@ -60,7 +60,19 @@ def test_only_economy_named_refuses_the_host_default(cli, tmp_path, monkeypatch,
         PI_MODEL=PREMIUM,
     )
     before = _settings(root)
-    assert cli("--project", project, "model", "auto", "--apply") != 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "model",
+            "auto",
+            "--apply",
+            "--allow-switch",
+            "--reason",
+            "the operator named these models",
+        )
+        != 0
+    )
     printed = capsys.readouterr().err
     assert "host default" in printed and "PI_MODEL" in printed and PREMIUM in printed
     assert _settings(root) == before
@@ -76,7 +88,19 @@ def test_every_model_named_is_applied(cli, tmp_path, monkeypatch):
         TEAMWORK_MODEL_ECONOMY=ECONOMY,
         PI_MODEL="openai/whatever-the-host-had",
     )
-    assert cli("--project", project, "model", "auto", "--apply") == 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "model",
+            "auto",
+            "--apply",
+            "--allow-switch",
+            "--reason",
+            "the operator named these models",
+        )
+        == 0
+    )
     applied = _applied_models(root)
     assert applied["developer"] == ECONOMY
     assert applied["ceo"] == PREMIUM
@@ -92,7 +116,19 @@ def test_an_env_allow_does_not_take_the_host_default(cli, tmp_path, monkeypatch)
         TEAMWORK_MODEL_ALLOW_PREMIUM=PREMIUM,
     )
     before = _settings(root)
-    assert cli("--project", project, "model", "auto", "--apply") != 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "model",
+            "auto",
+            "--apply",
+            "--allow-switch",
+            "--reason",
+            "the operator named these models",
+        )
+        != 0
+    )
     assert _settings(root) == before
     assert PREMIUM not in json.dumps(_applied_models(root))
 
@@ -133,5 +169,17 @@ def test_a_named_strong_model_is_its_own_origin(cli, tmp_path, monkeypatch):
 def test_nothing_named_still_refuses_and_writes_nothing(cli, tmp_path, monkeypatch):
     project, root = _team(cli, tmp_path, monkeypatch, PI_MODEL=PREMIUM)
     before = _settings(root)
-    assert cli("--project", project, "model", "auto", "--apply") != 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "model",
+            "auto",
+            "--apply",
+            "--allow-switch",
+            "--reason",
+            "the operator named these models",
+        )
+        != 0
+    )
     assert _settings(root) == before

@@ -231,35 +231,44 @@ teamwork.py model list
 
 - An **instance** setting wins over the **role** default; an unset agent uses the
   host's own default and records `unset`.
-- Give the reasoning-heavy lanes the stronger model (Reviewer, Architect,
-  Security Auditor) and the mechanical ones a cheaper or faster one (bulk edits,
-  formatting, link checks). Cost and latency are a per-lane choice, not a global one.
-- A model change is a recorded act (`Settings.json` + the ledger); the CEO sets the
-  lanes at intake, and an agent never changes another agent's model.
+- The model the user configured is the default for every lane. Cost and latency are
+  per-lane choices the user makes explicitly, not a routing the engine does by itself.
+- A model change is a recorded act (`Settings.json` + the ledger); the CEO changes a
+  lane only on the user's explicit demand, and an agent never changes another
+  agent's model.
 - Model choice never changes the protocol: the evidence gates, the two-stage
   review and the ledger hold whatever model produced the work.
 
 ### Automatic cost-aware routing
 
+Automatic routing is **off by default**. The model already in `Settings.json` is
+kept; a dry run only shows what an authorized switch would do.
+
 ```sh
 teamwork.py model auto            # dry run: the plan, per lane
-teamwork.py model auto --apply    # write it into Settings.json
+teamwork.py model auto --apply    # refused without the explicit demand below
 teamwork.py model auto --json
+teamwork.py model auto --apply --allow-switch --reason '<who asked>'
 ```
 
 `model auto` reads the *runtime environment* - which agent host is running (Pi,
 Claude Code, opencode, Codex, Cursor, Gemini CLI) and which model that host already
-exposes - and routes **the strongest available model to the lanes where a mistake
+exposes - and *plans* **the strongest available model on the lanes where a mistake
 is expensive** (Reviewer, Architect, Security Auditor, CEO, CTO) and **the economy
-model to the mechanical lanes** (developers, testers, writers, formatting, link
-checks). Quality where it compounds, cheapness where it does not.
+model on the mechanical lanes** (developers, testers, writers, formatting, link
+checks). Quality where it compounds, cheapness where it does not - only when the
+user asks for that split. `--apply` writes nothing unless `--allow-switch` carries
+the user's explicit demand; the `--reason` is recorded in the ledger.
 
 - It never invents a model id: `TEAMWORK_MODEL_STRONG` (or the host's own
   `ANTHROPIC_MODEL` / `PI_MODEL` / `OPENCODE_MODEL` / ...) supplies the strong tier,
   `TEAMWORK_MODEL_ECONOMY` the cheap one, and a lane with neither is reported as
   `unset` together with the variable to set.
-- `--apply` is explicit: the plan is a dry run by default, and applying it is
-  recorded in the ledger.
-- Re-run it when the host or the budget changes; it is idempotent.
+- `--apply --allow-switch --reason '<who asked>'` is explicit: the plan is a dry run
+  by default, and an authorized apply is recorded in the ledger with its reason.
+- `TEAMWORK_MODEL_ALT` alternates verification lanes only inside an authorized
+  plan; without `--allow-switch` it is inert.
+- Re-run it when the host or the budget changes, always after a fresh explicit
+  demand; it is idempotent.
 - `TEAMWORK_AGENT_HOST=claude|pi|opencode|codex|cursor|gemini` overrides
   detection when the markers are ambiguous (CI, wrapper scripts).

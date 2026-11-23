@@ -10,10 +10,10 @@ It is a **skill for your coding agent** - not a standalone app and not a hosted
 service. The stdlib-only engine and the workspace format ship inside the skill;
 installing the engine as a Python package is optional.
 
-- **Automatic model routing** - `teamwork model auto` detects the agent
-  host and routes the strongest available model to the decision lanes and
-  the economy one to the mechanical lanes: best output where it compounds,
-  lowest cost where it does not.
+- **Automatic model routing, off by default** - `teamwork model auto` detects the
+  agent host and plans the strongest available model for the decision lanes and the
+  economy one for the mechanical lanes. The model the user configured stays until
+  an explicit demand switches it; the plan writes nothing on its own.
 
 ## What it is
 

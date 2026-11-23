@@ -57,9 +57,9 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 9. **Style is automated.** The canonical formatter, linter and type checker (Python: `ruff format` + `ruff check` + `mypy`) run before the commit and gate the merge; never hand-format, never weaken a rule to pass.
 10. **Names are deliberate.** Team directories are PascalCase, files follow the ecosystem, Python modules `lower_snake_case`, tool-mandated files never renamed.
 11. **History is minimal and modular.** `<type>(<area>): <summary>` plus `Role`, `Producers`, `Goal`, `Deliverable`, `Why`, `Status`, `Result`; squash to one commit per task before review; never rebase or force-push shared history.
-12. **Each agent's model is its own.** The skill ships no model and calls no LLM API; `model auto --apply` routes cost-aware, strongest on decision lanes (`references/Concurrency.md`).
+12. **Each agent's model is its own.** The skill ships no model and calls no LLM API; the user's configured model is the default and automatic routing is off by default. Switching needs an explicit demand: `model auto --apply --allow-switch --reason '<who asked>'` (`references/Concurrency.md`).
 13. **Warnings are errors.** The toolchain fails on them; fix the cause, suppress narrowly with a reason. CI annotations count too.
-14. **Independence is structural.** Verification lanes do not share a model; one task owns one branch; duplicate work is a defect.
+14. **Independence is structural.** Verification lanes run the user's default model; a different model per lane is an explicit demand, not a background switch. One task owns one branch; duplicate work is a defect.
 15. **No lane wars.** Never deny a peer a process, worktree, lease or file; resolve by a measurable contest or the CEO.
 16. **Consensus is not evidence.** A single source is provisional and lowering a gate to agree is collusion.
 
@@ -108,9 +108,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 250 kB |
-| `standard` | 10 | 400 kB |
-| `full` | 17 | 649 kB |
+| `slim` (default) | 6 | 252 kB |
+| `standard` | 10 | 403 kB |
+| `full` | 17 | 653 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 2.2x what `slim` costs. A role earns a seat only if it owns a deliverable, a test
@@ -338,9 +338,11 @@ The host loads a **copy** of the skill, so a copy that drifts from `origin/main`
 
 Identical lanes make identical mistakes: same model, same context, same queue.
 
-- `model auto --apply` with `TEAMWORK_MODEL_ALT` when two Reviewer, Tester or
-  Security Auditor lanes are staffed; `coordination` reports `C-DIV-MODEL` when every
-  verification lane shares one model.
+- Different models across Reviewer, Tester or Security Auditor lanes are an explicit
+  demand, never a background change: the user asks, then the CEO runs
+  `model auto --apply --allow-switch --reason '<who asked>'` with
+  `TEAMWORK_MODEL_ALT`. `coordination` reports `C-DIV-MODEL` when every verification
+  lane shares one model; the remedy is to ask the user, not to switch on your own.
 - `coordination --strict` is the milestone gate: duplicate branch/task, echoed
   evidence, reviewer monoculture, abandoned PRs, merge collapse, slot starvation.
   `--commit` records it; exit 1 means a high finding is open.

@@ -3216,3 +3216,67 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: pi --print -ne -e jev_probe.ts @6a5b4842 -> CLASSIFIERS=[typesafe/jev-latest], owner choice task_id p=0.96, risky bool p=0.05, usage input=401 output=60, exit 0, zero chat tokens; POST api.typesafe.ai/v1/systemone -> HTTP 200 wall 272 ms
 - falsified by: if the classifier's probability for the same state varies across runs by more than 0.15, or a decision routed to it ends up needing a re-ask, the layer is noise and the skill is deleted
 - consequences: state sent to the classifier must carry no secret, credential or personal data: the call leaves the machine; TYPESAFE_API_KEY aliases JEV_API_KEY in ~/.bashrc; codemode enabled in ~/.pi/agent/settings.json
+
+## D-20261123-CEO - Staff a second Reviewer lane (C-DIV-SINGLE)
+
+- date: 2026-11-23
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: keep one lane and accept the finding (rejected: the constitution's slim roster lists two); add a lane and fold it when the queue empties (chosen, with prune as the stop condition)
+- decision: Add Reviewer-2 so the two-stage gate has an independent second seat; the team's own slim roster names reviewer-1 and reviewer-2, and one lane made the gate single-stage.
+- why: coordination --strict reported a high finding, C-DIV-SINGLE Reviewer: reviewer is staffed with one lane (Reviewer): the two-stage gate has one stage and no cross-check. The fix it names is instance add reviewer --count 1.
+- evidence: coordination --strict @e15ccd18 -> '1 high, 1 medium, 0 low' with '[high] C-DIV-SINGLE Reviewer: reviewer is staffed with one lane (Reviewer)', exit 1; instance add reviewer --count 1 --by CEO -> '# reviewer instances now: Reviewer, Reviewer-2'
+- falsified by: if coordination --strict still reports C-DIV-SINGLE for reviewer after the add, the seat was not registered and the finding stands
+- consequences: -
+
+## D-20261123-CEO-2 - Re-pin the two Reviewer lanes to models this host can serve
+
+- date: 2026-11-23
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: leave the stale pin (rejected: unresolvable); set TEAMWORK_MODEL_ALT and run model auto --apply (rejected: the engine reports 'no model found in the environment' on this host, so auto-routing has nothing to route)
+- decision: Reviewer -> deepinfra/anthropic/claude-fable-5, Reviewer-2 -> deepinfra/Qwen/Qwen4-Max: two lanes, two vendors, both resolvable.
+- why: The Reviewer lane was pinned to deepinfra/google/gemini-3.5-flash, which the model catalog no longer serves, so the pin named a model the host cannot run; and with one lane the gate had no cross-check (C-DIV-SINGLE). Two lanes on one model would have traded one finding for C-DIV-MODEL.
+- evidence: model list @e15ccd18 -> 'Reviewer provider=deepinfra model=google/gemini-3.5-flash'; opencode model catalog query 'gemini' -> 0 matches across providers (deepinfra total 27); model set Reviewer --provider deepinfra --model anthropic/claude-fable-5 -> '# model for Reviewer: provider=deepinfra model=anthropic/claude-fable-5', exit 0; coordination --strict -> '0 high, 1 medium, 0 low', exit 0
+- falsified by: if a lane started with these pins fails to resolve its model, the catalog read was wrong and the pin must be replaced
+- consequences: -
+
+## D-20261123-CEO-3 - Defer the second Tester lane
+
+- date: 2026-11-23
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Keep one Tester lane for now; add the second when a deliverable needs an independent integration run, not before.
+- why: coordination reports C-DIV-SINGLE Tester as medium, not high; the tester queue is empty (board: tester 1 instance, empty), and the constitution adds an instance only for a named deliverable, so a second seat today would be an idle lane.
+- evidence: coordination --strict @e15ccd18 -> '1 medium' naming C-DIV-SINGLE Tester, exit 0; board -> 'tester (1 instance) (empty)'
+- falsified by: if an integration-layer defect is found only after a single-lane verdict passes, the deferral was wrong and the seat is owed
+- consequences: -
+
+## D-20261123-CEO-4 - Keep the user's model; switching is an explicit demand
+
+- date: 2026-11-23
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: The user requires Teamwork to use the default model they specified and never switch it automatically; a switch happens only when the user explicitly demands it. `model auto --apply` and `TEAMWORK_MODEL_ALT` used to reassign lanes at intake.
+- options considered: leave automatic routing on and rely on the operator to avoid it (rejected: an agent runs it at intake, so the default is a switch); gate writes on an explicit CLI authorization with a recorded reason (chosen); add a team-wide allow env var (rejected: any lane could set it, so the demand would not be the user's).
+- decision: The model configured in `Settings.json` is the default and is kept. `model auto` stays a read-only plan; `--apply` refuses to write unless `--allow-switch` carries a non-empty `--reason`, recorded in the ledger. `TEAMWORK_MODEL_ALT` is inert without the same authorization. No agent runs a switch on its own; the CEO runs it only after the user asks.
+- why: The user stated the rule directly. D-20261123-CEO-2 already rejected `model auto --apply` on this host because auto-routing had nothing resolvable to route, so the old intake step was a switching mechanism without a model to switch to. An explicit flag plus a reason makes the demand attributable and auditable instead of ambient.
+- evidence: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/unit/test_model_switch_guard.py tests/unit/test_model_auto_origin.py` @323de91e+working-tree -> 12 passed; the guard's failing cases exit non-zero with Settings.json byte-identical, and an authorized apply records the reason in `Ledger.jsonl`
+- falsified by: a lane changes model without `--allow-switch --reason`, or `model auto --apply` writes on its own, or the reason is absent from the ledger after an authorized apply
+- consequences: AGENTS.md, templates/AGENTS.md, SKILL.md, all 16 role charters, references/AllRoles.md, Concurrency.md, Coordination.md and Adapters.md, README.md and docs/guide state the rule; `model set <lane>` remains the explicit per-lane path; this team's current Settings.json pins are left untouched.

@@ -279,10 +279,11 @@ the bottleneck; `--no-scale` opts out and an `observe`/`off` wake changes nothin
 
 ## Coordination safety (hard)
 
-- **Independence is structural.** Verification lanes do not share a model when a
-  second is available (`TEAMWORK_MODEL_ALT`, `model auto --apply`). One task owns
-  one branch; a duplicate task, branch or shared reference is a defect. The
-  Reviewer records its own run, never the author's line.
+- **Independence is structural.** Verification lanes run the model the user
+  configured unless the user explicitly demands a switch; model diversity is an
+  opt-in (`model auto --apply --allow-switch --reason '<who asked>'`), never a
+  background change. One task owns one branch; a duplicate task, branch or shared
+  reference is a defect. The Reviewer records its own run, never the author's line.
 - **No lane wars.** Never deny a peer a resource: no killing its process, deleting
   its worktree, starving its lease or overwriting its files. Resolve a conflict by
   a measurable contest or the CEO. `reclaim` refuses a live lane; `--force

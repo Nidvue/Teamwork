@@ -21,7 +21,7 @@ flowchart TD
     TL -.->|instance add --under| LANES
     AR --> LANES
     PJ --> LANES
-    CEO -.->|model auto: strong lanes, economy lanes| LANES
+    CEO -.->|model auto: explicit switch only| LANES
     subgraph LANES[Parallel lanes - one per staffed role]
         DEV[Developer: code + unit tests]
         TST[Tester: integration + E2E tests]

@@ -149,10 +149,13 @@ $ teamwork model auto
 - project-manager    economy  deepseek-v4.1-flash
 - reviewer           strong   deepseek-v4.1-flash
 - tester             economy  deepseek-v4.1-flash
-# dry run: rerun with --apply to write these into Settings.json
+# dry run: rerun with --apply --allow-switch --reason '<who asked>' to write these
 ```
 
-Decision lanes get the strongest model the host exposes; mechanical lanes get the
-economy one. `model set <agent>` overrides a single lane. Routing is a dry run
-until `--apply`, and it never invents a model the host has not exposed - see
-[Operations](operations.md) for the detection order and the override precedence.
+This is a plan, not a change: the model the user configured is kept and automatic
+routing is off by default. `--apply` alone refuses to write. Decision lanes get the
+strongest model the host exposes and mechanical lanes the economy one only when the
+user explicitly demands it with `--apply --allow-switch --reason '<who asked>'`.
+`model set <agent>` overrides a single lane. `auto` never invents a model the host
+has not exposed - see [Operations](operations.md) for the detection order and the
+override precedence.

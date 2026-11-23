@@ -107,8 +107,10 @@ appears at `.pi/Teamwork/Teams/<Team>/`; project output is committed. Read the f
 - **Layered tests** - one owner per layer, gaps shown by `tests plan`.
 - **Token-true budget** - `harness budget` measures the startup read; trim it,
   never raise the cap.
-- **Automatic model routing** - `teamwork model auto` puts the strong model on
-the decision lanes and the economy one on the mechanical lanes.
+- **Automatic model routing, off by default** - `teamwork model auto` detects the
+agent host and plans the strong model for the decision lanes and the economy one for
+the mechanical lanes. The model the user configured is kept until an explicit demand
+switches it: `model auto --apply --allow-switch --reason '<who asked>'`.
 - **File ownership** - `task add --files 'src/a.py,docs/Team/'` declares paths a lane owns; `preflight` warns on any other path.
 - **Portable** - CPython 3.11-3.13 on Linux, macOS and Windows; stdlib only.
 

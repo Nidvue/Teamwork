@@ -111,15 +111,18 @@ changing it would invalidate every existing workspace.
 ## 5. Model routing
 
 The engine ships no model and calls no LLM API. It reads what the host exposes.
-`teamwork model auto` detects the agent host where the environment identifies it,
-assigns the strongest available model to the decision lanes (CEO, Architect,
-Reviewer, Security Auditor) and the economy model to the mechanical lanes, and
-prints the plan as a dry run:
+The model the user configured in `Settings.json` is the default for every lane.
+`teamwork model auto` detects the agent host where the environment identifies it
+and *plans* the strongest available model for the decision lanes (CEO, Architect,
+Reviewer, Security Auditor) and the economy model for the mechanical lanes.
+Automatic routing is off by default: the plan prints as a dry run and `--apply`
+alone refuses to write anything.
 
 ```console
-$ teamwork model auto            # dry run: show the assignments
-$ teamwork model auto --apply    # write them into Settings.json
+$ teamwork model auto            # dry run: show the plan
+$ teamwork model auto --apply    # refused: no explicit demand
 $ teamwork model auto --json     # the same plan, machine readable
+$ teamwork model auto --apply --allow-switch --reason 'the user asked for it'
 $ teamwork model set reviewer --provider anthropic --model strong
 $ teamwork model get reviewer
 ```
@@ -127,8 +130,10 @@ $ teamwork model get reviewer
 The precedence is: an instance's own setting wins over the role default, and an
 explicit `model set` wins over what detection proposed. `auto` never invents a
 model id it did not read from the environment - when the host is unknown it says
-so and writes nothing. That is the whole routing model: quality where output
-compounds, the cheapest capable model where it does not.
+so and writes nothing. `--allow-switch` needs a `--reason`, which is recorded in
+the ledger with the change. That is the whole routing model: quality where output
+compounds, the cheapest capable model where it does not, and only when the user
+explicitly demands the switch.
 
 ## 6. Watch the team: live state and the widget
 

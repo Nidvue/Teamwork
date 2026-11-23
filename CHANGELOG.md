@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Automatic model routing is off by default** - the model the user configured in
+  `Settings.json` is kept, and `model auto --apply` now refuses to write unless the
+  user explicitly demands the switch with
+  `--apply --allow-switch --reason '<who asked>'`; the reason is recorded in the
+  ledger, `TEAMWORK_MODEL_ALT` is inert without the same authorization, and
+  `tests/unit/test_model_switch_guard.py` pins the fail-closed behaviour. The policy,
+  charters, references and guides state the same rule.
 - **The three installed skills are now `tw`, `tw-learn` and `tw-status`** - the host
   command becomes `/tw`, and `teamwork` stays the CLI, the npm package name and the
   workspace identifier, so no engine command changes. `refresh` names an installed

@@ -108,8 +108,10 @@ suppress only narrowly with a reason for third-party code.
 
 ### Your model (all roles)
 
-`teamwork.py model get <you>` shows your model; the CEO sets the lanes with `model
-auto --apply`. Model choice never changes the protocol, the gates or the ledger.
+`teamwork.py model get <you>` shows your model; the model the user configured is the
+default and nobody switches it for you. A change needs the user's explicit demand:
+the CEO runs `model auto --apply --allow-switch --reason '<who asked>'`. Model choice
+never changes the protocol, the gates or the ledger.
 
 The full text of these three blocks is `references/AllRoles.md`, injected verbatim
 into your lane packet - read it there rather than re-deriving it.
