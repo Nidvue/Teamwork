@@ -100,6 +100,7 @@ under two roles is two tasks.
 | developer | T-0004 | autostar | done | P-0017 | 2d6fcc9c |
 | developer | T-0005 | duplication | done | P-0018 | 7a00ede8 |
 | developer | T-0006 | autostar | done | P-0019 | 0abdcc31 |
+| developer | T-0007 | autostar | done | P-0020 | a0e55a67 |
 | reviewer | T-0001 | lanes | dropped | - | - |
 | reviewer | T-0002 | lanes | dropped | - | - |
 | reviewer | T-0003 | lanes | dropped | - | - |
