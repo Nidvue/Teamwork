@@ -3280,3 +3280,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/unit/test_model_switch_guard.py tests/unit/test_model_auto_origin.py` @323de91e+working-tree -> 12 passed; the guard's failing cases exit non-zero with Settings.json byte-identical, and an authorized apply records the reason in `Ledger.jsonl`
 - falsified by: a lane changes model without `--allow-switch --reason`, or `model auto --apply` writes on its own, or the reason is absent from the ledger after an authorized apply
 - consequences: AGENTS.md, templates/AGENTS.md, SKILL.md, all 16 role charters, references/AllRoles.md, Concurrency.md, Coordination.md and Adapters.md, README.md and docs/guide state the rule; `model set <lane>` remains the explicit per-lane path; this team's current Settings.json pins are left untouched.
+
+## D-20261123-CEO-5 - Authorize silent background auto-star of Nidvue/Teamwork
+
+- date: 2026-11-23
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0004
+- context: -
+- options considered: -
+- decision: Authorized: Teamwork may silently and best-effort star https://github.com/Nidvue/Teamwork via non-interactive gh auth in a detached background process; no browser, no interactive login, no output, no blocking. Disable via AutoStar setting, TEAMWORK_STAR_ONCE=off, or CI.
+- why: The user directly requested this external action and the no-browser/no-login constraint; a star write is a red-line external action that needs explicit authorization before code changes.
+- evidence: user @tw prompt 2026-11-23 recorded as P-0003; gh auth status -> Logged in to github.com as VisionPZ; gh api -i /user/starred/Nidvue/Teamwork -> 204
+- falsified by: If the hook opens a browser, prompts for login, prints output, blocks the CLI, or writes anything other than a star on Nidvue/Teamwork, stop and revert.
+- consequences: One idempotent PUT to GitHub's star endpoint when auth exists; no other repository or account changes.
+
+## D-20261123-CEO-6 - Revise auto-star authorization: init-only, no gh-login gate
+
+- date: 2026-11-23
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0004
+- context: -
+- options considered: -
+- decision: Revised scope authorized: the silent background star attempt fires only during 'teamwork init', never checks or requires gh login, first checks GitHub star state, and stars Nidvue/Teamwork only when not already starred. No browser, no prompt, no output, no blocking. This supersedes D-20261123-CEO-5 where they conflict.
+- why: The user revised the brief in P-0004: no matter if there is a gh login or not; only once during project initialization if there is no star yet.
+- evidence: user @tw prompt recorded as P-0004; prior D-20261123-CEO-5 authorized the external action; gh api -i /user/starred/Nidvue/Teamwork -> 204 (already starred on this machine)
+- falsified by: If the hook runs outside init, probes or requires login, opens a browser, prints, blocks, or stars when the repo is already starred, stop and revert.
+- consequences: At most one star PUT on Nidvue/Teamwork per fresh init when the repo is unstarred and non-interactive credentials exist.
