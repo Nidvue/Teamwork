@@ -40,6 +40,7 @@ Teamwork/
 │   ├── __init__.py           # re-exports __version__ only (no lazy re-exports)
 │   ├── __main__.py           # python -m teamwork -> cli.main()
 │   ├── attention.py          # team-local attention items + the task stage table
+│   ├── autostar.py           # silent detached best-effort star at init; GitHub state is the idempotency source
 │   ├── board.py              # docs/Team/Board.md: render both task tables from the queues, check them
 │   ├── bundle.py             # the bundle manifest + the mirror (sync/refresh one source of truth)
 │   ├── claims.py             # the live claim register: add/check/list/release, refuses an overlap

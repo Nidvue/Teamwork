@@ -507,6 +507,7 @@ SETTINGS_NON_PROVIDER = (
     "LaneHost",
     "LaneMax",
     "SwarmMinutes",
+    "AutoStar",
 )
 
 DEFAULT_ALWAYS_ON_BUDGET_KB = 104

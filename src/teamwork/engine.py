@@ -65,7 +65,7 @@ except ImportError:  # pragma: no cover
     from version import __version__ as VERSION  # type: ignore
 
 
-from . import ctxepoch, grades, memorypack, memverify, transcripts, wiki
+from . import autostar, ctxepoch, grades, memorypack, memverify, transcripts, wiki
 from .attention import (
     ATTENTION_KINDS,
     STAGE_ORDER,
@@ -7301,7 +7301,7 @@ def cmd_init(args) -> int:
         created.append(name)
 
     if not getattr(args, "no_star", False):
-        print(f"teamwork: {star_once(root)}")
+        autostar.star_async(root)
 
     if not getattr(args, "no_ui", False):
         from . import lanedisplay

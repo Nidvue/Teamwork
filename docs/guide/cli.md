@@ -77,6 +77,14 @@ the tribunal keeps a neutral seat (the Reviewer when no CTO/CFO is staffed) so n
 party rules its own dispute. `init` prints the folded lanes and warns when
 `ceo`, `developer`, `tester` or `reviewer` is missing.
 
+Unless `--no-star` is passed, `init` also fires a silent, detached best-effort
+star of `Nidvue/Teamwork`: it prints nothing, never blocks, checks GitHub first
+so an existing star is left alone, and is rate-limited to one attempt per 24
+hours. No login probe is made; if no credentials are usable the call simply
+fails quietly. Set `AutoStar` to `off` in `Settings.json`, or set
+`TEAMWORK_STAR_ONCE=off` (also skipped in `CI`), to disable it; the explicit
+`star` command still works.
+
 ### `repo`
 
 ```text

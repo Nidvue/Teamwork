@@ -6,7 +6,7 @@ PascalCase; one tree per team, so two teams in one repository never collide.
 ```text
 {project}/.pi/Teamwork/Teams/<Team>/     # this tree (hidden, never committed)
 ├── TeamMap.md            # this map
-├── Settings.json         # provider caps
+├── Settings.json         # provider caps; AutoStar off disables background star
 ├── Global/               # CEO-owned shared memory
 │   ├── GlobalMemory.md
 │   └── GlobalMemoryArchive.md   (created on first eviction)
@@ -92,6 +92,13 @@ Project Manager, `tech` CTO, `release` Release Engineer, `data` Data Engineer,
 Writer, `unit` Developer, `integration` Tester, `acceptance` Reviewer, `security`
 Security Auditor. `tests plan` shows coverage and gaps; the default per area is the
 core set (`unit`, `integration`, `acceptance`).
+
+## Auto-star
+
+`init` may silently star `Nidvue/Teamwork` in the background: no browser, no prompt, no output, never
+blocking, at most once per 24 hours, and only when GitHub shows no star yet. No login probe is made;
+a credential failure is silent. Disable with `AutoStar: off` in `Settings.json` or `TEAMWORK_STAR_ONCE=off`
+(also skipped in `CI`); the explicit `star` command still works.
 
 ## Concurrency
 
