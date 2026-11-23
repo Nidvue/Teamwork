@@ -99,6 +99,7 @@ under two roles is two tasks.
 | developer | T-0003 | engine | done | P-0014 | 6dba0ef0 |
 | developer | T-0004 | autostar | done | P-0017 | 2d6fcc9c |
 | developer | T-0005 | duplication | done | P-0018 | 7a00ede8 |
+| developer | T-0006 | autostar | done | P-0019 | 0abdcc31 |
 | reviewer | T-0001 | lanes | dropped | - | - |
 | reviewer | T-0002 | lanes | dropped | - | - |
 | reviewer | T-0003 | lanes | dropped | - | - |
