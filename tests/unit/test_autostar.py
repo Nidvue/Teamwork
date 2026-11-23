@@ -15,7 +15,9 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -235,3 +237,50 @@ def test_stale_marker_allows_spawn(root, monkeypatch):
     calls = _spawn_recorder(monkeypatch)
     autostar.star_async(root)
     assert len(calls) == 1
+
+
+GH_STUB = """#!/bin/sh
+printf '%s\\n' "$*" >> "$GH_LOG"
+if [ "$3" = "-X" ]; then
+  exit 0
+fi
+if [ "$GH_STAR_STATE" = "starred" ]; then
+  exit 0
+fi
+exit 1
+"""
+
+
+def _real_spawn(root: Path, monkeypatch, star_state: str) -> list[str]:
+    bindir = root.parent / "bin"
+    bindir.mkdir()
+    gh = bindir / "gh"
+    gh.write_text(GH_STUB, encoding="utf-8")
+    gh.chmod(0o755)
+    log = root.parent / "gh.log"
+    monkeypatch.setenv("GH_LOG", str(log))
+    monkeypatch.setenv("GH_STAR_STATE", star_state)
+    monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.setattr(autostar, "sys", SimpleNamespace(executable="/usr/bin/python3"))
+
+    autostar.star_async(root)
+
+    marker = root / MARKER_PATH
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline and not marker.exists():
+        time.sleep(0.02)
+    assert marker.exists(), "the detached worker never recorded its attempt"
+    return log.read_text(encoding="utf-8").splitlines()
+
+
+def test_real_spawn_worker_runs_without_ambient_pythonpath(root, monkeypatch):
+    lines = _real_spawn(root, monkeypatch, "absent")
+    assert lines == [
+        "api /user/starred/Nidvue/Teamwork",
+        "api -X PUT -H Content-Length: 0 /user/starred/Nidvue/Teamwork",
+    ]
+
+
+def test_real_spawn_worker_skips_put_when_already_starred(root, monkeypatch):
+    lines = _real_spawn(root, monkeypatch, "starred")
+    assert lines == ["api /user/starred/Nidvue/Teamwork"]

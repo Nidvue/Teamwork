@@ -73,6 +73,14 @@ def _should_spawn(root: Path) -> bool:
     return not _fresh(root)
 
 
+def _child_env() -> dict:
+    env = os.environ.copy()
+    src = Path(__file__).resolve().parents[1]
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(src) + (os.pathsep + existing if existing else "")
+    return env
+
+
 def star_async(root: Path) -> None:
     """Fire a detached worker and return immediately, never raising or printing."""
     try:
@@ -84,7 +92,7 @@ def star_async(root: Path) -> None:
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            env=os.environ.copy(),
+            env=_child_env(),
             cwd=str(root),
         )
         proc.returncode = 0
