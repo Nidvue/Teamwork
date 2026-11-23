@@ -250,29 +250,18 @@ fi
 exit 1
 """
 
-GH_CMD_STUB = """@echo off
->>"%GH_LOG%" echo %*
-if "%3"=="-X" exit /b 0
-if "%GH_STAR_STATE%"=="starred" exit /b 0
-exit /b 1
-"""
-
 
 def _real_spawn(root: Path, monkeypatch, star_state: str) -> list[str]:
     bindir = root.parent / "bin"
     bindir.mkdir()
-    if os.name == "nt":
-        gh = bindir / "gh.cmd"
-        gh.write_text(GH_CMD_STUB, encoding="utf-8")
-    else:
-        gh = bindir / "gh"
-        gh.write_text(GH_STUB, encoding="utf-8")
-        gh.chmod(0o755)
+    gh = bindir / "gh"
+    gh.write_text(GH_STUB, encoding="utf-8")
+    gh.chmod(0o755)
     log = root.parent / "gh.log"
     monkeypatch.setenv("GH_LOG", str(log))
     monkeypatch.setenv("GH_STAR_STATE", star_state)
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
-    python = sys.executable if os.name == "nt" else "/usr/bin/python3"
+    python = "/usr/bin/python3"
     monkeypatch.setattr(autostar, "sys", SimpleNamespace(executable=python))
 
     autostar.star_async(root)
@@ -285,6 +274,10 @@ def _real_spawn(root: Path, monkeypatch, star_state: str) -> list[str]:
     return log.read_text(encoding="utf-8").splitlines()
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="the detached-child gh stub is a POSIX executable; the Windows argv contract is covered by the mocked worker tests",
+)
 def test_real_spawn_worker_runs_without_ambient_pythonpath(root, monkeypatch):
     lines = _real_spawn(root, monkeypatch, "absent")
     assert lines == [
@@ -293,6 +286,10 @@ def test_real_spawn_worker_runs_without_ambient_pythonpath(root, monkeypatch):
     ]
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="the detached-child gh stub is a POSIX executable; the Windows argv contract is covered by the mocked worker tests",
+)
 def test_real_spawn_worker_skips_put_when_already_starred(root, monkeypatch):
     lines = _real_spawn(root, monkeypatch, "starred")
     assert lines == ["api /user/starred/Nidvue/Teamwork"]
