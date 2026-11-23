@@ -47,6 +47,11 @@ globalThis.clearInterval = (handle) => {
 let unhandled = 0;
 process.on("unhandledRejection", () => { unhandled += 1; });
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const stopDeadline = Number(process.env.TW_WAIT || 8000);
+const waitStopped = async () => {
+  const until = Date.now() + stopDeadline;
+  while (Date.now() < until && running() > 0) await wait(25);
+};
 const paint = { widgets: [], status: "" };
 const live = {
   cwd: process.env.TW_CWD,
@@ -79,14 +84,14 @@ if (tick) {
     commandThrew += 1;
   }
 }
-await wait(200);
+await waitStopped();
 const liveAfterStaleTick = running();
 try {
   await commands.get("tw-status").handler("", dead);
 } catch {
   commandThrew += 1;
 }
-await wait(200);
+await waitStopped();
 const liveAfterStale = running();
 const attempts = paint.widgets.length;
 for (const handle of intervals) {

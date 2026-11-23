@@ -430,10 +430,11 @@ def test_the_shipped_bus_extension_drives_its_handlers(tmp_path: Path) -> None:
     driver.write_text(DRIVER, encoding="utf-8")
 
     run = subprocess.run(
-        [node, "--experimental-strip-types", driver.as_uri() if os.name == "nt" else str(driver)],
+        [node, "--experimental-strip-types", driver.name],
         capture_output=True,
         text=True,
         timeout=120,
+        cwd=str(tmp_path),
         env={
             **os.environ,
             "TW_EXTENSION": extension.as_uri(),
