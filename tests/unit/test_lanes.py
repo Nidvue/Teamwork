@@ -918,7 +918,7 @@ def test_a_timeout_kills_a_launcher_that_ignores_the_grace(
     outcome = json.loads(lanerun.outcome_path(run_path).read_text(encoding="utf-8"))
     assert code == lanerun.TIMEOUT_EXIT
     assert outcome["state"] == "timeout"
-    assert outcome["exit"] == -9
+    assert outcome["exit"] == (1 if os.name == "nt" else -9)
     assert elapsed < 15
 
 

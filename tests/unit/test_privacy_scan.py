@@ -865,6 +865,7 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
     entries = [ln for ln in lines if ln and not ln.startswith("#")]
     assert entries == [
         r"^\.pi/agent/npm$",
+        r"^\.pi/agent/settings\.json$",
         r"^/home/operator$",
         r"^C:\\Users\\operator$",
         r"^sk-live-0123456789abcdef0123456789abcdef$",

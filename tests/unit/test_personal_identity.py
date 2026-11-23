@@ -34,8 +34,14 @@ def _git(*args: str) -> str:
 
 
 def _raw(field: str) -> set[str]:
-    """``%an``/``%ae`` and friends: the bytes, with no mailmap applied."""
-    return {line.strip() for line in _git("log", "--all", f"--format=%{field}").splitlines()}
+    """``%an``/``%ae`` and friends: the bytes, with no mailmap applied.
+
+    HEAD, not --all: the rule is about the history that ships. A full checkout
+    also carries remote refs for bot branches, whose noreply identity is a forge
+    transport stamp, not a person; scanning them would fail every CI run on a
+    revision whose own history is clean.
+    """
+    return {line.strip() for line in _git("log", "HEAD", f"--format=%{field}").splitlines()}
 
 
 def test_no_raw_author_or_committer_is_a_personal_identity() -> None:

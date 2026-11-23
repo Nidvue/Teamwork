@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
+
+import pytest
 
 from teamwork import engine, gitutil
 
@@ -86,6 +89,10 @@ def test_audit_stays_quiet_when_signing_is_not_configured(tmp_path, capsys):
     assert "HIGH signing" not in capsys.readouterr().out
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="the git shim is a POSIX script; argv threading is covered on every POSIX cell",
+)
 def test_ensure_repo_threads_the_signature_args_into_its_initial_commit(tmp_path, monkeypatch):
     """The init call site itself, not the source text: a fake git records the argv.
 
