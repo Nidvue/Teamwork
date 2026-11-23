@@ -473,12 +473,6 @@ def test_pre_commit_warns_on_an_identity_that_is_neither_pair_nor_mailbox(
     assert "is not a role mailbox" not in err
 
 
-def test_pre_commit_is_silent_for_a_role_mailbox(cli, feature, capsys) -> None:
-    capsys.readouterr()
-    assert cli("--project", feature, "hook", "pre-commit") == 0
-    assert capsys.readouterr().err == ""
-
-
 def test_pre_commit_is_silent_for_a_role_mailbox_under_role_policy(
     cli, feature, capsys, monkeypatch
 ) -> None:

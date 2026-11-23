@@ -275,15 +275,6 @@ def test_missing_store_is_empty_not_an_error(cli, ws: Path, capsys) -> None:
         "ctx:///etc/passwd",
         "ctx://project//knowledge",
         "ctx://project/knowledge/..",
-    ],
-)
-def test_unsafe_uri_exits_2(cli, ws: Path, uri: str) -> None:
-    assert run(cli, ws, "read", uri) == 2
-
-
-@pytest.mark.parametrize(
-    "uri",
-    [
         "ctx://project/nope",
         "ctx://role/developer/nope",
         "ctx://role/nope",
@@ -291,7 +282,7 @@ def test_unsafe_uri_exits_2(cli, ws: Path, uri: str) -> None:
         "ctx://project/knowledge/K-9999",
     ],
 )
-def test_unknown_uri_exits_2(cli, ws: Path, uri: str) -> None:
+def test_an_unsafe_or_unknown_uri_exits_2(cli, ws: Path, uri: str) -> None:
     assert run(cli, ws, "read", uri) == 2
 
 

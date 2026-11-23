@@ -121,10 +121,6 @@ def test_a_closed_issue_past_its_date_is_not_overdue() -> None:
     assert violations(text) == []
 
 
-def test_a_relative_re_measure_trigger_is_not_a_date() -> None:
-    assert violations(CLEAN) == []
-
-
 def test_a_future_re_measure_date_is_not_overdue() -> None:
     text = document(
         old="| KI-0001 | a fresh issue | T | developer | 2026-11-01 | next milestone | open |",

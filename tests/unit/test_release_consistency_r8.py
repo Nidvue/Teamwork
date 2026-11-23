@@ -125,9 +125,12 @@ def test_the_risk_row_is_not_drift(tmp_path):
         "`pip install teamwork` installs another project entirely",
         "the `teamwork` name belongs to another project",
         "`pip install teamwork` gets you an unrelated package by that name",
+        "there is no pip install and no venv",
+        "no uvx --from teamwork-agents here",
+        "never pipx run --spec teamwork-agents",
     ],
 )
-def test_a_hazard_statement_is_not_drift(tmp_path, line):
+def test_a_hazard_or_negated_line_is_not_drift(tmp_path, line):
     root = make_repo(tmp_path / "repo", f"# Teamwork\n\n{line}\n")
 
     result = crc.rule_r8_install_channels(root)
@@ -263,22 +266,6 @@ def test_the_channel_unavailable_marker_still_works(tmp_path):
 
     assert result.status != "DRIFT"
     assert "marked" in result.detail
-
-
-@pytest.mark.parametrize(
-    "line",
-    [
-        "there is no pip install and no venv",
-        "no uvx --from teamwork-agents here",
-        "never pipx run --spec teamwork-agents",
-    ],
-)
-def test_the_negated_forms_still_work(tmp_path, line):
-    root = make_repo(tmp_path / "repo", f"# Teamwork\n\n{line}\n")
-
-    result = crc.rule_r8_install_channels(root)
-
-    assert result.status != "DRIFT"
 
 
 def test_an_unreadable_input_is_still_an_error(tmp_path):
