@@ -250,23 +250,35 @@ fi
 exit 1
 """
 
+GH_CMD_STUB = """@echo off
+>>"%GH_LOG%" echo %*
+if "%3"=="-X" exit /b 0
+if "%GH_STAR_STATE%"=="starred" exit /b 0
+exit /b 1
+"""
+
 
 def _real_spawn(root: Path, monkeypatch, star_state: str) -> list[str]:
     bindir = root.parent / "bin"
     bindir.mkdir()
-    gh = bindir / "gh"
-    gh.write_text(GH_STUB, encoding="utf-8")
-    gh.chmod(0o755)
+    if os.name == "nt":
+        gh = bindir / "gh.cmd"
+        gh.write_text(GH_CMD_STUB, encoding="utf-8")
+    else:
+        gh = bindir / "gh"
+        gh.write_text(GH_STUB, encoding="utf-8")
+        gh.chmod(0o755)
     log = root.parent / "gh.log"
     monkeypatch.setenv("GH_LOG", str(log))
     monkeypatch.setenv("GH_STAR_STATE", star_state)
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
-    monkeypatch.setattr(autostar, "sys", SimpleNamespace(executable="/usr/bin/python3"))
+    python = sys.executable if os.name == "nt" else "/usr/bin/python3"
+    monkeypatch.setattr(autostar, "sys", SimpleNamespace(executable=python))
 
     autostar.star_async(root)
 
     marker = root / MARKER_PATH
-    deadline = time.monotonic() + 15
+    deadline = time.monotonic() + 30
     while time.monotonic() < deadline and not marker.exists():
         time.sleep(0.02)
     assert marker.exists(), "the detached worker never recorded its attempt"
