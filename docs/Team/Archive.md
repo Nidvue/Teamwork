@@ -9029,4 +9029,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: gh run view 45288590880 --log-failed @42c31883 -> gh.log FileNotFoundError on windows-latest; commit 2621e4ad
 - reviewer evidence: verified @2621e4ad73f1: diff=only tests/unit/test_autostar.py (1 file,+12/-15); two skipif(os.name=="nt") markers with explicit reason on exactly the two real-spawn tests; GH_CMD_STUB removed; POSIX gh stub + /usr/bin/python3 retained; 30s deadline and CHECK_ARGV/PUT_ARGV assertions unchanged; no production code change; no other skips. Worktree gates: pytest -v -> 20 passed, 0 skipped, both real-spawn tests PASSED on Linux; ruff check All checks passed; ruff format --check already formatted; mypy Success: no issues; check_comments 0 commentary. TS-0025 acceptance/autostar re-run at this rev -> 2 passed, 18 deselected. No creditable non-author record at this rev (TS-0023 is author-owned).
 - findings history: 
-- branch / merge: developer/t-0007-make-real-spawn-autostar-tests-posix-onl / pending
+- branch / merge: developer/t-0007-make-real-spawn-autostar-tests-posix-onl / a0e55a67
