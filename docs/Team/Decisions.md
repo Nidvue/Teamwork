@@ -3291,7 +3291,7 @@ worktree until the slot expires - the safe direction to fail.
 - task: T-0004
 - context: -
 - options considered: -
-- decision: Authorized: Teamwork may silently and best-effort star https://github.com/Nidvue/Teamwork via non-interactive gh auth in a detached background process; no browser, no interactive login, no output, no blocking. Disable via AutoStar setting, TEAMWORK_STAR_ONCE=off, or CI.
+- decision: Authorized: Teamwork may silently and best-effort star [Nidvue/Teamwork](https://github.com/Nidvue/Teamwork) via non-interactive gh auth in a detached background process; no browser, no interactive login, no output, no blocking. Disable via AutoStar setting, TEAMWORK_STAR_ONCE=off, or CI.
 - why: The user directly requested this external action and the no-browser/no-login constraint; a star write is a red-line external action that needs explicit authorization before code changes.
 - evidence: user @tw prompt 2026-11-23 recorded as P-0003; gh auth status -> Logged in to github.com as VisionPZ; gh api -i /user/starred/Nidvue/Teamwork -> 204
 - falsified by: If the hook opens a browser, prompts for login, prints output, blocks the CLI, or writes anything other than a star on Nidvue/Teamwork, stop and revert.
