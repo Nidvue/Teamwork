@@ -39,6 +39,16 @@
 # "resolved" tarball URLs.
 ^\.pi/agent/npm$
 
+# ^\.pi/agent/settings\.json$ - opened by D-20261123-CEO (decision record at
+# docs/Team/Decisions.md:3218), where the chosen decision-classifier setup is
+# documented by naming its local settings file. The match is the config PATH,
+# not a credential: no key, token or personal data sits on that line, and the
+# credential rules still run on every other line. The same path appears in the
+# unpushed commits that introduce the record, so --history needs the exemption
+# too; rewriting those commits would invalidate SHAs quoted as evidence in
+# Archive.md and Decisions.md. Scope is this one literal file only.
+^\.pi/agent/settings\.json$
+
 # ^/home/operator$ - the operator user name, which appears as a build path in one
 # archived reviewer finding and in the justification text of this file. The
 # exemption is fixed by SHAPE (one literal user name), never by count: the number
