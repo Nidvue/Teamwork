@@ -9160,3 +9160,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest -q tests/unit/test_task_record_integrity.py @9f2b2784 -> 9 passed; base @44a749d2 -> 1 failed/8 passed (bare Developer ambiguous: name one acting); ruff check+format clean; diff=1 file/1 line (Developer->Developer-1), validate_actor untouched, ambiguity refusal in force
 - findings history: 
 - branch / merge: developer-2/t-0010-update-task-integrity-test-to-name-an-ex / 32ea1a5f
+
+## T-0001 · Correct always-on cap and status schema drift in docs  (architect)
+- date: 2026-11-24
+- priority: P1
+- owner: architect role (work by: Architect)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: always-on-cap
+- self-check: [pass] Re-read all 8 files at a363dc84. AGENTS.md managed block regenerated through TEAMWORK_SKILL_DIR=<worktree> teamwork agents-md --project <worktree> ("updated teamwork section"); its diff is exactly the one cap line and BEGIN/END markers are intact - not hand-edited. Cap is 106496 B in SKILL/templates/State/Roles/AGENTS and 104 KiB in README/Architecture; Architecture status --json schema 5 and the # Status / # Lanes headers match engine.py:12779-12797, knowledge add carries [--kind KIND] per engine.py:21864, and 17.3 states the four-key normal outcome plus the fifth error key on the Popen OSError branch (state failed, exit 127). The guard discovers 6 living pages (>=4), excludes docs/Team/ historical records including Archive.md, and its mutant test proves a stale value is flagged then cleared. Preflight @a363dc84: 9/10 ok, mergeable, identity clean; the sole gate failure (test_task_record_integrity, earlier also autostar) reproduces on plain main and is unrelated to docs. No review/merge/push. | test: pytest -q tests/unit/test_always_on_cap_guard.py tests/unit/test_docs_contracts.py tests/unit/test_skill_contracts.py @a363dc84 -> 134 passed; guard before fix @8fade967 -> 1 failed, 3 passed (12 stale problems); after fix -> 4 passed; ruff check/format clean, mypy clean, links 0, harness lint 0 | preflight: PF-f7f1d46f1841 @a363dc84b674 (10 checks, 0 failed)
+- author evidence: commit 1747bcab
+- reviewer evidence: pytest -q tests/unit/test_always_on_cap_guard.py tests/unit/test_docs_contracts.py tests/unit/test_skill_contracts.py @a363dc84 -> 134 passed; guard 4 passed, discovery=6 pages, stale-value repro 1 failed/3 passed; cap 106496 B/104 KiB on all 6 pages; status --json schema 5 = engine.py:12777; AGENTS markers intact; no src/teamwork/config.py change (default 104); links 0, harness lint 0, harness budget cap 106496 all ok
+- findings history: 
+- branch / merge: architect/t-0001-correct-always-on-cap-and-status-schema / pending
