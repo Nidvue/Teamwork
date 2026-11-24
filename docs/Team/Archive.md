@@ -9146,4 +9146,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 7cb06017
 - reviewer evidence: pytest -q tests/unit/test_ci_contracts.py tests/unit/test_grades.py @39521fa6 -> 120 passed | verify_t0005.py @39521fa6 -> noise w/o force exit=2/pending, w/ force exit=0/passing+forced recorded, strong exit=0/passing, empty refused, forced-noise creditable=[] + refusal explains, strong creditable=[TS-0001] | base 8fade967 bypass reproduced (noise accepted+creditable; repro 2 failed/3 passed) | ruff check/format/check_comments/mypy @39521fa6 all green | clean tree, 3 files only, identity Developer | pre-existing red test_task_record_integrity.py::test_a_task_with_an_open_branch_cannot_be_dropped_without_a_force_reason (bare Developer ambiguity from dd5cfa1c, outside 3-file scope, T-0010) noted, not held
 - findings history: 
-- branch / merge: developer-2/t-0005-grade-evidence-on-tests-run-pass-so-nois / pending
+- branch / merge: developer-2/t-0005-grade-evidence-on-tests-run-pass-so-nois / 1f8d2dfd
