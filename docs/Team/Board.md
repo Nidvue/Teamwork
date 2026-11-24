@@ -81,7 +81,7 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
-| architect | T-0001 | always-on-cap | review | P-0013 | - |
+| architect | T-0001 | always-on-cap | done | P-0013 | 1747999f |
 | ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
 | developer | T-0001 | evidence-staleness | done | P-0003 | 4f46b4be |
 | developer | T-0002 | team-records | done | P-0002 | f9e0fab2 |
@@ -111,7 +111,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0001 · Correct always-on cap and status schema drift in docs | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
