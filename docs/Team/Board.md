@@ -100,7 +100,7 @@ under two roles is two tasks.
 | developer | T-0011 | sync | done | P-0016 | 60c1bbbd |
 | developer | T-0012 | - | dropped | - | - |
 | developer | T-0013 | - | dropped | - | - |
-| developer | T-0014 | display | review | P-0020 | - |
+| developer | T-0014 | display | done | P-0020 | e77751d2 |
 | developer | T-0015 | display | done | P-0018 | 1cce01e9 |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
@@ -120,7 +120,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0014 · Gate agent-state display install on pi host | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
