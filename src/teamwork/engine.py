@@ -7328,7 +7328,7 @@ def cmd_init(args) -> int:
     if not getattr(args, "no_ui", False):
         from . import lanedisplay
 
-        print(f"teamwork: {lanedisplay.ensure(SKILL_DIR)}")
+        print(f"teamwork: {lanedisplay.ensure(SKILL_DIR, host=detect_agent_host())}")
 
     print(f"teamwork: workspace ready at {root}")
     print(f"teamwork: global memory {gpath}")
@@ -19790,6 +19790,9 @@ def cmd_ui(args) -> int:
     from . import lanedisplay
 
     if args.action == "install":
+        running_host = detect_agent_host()
+        if running_host != "pi":
+            die(f"ui install is pi-only (detected {running_host!r}); ui status stays read-only")
         state = lanedisplay.install(
             SKILL_DIR, host=args.host, skills=args.dest, dry_run=args.dry_run
         )

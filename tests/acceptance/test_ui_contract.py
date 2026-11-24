@@ -11,19 +11,23 @@ Owner: ceo. Layer: acceptance. Area: ui. Task: T-0031.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 GUIDE = REPO_ROOT / "docs" / "guide" / "cli.md"
 
 
-def run(*argv: str, cwd: Path) -> subprocess.CompletedProcess:
+def run(*argv: str, cwd: Path, host: str = "pi") -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(SHIM), *argv],
         cwd=str(cwd),
+        env={**os.environ, "TEAMWORK_AGENT_HOST": host},
         capture_output=True,
         text=True,
         check=False,
@@ -63,6 +67,29 @@ def test_the_default_action_is_the_report(tmp_path: Path) -> None:
 
     assert implicit.returncode == 1
     assert "missing" in implicit.stdout or "not registered" in implicit.stdout
+
+
+@pytest.mark.parametrize("host", ["opencode", "claude", "unknown"])
+def test_install_outside_pi_is_refused_and_writes_nothing(tmp_path: Path, host: str) -> None:
+    root = agent(tmp_path)
+
+    result = run("ui", "install", "--dest", str(dest(root)), cwd=tmp_path, host=host)
+
+    assert result.returncode == 1
+    assert "pi" in result.stderr
+    assert not (root / "extensions").exists()
+    assert not (root / "settings.json").exists()
+
+
+@pytest.mark.parametrize("host", ["opencode", "claude", "unknown"])
+def test_status_stays_read_only_outside_pi(tmp_path: Path, host: str) -> None:
+    root = agent(tmp_path)
+
+    result = run("ui", "status", "--dest", str(dest(root)), cwd=tmp_path, host=host)
+
+    assert result.returncode == 1
+    assert not (root / "extensions").exists()
+    assert not (root / "settings.json").exists()
 
 
 def test_the_guide_documents_the_command() -> None:

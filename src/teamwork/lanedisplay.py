@@ -257,20 +257,24 @@ def install(skill_dir: Path, *, host: str = "pi", skills: str = "", dry_run: boo
 OFF = {"off", "0", "no", "false"}
 
 
-def ensure(skill_dir: Path, *, host: str = "pi", skills: str = "") -> str:
-    """Draw the wave on this host unless the caller opted out - one line back.
+def ensure(skill_dir: Path, *, host: str = "", skills: str = "") -> str:
+    """Draw the wave on pi unless the caller opted out - one line back.
 
     The skill is bootstrapped by ``init``, so that is where a default belongs: an
     operator who installs the skill in pi gets the picture without reading a
-    section about extensions. Never raises - a bootstrap step that can fail the
-    workspace is worse than one that says why it was skipped - and it writes
-    nothing when the host has no agent directory, when ``CI`` is set, or when
-    ``TEAMWORK_UI=off``.
+    section about extensions. ``host`` is the running host, supplied by the
+    caller from ``detect_agent_host()``; any host other than pi is skipped with
+    no writes, because the live widget is pi-only. Never raises - a bootstrap
+    step that can fail the workspace is worse than one that says why it was
+    skipped - and it writes nothing when the host has no agent directory, when
+    ``CI`` is set, or when ``TEAMWORK_UI=off``.
     """
     if (os.environ.get("TEAMWORK_UI") or "").strip().lower() in OFF:
         return "lane display: skipped (TEAMWORK_UI=off)"
     if os.environ.get("CI"):
         return "lane display: skipped (a CI run is not the operator's host)"
+    if host and host != "pi":
+        return f"lane display: skipped (running host {host!r} is not pi)"
     try:
         directory = agent_dir(host, skills)
         if directory is None or not directory.is_dir():

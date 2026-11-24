@@ -1254,9 +1254,12 @@ def test_host_detection_and_lane_tiers(root):
 
     assert engine.detect_agent_host({"PI_SESSION_ID": "x"}) == "pi"
     assert engine.detect_agent_host({"CLAUDECODE": "1"}) == "claude"
+    assert engine.detect_agent_host({"CLAUDE_CODE_ENTRYPOINT": "cli"}) == "claude"
     assert engine.detect_agent_host({"OPENCODE_MODEL": "m"}) == "opencode"
     assert engine.detect_agent_host({"CODEX_HOME": "/x"}) == "codex"
     assert engine.detect_agent_host({}) == "unknown"
+    assert engine.detect_agent_host({"TEAMWORK_AGENT_HOST": "opencode"}) == "opencode"
+    assert engine.detect_agent_host({"TEAMWORK_AGENT_HOST": " pi ", "PI_SESSION_ID": "x"}) == "pi"
     assert engine.LANE_TIER["reviewer"] == "strong"
     assert engine.LANE_TIER["architect"] == "strong"
     assert engine.LANE_TIER["security-auditor"] == "strong"

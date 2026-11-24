@@ -140,13 +140,54 @@ def test_a_destination_outside_the_host_shape_has_no_display(tmp_path: Path) -> 
     assert not (tmp_path / "extensions").exists()
 
 
-def test_the_cli_installs_and_then_reports_a_live_display(tmp_path: Path, cli) -> None:
+def test_the_cli_installs_and_then_reports_a_live_display(tmp_path: Path, cli, monkeypatch) -> None:
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", "pi")
     dest = host(tmp_path)
     dest.mkdir(parents=True)
 
     assert cli("ui", "status", "--dest", dest) == 1, "not installed yet"
     assert cli("ui", "install", "--dest", dest) == 0
     assert cli("ui", "status", "--dest", dest) == 0
+
+
+@pytest.mark.parametrize("running_host", ["opencode", "claude", "unknown"])
+def test_the_cli_refuses_install_outside_pi_without_writing(
+    tmp_path: Path, cli, monkeypatch, capsys, running_host: str
+) -> None:
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", running_host)
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+    settings = dest.parent.parent / "settings.json"
+    settings.write_text('{"extensions": []}\n', encoding="utf-8")
+
+    assert cli("ui", "install", "--dest", dest) == 1
+    assert "pi" in capsys.readouterr().err
+    assert not (dest.parent.parent / "extensions").exists()
+    assert json.loads(settings.read_text(encoding="utf-8")) == {"extensions": []}
+
+
+@pytest.mark.parametrize("running_host", ["opencode", "claude", "unknown"])
+def test_ui_status_stays_read_only_outside_pi(
+    tmp_path: Path, cli, monkeypatch, capsys, running_host: str
+) -> None:
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", running_host)
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+
+    assert cli("ui", "status", "--dest", dest) == 1
+    assert "lane display missing" in capsys.readouterr().out
+    assert not (dest.parent.parent / "extensions").exists()
+    assert not (dest.parent.parent / "settings.json").exists()
+
+
+def test_the_cli_honours_the_explicit_host_override(tmp_path: Path, cli, monkeypatch) -> None:
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", "pi")
+    monkeypatch.setenv("OPENCODE_MODEL", "a-model")
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+
+    assert cli("ui", "install", "--dest", dest) == 0
+    assert (dest.parent.parent / "extensions" / "tw-status.ts").is_file()
 
 
 def test_a_built_host_package_declares_its_own_extension(tmp_path: Path) -> None:
@@ -449,18 +490,42 @@ def test_the_shipped_bus_extension_drives_its_handlers(tmp_path: Path) -> None:
     assert report["failed"] == 0, report["checks"]
 
 
-def test_ensure_installs_and_registers_on_the_operators_host(tmp_path: Path, monkeypatch) -> None:
-    """The default: bootstrapping in a host that has an agent directory draws."""
+def test_ensure_installs_and_registers_on_pi(tmp_path: Path, monkeypatch) -> None:
+    """On pi a host directory is drawn, and a second call is a no-op."""
     monkeypatch.delenv("TEAMWORK_UI", raising=False)
     monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", "pi")
     dest = host(tmp_path)
     dest.mkdir(parents=True)
 
-    line = lanedisplay.ensure(skill(tmp_path), skills=str(dest))
+    line = lanedisplay.ensure(skill(tmp_path), host="pi", skills=str(dest))
 
     assert "installed and registered" in line, line
     assert lanedisplay.status(skill(tmp_path), skills=str(dest)).live
-    assert "already drawn" in lanedisplay.ensure(skill(tmp_path), skills=str(dest))
+    assert "already drawn" in lanedisplay.ensure(skill(tmp_path), host="pi", skills=str(dest))
+
+
+@pytest.mark.parametrize("running_host", ["opencode", "claude", "unknown"])
+def test_ensure_skips_without_writing_outside_pi(
+    tmp_path: Path, monkeypatch, running_host: str
+) -> None:
+    """The live widget is pi-only: no extension file, no settings entry."""
+    monkeypatch.delenv("TEAMWORK_UI", raising=False)
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", running_host)
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+    settings = dest.parent.parent / "settings.json"
+    settings.write_text('{"extensions": [], "theme": "dark"}\n', encoding="utf-8")
+
+    line = lanedisplay.ensure(skill(tmp_path), host=running_host, skills=str(dest))
+
+    assert "skipped" in line and "not pi" in line, line
+    assert not (dest.parent.parent / "extensions").exists()
+    assert json.loads(settings.read_text(encoding="utf-8")) == {
+        "extensions": [],
+        "theme": "dark",
+    }
 
 
 def test_ensure_writes_nothing_when_the_caller_opts_out(tmp_path: Path, monkeypatch) -> None:
@@ -504,6 +569,17 @@ def test_init_reports_the_lane_display_and_can_skip_it(tmp_path: Path, cli, caps
         cli("--project", project, "init", "--agents", "ceo,reviewer-1", "--no-git", "--no-ui") == 0
     )
     assert "lane display:" not in capsys.readouterr().out
+
+
+def test_init_skips_the_display_outside_pi(tmp_path: Path, cli, capsys, monkeypatch) -> None:
+    monkeypatch.delenv("TEAMWORK_UI", raising=False)
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", "opencode")
+    project = tmp_path / "Project"
+    project.mkdir()
+
+    assert cli("--project", project, "init", "--agents", "ceo,reviewer-1", "--no-git") == 0
+    out = capsys.readouterr().out
+    assert "lane display:" in out and "not pi" in out, out
 
 
 def test_ensure_never_raises_when_the_host_has_no_home(tmp_path: Path, monkeypatch) -> None:
