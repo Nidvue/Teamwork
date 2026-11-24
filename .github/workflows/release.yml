@@ -101,6 +101,7 @@ jobs:
   consistency:
     name: release consistency gate (online, before anything is published)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # The tag being published is resolved once, in the `resolve` step below, and
     # every downstream job reads it from here: a tag push names it in
     # `github.ref_name`, a `workflow_dispatch` names it in the `tag` input, and
@@ -373,6 +374,7 @@ jobs:
   build:
     name: build + checksums + SBOM
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [consistency]
     steps:
       - name: Checkout
@@ -516,6 +518,7 @@ jobs:
     name: attest build provenance
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
@@ -544,6 +547,7 @@ jobs:
     # `consistency` is still in `needs`, so nothing here runs when the gate fails.
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
     steps:
@@ -738,6 +742,7 @@ jobs:
     name: publish @nidvue/teamwork to npm
     needs: [consistency, build, attest]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # `id-token: write` is the whole credential for trusted publishing; `contents:
     # read` is all the checkout needs. Nothing is written to the repository.
     permissions:
