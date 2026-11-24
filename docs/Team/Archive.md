@@ -9237,4 +9237,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 3688a5b6
 - reviewer evidence: git diff main...HEAD --stat @3688a5b6 -> 2 files (extensions/tw-status.ts, extensions/teamwork-bus.ts), +14 only; node --check both @3688a5b6 -> exit 0; early return at tw-status.ts:439 / teamwork-bus.ts:237 before first pi.on (:512 / :238); registration grep -> pi.on, registerCommand, sendMessage, setWidget, setStatus, setInterval all present; isPiHost truth table 8/8 on both files (pi, opencode, unknown, Pi override, PI_SESSION_ID, absent, whitespace+session, host=pi); added-line comment scan -> none; preflight PF-bcdfe29ffee8 @3688a5b67f9f -> 9 checks 0 failed read in task worktree
 - findings history: 
-- branch / merge: developer-2/t-0015-add-defensive-pi-host-guards-to-the-two / pending
+- branch / merge: developer-2/t-0015-add-defensive-pi-host-guards-to-the-two / 1cce01e9
