@@ -227,7 +227,14 @@ function take(bus: string, rows: (Mail & { key?: string })[], session: string): 
   }
 }
 
+function isPiHost(): boolean {
+  const override = (process.env.TEAMWORK_AGENT_HOST || "").trim().toLowerCase();
+  if (override) return override === "pi";
+  return Boolean((process.env.PI_SESSION_ID || "").trim());
+}
+
 export default function teamworkBus(pi: ExtensionAPI): void {
+  if (!isPiHost()) return;
   pi.on("session_start", async (_event, ctx) => {
     const session = sessionId();
     if (!session) return;

@@ -429,7 +429,14 @@ function terminalWidth(): number {
   return Number.isFinite(columns) && columns > 20 ? columns : WIDTH_MAX;
 }
 
+function isPiHost(): boolean {
+  const override = (process.env.TEAMWORK_AGENT_HOST || "").trim().toLowerCase();
+  if (override) return override === "pi";
+  return Boolean((process.env.PI_SESSION_ID || "").trim());
+}
+
 export default function teamworkStatus(pi: ExtensionAPI): void {
+  if (!isPiHost()) return;
   let enabled = true;
   let timer: ReturnType<typeof setInterval> | null = null;
   let context: ExtensionContext | null = null;
