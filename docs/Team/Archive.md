@@ -9081,4 +9081,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit ae14e7f3
 - reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_claims.py @ae14e7f3 -> 17 passed; same test overlaid on base 8fade967 -> 2 failed (C-0002 != C-0001), repro genuine; ruff check / ruff format --check src/teamwork/claims.py tests/unit/test_claims.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; check_comments.py -> 0 explanatory; git merge-tree --write-tree main <branch> -> rc 0; diff = only src/teamwork/claims.py + tests/unit/test_claims.py (+23/-6), no test deleted/skipped, no gate weakened
 - findings history: 
-- branch / merge: developer/t-0004-fix-duplicate-live-claims-on-same-holder / pending
+- branch / merge: developer/t-0004-fix-duplicate-live-claims-on-same-holder / 823dc743
