@@ -81,17 +81,18 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
-| architect | T-0001 | always-on-cap | doing | - | - |
+| architect | T-0001 | always-on-cap | review | P-0013 | - |
 | ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
 | developer | T-0001 | evidence-staleness | done | P-0003 | 4f46b4be |
 | developer | T-0002 | team-records | done | P-0002 | f9e0fab2 |
 | developer | T-0003 | lanes | done | P-0004 | c41880f0 |
 | developer | T-0004 | claims | done | P-0006 | 823dc743 |
-| developer | T-0005 | tests | doing | - | - |
+| developer | T-0005 | tests | done | P-0011 | 1f8d2dfd |
 | developer | T-0006 | messages | done | P-0009 | 73404e80 |
 | developer | T-0007 | bundle | done | P-0007 | 3c82fecd |
 | developer | T-0008 | records | done | P-0008 | dd5cfa1c |
 | developer | T-0009 | tests | done | P-0010 | 7f25caee |
+| developer | T-0010 | records | review | P-0012 | - |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -110,8 +111,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0001 · Correct always-on cap and status schema drift in docs | P1 | doing | - |
-| developer | T-0005 · Grade evidence on 'tests run pass' so noise cannot be credited | P0 | doing | - |
+| architect | T-0001 · Correct always-on cap and status schema drift in docs | P1 | review | - |
+| developer | T-0010 · Update task-integrity test to name an explicit Developer instance | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
