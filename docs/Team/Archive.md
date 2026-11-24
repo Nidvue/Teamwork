@@ -9069,3 +9069,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: privacy_scan --tree --history @6e0b90f2 -> 0 findings; pytest -q tests/unit/test_privacy_scan.py tests/unit/test_hard_timeouts.py @6e0b90f2 -> 204 passed; narrowness test @6e0b90f2 -> 1 passed; TS-0031 acceptance @6e0b90f2 -> 14 checks, 0 failed; auth D-20261124-CEO recorded; no credit (none at rev)
 - findings history: 
 - branch / merge: developer/t-0010-fix-ci-portability-and-privacy-defects-i / 1dcba7d1
+
+## T-0004 · Fix duplicate live claims on same-holder overlap  (developer)
+- date: 2026-11-24
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: claims
+- self-check: [pass] Boundary: exact path and parent/child overlap both refresh; sibling same-prefix paths stay non-overlapping via overlaps(); a non-path kind still never covers a prefix. Empty/duplicate/second-call: same holder re-adding an exact OR overlapping path refreshes TTL and returns the same id with one record; a different holder on any live overlap is refused with holder+id+expiry; an expired claim is skipped so no second live claim. Contract: add() keeps id/kind/value, changes only ttl/expires_ts/expires on refresh; check/list/release unchanged. Concurrency: the scan+write remains inside claims_lock(root), single writer, no new file on overlap. Scope: only src/teamwork/claims.py (overlap branch) and tests/unit/test_claims.py (2 regression tests); docs and other files untouched. | test: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_claims.py @ae14e7f3 -> 17 passed; ruff check . / ruff format --check . / mypy src/teamwork / scripts/check_comments.py @ae14e7f3 -> all exit 0 | preflight: PF-6aa167e446be @ae14e7f3efd0 (9 checks, 0 failed)
+- author evidence: commit ae14e7f3
+- reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_claims.py @ae14e7f3 -> 17 passed; same test overlaid on base 8fade967 -> 2 failed (C-0002 != C-0001), repro genuine; ruff check / ruff format --check src/teamwork/claims.py tests/unit/test_claims.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; check_comments.py -> 0 explanatory; git merge-tree --write-tree main <branch> -> rc 0; diff = only src/teamwork/claims.py + tests/unit/test_claims.py (+23/-6), no test deleted/skipped, no gate weakened
+- findings history: 
+- branch / merge: developer/t-0004-fix-duplicate-live-claims-on-same-holder / pending
