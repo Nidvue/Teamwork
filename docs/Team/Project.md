@@ -79,6 +79,30 @@ in the team tree; the ten parts below are its human view.
 | 9 | Unknowns and assumptions | "Display" = widget and its auto-registration, not CLI command output (owner: ceo; settled by the explore inventory). Outside pi, auto-install is skipped with a clear line and explicit `ui install` is refused; `ui status` stays available. |
 | 10 | Evidence plan | Developer runs focused tests; Tester runs the full gate battery; Reviewer verdicts each deliverable; CEO verifies criteria and closes. |
 
+## Brief (M29 - release 1.7.0)
+
+Intake record P-0008 (verbatim prompt, two research rounds, enhanced prompt) is
+in the team tree. The user chose version **1.7.0** and channels **GitHub + npm**.
+
+### Original prompt (verbatim)
+
+- 2026-11-24 — `@tw release a new version`
+
+### Rewritten brief
+
+| # | Part | Content |
+|---|---|---|
+| 1 | Objective | Version 1.7.0 is published to GitHub and npm from the verified HEAD with CI green on the tagged SHA. |
+| 2 | User and job | The owner wants the accumulated changes shipped; good = a published tag, Release assets and npm package with reproducible evidence. |
+| 3 | Deliverables | Version/changelog/citation bump commit, release gate evidence, pushed `main`, pushed `v1.7.0`, GitHub Release, npm package, post-tag `1.7.1` follow-up task. <!-- release-consistency: illustrative --> |
+| 4 | Acceptance criteria | AC-13 bump and offline consistency; AC-14 all release gates green; AC-15 push + CI + tag + Release; AC-16 npm published or blocker recorded. |
+| 5 | Non-goals | No PyPI publish, no history rewrite, no force-push, no tag move/delete. |
+| 6 | Constraints and invariants | CEO tags; only Release Engineer pushes; npm auth via CI OIDC (no local login); protected `v*` tags; no credential read or storage. |
+| 7 | Interfaces to freeze | `version.py:9` is the single version source; `v1.7.0` names exactly the CI-green SHA; the published npm name is `@nidvue/teamwork`. <!-- release-consistency: illustrative --> |
+| 8 | Lanes | Developer bumps version/citation/changelog in one commit; Tester runs release gates; Reviewer verdicts; Release Engineer pushes; CEO tags. |
+| 9 | Unknowns and assumptions | npm Trusted Publisher is assumed configured on npmjs.com (owner: ceo); if the npm job fails on auth, GitHub still ships and npm is reported blocked. R2 needs a `1.7.1` bump immediately after the tag. |
+| 10 | Evidence plan | `check_release_consistency`, `make release-check`, `gh run list`, `gh release view`, `npm view` provide the publish evidence. |
+
 ## Objective
 
 Turn the private `tw` skill into a self-contained, reusable,

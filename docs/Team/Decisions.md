@@ -3424,3 +3424,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt check_release_consistency.py --online before -> R3 DRIFT on 16 versions; after the TARBALL_LAYOUT fix -> drift on 1.5.2-1.5.6 only; byte-diff of v1.5.2 tarball vs git archive -> 84/85 files identical, sole difference src/teamwork/config.py; both sides pinned to sha256 2ca248b7.../c5250e54...; after the redaction record -> R3 ok 16 npm version(s) match
 - falsified by: Any npm version other than 1.5.2-1.5.6 passes R3 with a differing file, or any of those five has any second differing file, or either pinned hash no longer matches.
 - consequences: Architecture.md 11.4 amended; R3 still compares every other byte; the personal identity already published in those tarballs stays an irreversible historical fact (R-16).
+
+## D-20261124-CEO-7 - M29: user-authorized external release of v1.7.0 to GitHub and npm <!-- release-consistency: illustrative -->
+
+- date: 2026-11-24
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: The user explicitly authorized releasing a new version, chose 1.7.0 and chose GitHub + npm channels. This authorizes the Release Engineer to push the reviewed main revision and the CEO to create/push the protected v1.7.0 tag; the release workflow may publish the GitHub Release and @nidvue/teamwork@1.7.0. No force-push, tag move/delete, history rewrite, credential read or PyPI publish is authorized. <!-- release-consistency: illustrative -->
+- why: Push, tag and publish are irreversible external actions; the user's answer to the consolidated question is the recorded authorization.
+- evidence: P-0008 two research rounds; user answers 2026-11-24 (version 1.7.0, channels GitHub + npm); git push --dry-run origin HEAD:main -> 8fade967..bef6ac3b; gh secret list -> no NPM_TOKEN; release.yml:748-750 id-token write for OIDC
+- falsified by: A force-push, a moved/deleted tag, a PyPI upload, or a publish without CI green on the exact tagged SHA.
+- consequences: -
