@@ -261,8 +261,7 @@ def _real_spawn(root: Path, monkeypatch, star_state: str) -> list[str]:
     monkeypatch.setenv("GH_LOG", str(log))
     monkeypatch.setenv("GH_STAR_STATE", star_state)
     monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}")
-    python = "/usr/bin/python3"
-    monkeypatch.setattr(autostar, "sys", SimpleNamespace(executable=python))
+    monkeypatch.setattr(autostar, "sys", SimpleNamespace(executable=sys.executable))
 
     autostar.star_async(root)
 
