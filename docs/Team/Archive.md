@@ -9082,3 +9082,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_claims.py @ae14e7f3 -> 17 passed; same test overlaid on base 8fade967 -> 2 failed (C-0002 != C-0001), repro genuine; ruff check / ruff format --check src/teamwork/claims.py tests/unit/test_claims.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; check_comments.py -> 0 explanatory; git merge-tree --write-tree main <branch> -> rc 0; diff = only src/teamwork/claims.py + tests/unit/test_claims.py (+23/-6), no test deleted/skipped, no gate weakened
 - findings history: 
 - branch / merge: developer/t-0004-fix-duplicate-live-claims-on-same-holder / 823dc743
+
+## T-0006 · Enforce message TTL at take/finish, not only at inbox display  (developer)
+- date: 2026-11-24
+- priority: P0
+- owner: developer role (work by: Developer-3)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: messages
+- self-check: [pass] Re-read the diff: send_all rejects ttl_hours<0 before any write; find returns None when _expired; take/finish re-check _expired inside the existing mailbox/bus lock before mutating. Empty/missing id still KeyError; a second take by another lane and finish on done/dropped still ValueError; same-lane re-take and positive-TTL round trip unchanged. ttl_hours=0 keeps never-expire behaviour (expires_ts=0). Scope: only messages.py and its unit tests; find is read-only, mutations stay under the same lock. Hostile-reviewer gap checked: CLI prints '# ... has expired' and exits 2. | test: .venv/bin/python -m pytest tests/unit/test_messages.py -q @2d728f18 -> 18 passed | preflight: PF-ac8e200942a8 @2d728f18d07d (9 checks, 0 failed)
+- author evidence: commit 2d728f18
+- reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_messages.py @2d728f18 -> 18 passed; new tests overlaid on base 8fade967 -> 5 failed (negative ttl accepted, expired take/finish succeed, find shows expired, CLI take rc 0), repro genuine; positive-ttl round-trip test passes on both; ruff check / ruff format --check src/teamwork/messages.py tests/unit/test_messages.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; git merge-tree --write-tree main <branch> -> rc 0; delta vs merge-base = only messages.py + test_messages.py (+113/-1), no test deleted/skipped, no gate weakened
+- findings history: 
+- branch / merge: developer-3/t-0006-enforce-message-ttl-at-take-finish-not-o / pending
