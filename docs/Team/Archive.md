@@ -9095,3 +9095,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_messages.py @2d728f18 -> 18 passed; new tests overlaid on base 8fade967 -> 5 failed (negative ttl accepted, expired take/finish succeed, find shows expired, CLI take rc 0), repro genuine; positive-ttl round-trip test passes on both; ruff check / ruff format --check src/teamwork/messages.py tests/unit/test_messages.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; git merge-tree --write-tree main <branch> -> rc 0; delta vs merge-base = only messages.py + test_messages.py (+113/-1), no test deleted/skipped, no gate weakened
 - findings history: 
 - branch / merge: developer-3/t-0006-enforce-message-ttl-at-take-finish-not-o / 73404e80
+
+## T-0007 · Stop bundle.sync deleting unmanaged empty directories  (developer)
+- date: 2026-11-24
+- priority: P1
+- owner: developer role (work by: Developer-4)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: bundle
+- self-check: [pass] Scope: only bundle.sync empty-dir cleanup + two tests in test_skill_sync.py. Contract surface: sync()/managed() signatures and return unchanged; stale managed files still unlinked; __pycache__ still purged. Boundary: empty removed list, dry_run (returns before cleanup) and second sync unchanged (test_sync_is_idempotent + new tests pass). Emptied dirs are ancestors of removed managed files only: unmanaged notes/ and managed src/keep/ the sync never emptied survive; a nested managed dir emptied by a stale-file removal is pruned (new test). No shared writes; cleanup is sequential on one dest. Hostile-reviewer case: stale file in a nested dir whose parent still holds files -> parent kept (not empty), only the deepest now-empty dir removed. | test: pytest tests/unit/test_skill_sync.py -q @9c5defff -> 15 passed; ruff check + ruff format --check + mypy src/teamwork + check_comments -> all green | preflight: PF-d2397f4fe767 @9c5defffd067 (9 checks, 0 failed)
+- author evidence: commit 9c5defff
+- reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_skill_sync.py @9c5defff -> 15 passed; new tests overlaid on base 8fade967 -> 1 failed (unmanaged notes/ deleted), repro genuine; the managed-stale-prune regression test passes on both, so legitimate cleanup intact; ruff check / ruff format --check src/teamwork/bundle.py tests/unit/test_skill_sync.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; git merge-tree --write-tree main <branch> -> rc 0; delta vs merge-base = only bundle.py + test_skill_sync.py (+41/-2), no test deleted/skipped, no gate weakened
+- findings history: 
+- branch / merge: developer-4/t-0007-stop-bundle-sync-deleting-unmanaged-empt / pending
