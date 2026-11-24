@@ -786,11 +786,9 @@ def validate_actor(
     for inst in insts:
         if pascal(inst) == want:
             return inst, role
-    if allow_role and insts and want == pascal(role):
-        return pascal(role), role
-    if not allow_role and insts and want == pascal(role) and len(insts) == 1:
-        return insts[0], role
-    if not allow_role and insts and want == pascal(role):
+    if insts and want == pascal(role):
+        if len(insts) == 1:
+            return (pascal(role) if allow_role else insts[0]), role
         die(
             f"'{raw}' is ambiguous: the {role} role has several instances "
             f"({', '.join(insts)}). Name the one acting.",

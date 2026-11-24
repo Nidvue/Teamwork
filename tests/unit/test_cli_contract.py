@@ -625,3 +625,47 @@ def test_the_read_docs_name_only_flags_the_parser_has() -> None:
     named = set(re.findall(r"--[a-z][a-z-]+", section))
     missing = sorted(flag for flag in named if flag not in known)
     assert not missing, f"docs/guide/cli.md's read section names flags the parser lacks: {missing}"
+
+
+def _actor_team(root: Path, *instances: str) -> Path:
+    """A throwaway team tree that staffs exactly the given instances."""
+    for name in instances:
+        (root / "Agents" / name).mkdir(parents=True, exist_ok=True)
+        role = re.sub(r"\d+$", "", name).lower()
+        (root / "Roles" / role).mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def test_bare_role_with_multiple_instances_is_ambiguous_in_role_mode(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from teamwork.engine import validate_actor
+
+    root = _actor_team(tmp_path / "team", "Reviewer-1", "Reviewer-2")
+    with pytest.raises(SystemExit) as exc:
+        validate_actor(root, "reviewer", "reviewer", allow_role=True)
+    assert exc.value.code == 1
+    out = capsys.readouterr().err
+    assert "'reviewer' is ambiguous: the reviewer role has several instances" in out
+    assert "Reviewer-1, Reviewer-2" in out
+    assert "Name the one acting" in out
+
+
+def test_single_instance_bare_role_still_resolves_in_role_mode(tmp_path: Path) -> None:
+    from teamwork.engine import validate_actor
+
+    root = _actor_team(tmp_path / "team", "Reviewer-1")
+    assert validate_actor(root, "reviewer", "reviewer", allow_role=True) == (
+        "Reviewer",
+        "reviewer",
+    )
+
+
+def test_explicit_instance_still_resolves_in_role_mode(tmp_path: Path) -> None:
+    from teamwork.engine import validate_actor
+
+    root = _actor_team(tmp_path / "team", "Reviewer-1", "Reviewer-2")
+    assert validate_actor(root, "reviewer-2", "reviewer", allow_role=True) == (
+        "Reviewer-2",
+        "reviewer",
+    )
