@@ -9354,4 +9354,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit c1c53b7e
 - reviewer evidence: check_release_consistency.py --offline @c1c53b7ed44c -> 0 problem(s) (R1/R2/R6/R7/R9/R10 ok); pytest -q @c1c53b7 -> 3403 passed, 12 skipped; ruff check+format --check @c1c53b7 -> all passed, 394 formatted; mypy src/teamwork @c1c53b7 -> no issues (36 files); check_comments.py @c1c53b7 -> 0 commentary; teamwork links + harness lint @c1c53b7 -> 0 problems; verify_release.py @c1c53b7 -> OK, wheel reports teamwork 1.7.0; git diff main...HEAD -> exactly 3 files (version.py/CITATION.cff=1.7.0, CITATION date 2026-11-24, CHANGELOG [Unreleased] empty then [1.7.0] - 2026-11-24 with 3 Changed + 1 Removed bullets byte-identical to base, [1.6.0] and older untouched); no docs/Team or generated-file edits; pyproject dynamic version from version.py
 - findings history: 
-- branch / merge: developer/t-0021-bump-version-to-1-7-0-for-release / pending
+- branch / merge: developer/t-0021-bump-version-to-1-7-0-for-release / ba8c9b7e
