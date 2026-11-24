@@ -3324,7 +3324,23 @@ worktree until the slot expires - the safe direction to fail.
 - context: -
 - options considered: -
 - decision: Add exactly one escaped, anchored allowlist entry (the fabricated home-path literal authorized for T-0010, recorded verbatim in .github/privacy-allow.txt) with a justification comment, and update the pinned list in tests/unit/test_privacy_scan.py. Scope: the fabricated path used by a hard-timeout test; no real credential or real user home is exempted.
-- why: The literal reached a pushed ancestor commit (b4e8088d) before the source fix; rewriting pushed history would invalidate SHAs cited in Archive.md/Decisions.md. This matches the existing precedent for C:/Users/x and /home/operator.
+- why: The literal reached a pushed ancestor commit (b4e8088d) before the source fix; rewriting pushed history would invalidate SHAs cited in Archive.md/Decisions.md. This matches two existing precedent entries documented in .github/privacy-allow.txt.
 - evidence: privacy_scan --tree --history --allow .github/privacy-allow.txt @a91ff031 -> commit:9a91f4d10083:12 and tests/unit/test_hard_timeouts.py:49 [high/home-path]
 - falsified by: If the entry matches any real home prefix or any credential, revert it.
 - consequences: One additional narrow regex; credential rules stay armed for every other line.
+
+## D-20261124-CEO-2 - Allowlist punctuation variant of operator home path
+
+- date: 2026-11-24
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Add exactly one escaped anchored allowlist entry for the operator home path followed by a sentence period, with a justification comment, and update the pinned list in tests/unit/test_privacy_scan.py. This covers only historical decision-record prose; no credential is exempted.
+- why: A decision sentence written in this session ended with the operator home path plus a period; the scanner reports the matched text including punctuation, so the existing bare-path entry does not cover it. Rewriting pushed history would invalidate cited SHAs.
+- evidence: privacy_scan --history --allow .github/privacy-allow.txt -> 2 finding(s) at docs/Team/Decisions.md:3327 in two pushed blobs; tree scan -> 0 findings
+- falsified by: If the entry exempts any credential or any other user path, revert it.
+- consequences: One additional narrow regex; all credential rules remain armed.

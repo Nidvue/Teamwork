@@ -57,6 +57,15 @@
 # exempted; anything secret on such a line is still caught by its own rule.
 ^/home/operator$
 
+# ^/home/operator\.$ - opened by D-20261124-CEO-2. A decision record written in
+# this session ended a sentence with the operator home path plus a period; the
+# scanner reports the matched text including punctuation, so the bare-path entry
+# above does not cover it. This covers only those immutable decision blobs: no
+# account other than the already-authorized operator name is named, and every
+# credential rule still runs on the same line. Narrowness is pinned in
+# tests/unit/test_privacy_scan.py.
+^/home/operator\.$
+
 # ^/home/agent$ - opened by T-0010 under D-20261124-CEO. It exempts one fabricated
 # test path that a unit test quoted twice while proving that an exact path value
 # still terminates; no account is named and the value is not a real user home.

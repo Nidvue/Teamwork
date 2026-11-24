@@ -867,6 +867,7 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
         r"^\.pi/agent/npm$",
         r"^\.pi/agent/settings\.json$",
         r"^/home/operator$",
+        r"^/home/operator\.$",
         r"^/home/agent$",
         r"^C:\\Users\\operator$",
         r"^sk-live-0123456789abcdef0123456789abcdef$",
