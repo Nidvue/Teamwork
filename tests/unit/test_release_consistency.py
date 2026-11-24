@@ -637,6 +637,20 @@ def test_r3_compares_the_tarball_payload_with_the_tagged_payload(tmp_path):
     assert fetch.asked == [crc.NPM_REGISTRY, crc.NPM_REGISTRY]
 
 
+def test_r3_still_verifies_tarballs_published_before_the_skill_rename(tmp_path):
+    """Pre-rename npm tarballs ship ``skills/teamwork``; R3 must still map it."""
+    root = make_repo(tmp_path / "repo", files=PAYLOAD)
+    git(root, "tag", "v1.1.0")
+    fetch = fake_http({crc.NPM_REGISTRY: npm_registry({"1.1.0": "x"})})
+
+    result = crc.rule_r3_npm_payloads(
+        root, [], fetch, lambda url: tarball(PAYLOAD, prefix="package/skills/teamwork")
+    )
+
+    assert result.status == "ok"
+    assert "1 npm version(s) match" in result.detail
+
+
 def test_r3_an_unadmitted_non_semver_published_version_is_drift(tmp_path):
     """A published version must not escape R3 by its version shape.
 

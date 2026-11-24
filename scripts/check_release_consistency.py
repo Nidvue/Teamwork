@@ -176,6 +176,7 @@ PAYLOAD_TREES = ("extensions", "references", "roles", "templates", "scripts", "s
 PAYLOAD_EXCLUDES = frozenset({"scripts/build_pi_package.py"})
 
 TARBALL_LAYOUT = (
+    ("skills/teamwork", ""),
     ("skills/tw", ""),
     ("skills/teamwork-pi", "templates/pi-package/skills/teamwork-pi"),
     ("prompts", "templates/pi-package/prompts"),
@@ -706,7 +707,10 @@ def _tarball_payload_digest(blob: bytes) -> str:
     """Digest of an npm tarball's shipped payload, on the payload's own paths.
 
     11.2.3 publishes the tarball as ``package/skills/tw/`` and
-    ``package/prompts/`` (see ``build_pi_package.copy_skill``). A tag tree keeps
+    ``package/prompts/`` (see ``build_pi_package.copy_skill``). Tarballs published
+    before the skill rename carry ``package/skills/teamwork/`` instead, and the
+    layout maps both so historical releases stay verifiable; a tarball carrying
+    both lets the current ``tw`` path win. A tag tree keeps
     ``prompts/`` under ``templates/pi-package/``. The paths are therefore *mapped back* to the
     repository's payload layout before hashing - without the map a tag tree and a
     tarball can never share a digest, and 11.5's worked examples would be
