@@ -9316,3 +9316,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: CI=true pytest -q tests/unit/test_lane_display.py -k display @300b21a4 -> 31 passed; git show 300b21a4 -> 1 test line + 2 board lines, no product code; board --check -> 26 tasks match; ruff check/format clean; make release-check @300b21a4 -> all gates passed | baseline: bef6ac3b: CI run 45466298499 red on 5 cells; CI=true focused test failed on 'not pi' assertion | replay: CI=true .venv/bin/python -m pytest -q tests/unit/test_lane_display.py -k display
 - findings history: 
 - branch / merge: - / pending
+
+## T-0019 · Restore R3 verification of pre-rename npm tarballs  (developer)
+- date: 2026-11-24
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: release-gates
+- self-check: [pass] TARBALL_LAYOUT now maps both the current skills/tw and the pre-rename skills/teamwork prefixes; the current path wins if a tarball carries both. One regression test pins the legacy layout. No rule weakened: R3 still compares full payload digests. | test: pytest -q tests/unit/test_release_consistency.py -k r3 @cbf6711a -> 13 passed; SSL_CERT_FILE=... check_release_consistency.py --online @cbf6711a -> 12 formerly drifting versions now match; make release-check @cbf6711a -> all gates passed | baseline: 4c42e0f4: 16 versions drifted; legacy tarballs ship skills/teamwork which the checker no longer mapped | replay: pytest -q tests/unit/test_release_consistency.py -k r3 | preflight: PF-19cd185139d4 @- (8 checks, 0 failed)
+- author evidence: check_release_consistency.py --online -> R3 DRIFT on 16 published versions; release workflow 45476160725 failed; commit cbf6711a
+- reviewer evidence: pytest -q tests/unit/test_release_consistency.py -k r3 @cbf6711a -> 13 passed; diff -> TARBALL_LAYOUT adds skills/teamwork prefix + one regression test, no rule change; SSL_CERT_FILE online checker @cbf6711a -> 12 of 16 historical versions now match; board --check -> 27 tasks match; make release-check -> all gates passed | baseline: 4c42e0f4: 16 historical versions drifted because the tw rename dropped the legacy prefix | replay: pytest -q tests/unit/test_release_consistency.py -k r3
+- findings history: 
+- branch / merge: - / pending
