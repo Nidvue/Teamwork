@@ -8,7 +8,9 @@ Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md)
 ## Brief (M26 - systematic review)
 
 Intake record P-0002 (verbatim prompt, two research rounds, enhanced prompt) is
-in the team tree; the ten parts below are its human view.
+in the team tree; the ten parts below are its human view. This milestone is
+history: the `refresh`/`sync_skill` commands it mentions were retired in M27
+(decision D-20261124-CEO-5).
 
 ### Original prompt (verbatim)
 
