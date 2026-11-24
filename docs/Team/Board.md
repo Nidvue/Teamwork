@@ -103,6 +103,7 @@ under two roles is two tasks.
 | developer | T-0007 | autostar | done | P-0020 | a0e55a67 |
 | developer | T-0008 | timeouts | done | P-0022 | 48f2996f |
 | developer | T-0009 | ci | done | P-0021 | 56e29bd9 |
+| developer | T-0010 | privacy | done | P-0023 | 1dcba7d1 |
 | reviewer | T-0001 | lanes | dropped | - | - |
 | reviewer | T-0002 | lanes | dropped | - | - |
 | reviewer | T-0003 | lanes | dropped | - | - |
