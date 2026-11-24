@@ -29,14 +29,8 @@ REPO_BLOB = REPO_URL + "/blob/main/"
 REPO_RAW = REPO_URL.replace("github.com", "raw.githubusercontent.com") + "/main/"
 PREVIEW = REPO_RAW + "assets/social-preview.png"
 
-sys.path.insert(0, str(ROOT / "src"))
-from teamwork import bundle as _bundle  # noqa: E402
-
 SKILL_TREES = ("extensions", "references", "roles", "templates", "scripts", "src")
 SKILL_FILES = ("SKILL.md", "AGENTS.md")
-assert SKILL_FILES == _bundle.BUNDLE_FILES and SKILL_TREES == _bundle.BUNDLE_TREES, (
-    "the pi package manifest drifted from teamwork.bundle"
-)
 TARBALL_FILES = ("README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "SECURITY.md")
 
 HOST_PACKAGES = (
@@ -117,6 +111,19 @@ def copy_skill(dest: Path) -> None:
         )
     shutil.copytree(ROOT / "templates" / "pi-package" / "prompts", dest / "prompts")
     shutil.copytree(ROOT / "extensions", dest / "extensions")
+
+
+def copy_sibling_skills(dest: Path) -> None:
+    source = ROOT / "skills"
+    if not source.is_dir():
+        return
+    for child in sorted(source.iterdir()):
+        if child.is_dir() and child.name != "tw":
+            shutil.copytree(
+                child,
+                dest / "skills" / child.name,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info"),
+            )
 
 
 def ship_readme(dest: Path) -> None:
@@ -223,6 +230,7 @@ def main(argv: list[str]) -> int:
         json.dumps(package_json(ver), indent=2, ensure_ascii=False) + "\n"
     )
     copy_skill(dest)
+    copy_sibling_skills(dest)
     copy_docs(dest)
     ship_readme(dest)
     manifest = json.loads((dest / "package.json").read_text(encoding="utf-8"))

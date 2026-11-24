@@ -69,4 +69,5 @@ def test_the_guide_documents_the_command() -> None:
     text = GUIDE.read_text(encoding="utf-8")
 
     assert "teamwork ui" in text
-    assert "--no-ui" in text
+    assert "ui install" in text
+    assert "ui status" in text

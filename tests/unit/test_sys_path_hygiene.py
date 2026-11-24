@@ -84,13 +84,6 @@ def _probe(module: str, unit_dir: Path | None = None) -> tuple[bool, list[str], 
     return leaked, added, package
 
 
-def test_importing_the_skill_sync_tests_does_not_put_scripts_on_sys_path() -> None:
-    """The regression: the module must not leave ``scripts/`` on ``sys.path``."""
-    leaked, added, _package = _probe("test_skill_sync")
-    assert not leaked, f"importing test_skill_sync put {SCRIPTS} on sys.path"
-    assert added == [], f"importing test_skill_sync changed sys.path: {added}"
-
-
 def test_importing_the_skill_refresh_tests_does_not_put_scripts_on_sys_path() -> None:
     """The same contract for the module that imports the build tools."""
     leaked, added, _package = _probe("test_skill_refresh")

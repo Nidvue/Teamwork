@@ -67,7 +67,6 @@ FROZEN_COMMANDS = frozenset(
         "pulse",
         "recall",
         "redline",
-        "refresh",
         "remember",
         "repo",
         "review",

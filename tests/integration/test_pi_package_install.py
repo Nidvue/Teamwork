@@ -1,9 +1,10 @@
-"""Why this file exists: AC-M25-4 - an installed package exposes exactly one skill.
+"""Why this file exists: an installed package exposes each skill exactly once.
 
-pi discovers skills as ``<root>/<name>/SKILL.md``, so a second copy of the skill in
+pi discovers skills as ``<root>/<name>/SKILL.md``, so a second copy of a skill in
 the published tarball (a stale ``dist/``, a duplicated reference tree, a skill file
-copied at the wrong depth) makes pi register the same skill twice: the operator sees
-two ``teamwork`` entries and only one of them is the revision that was released.
+copied at the wrong depth) makes pi register it twice: the operator sees two entries
+and only one of them is the revision that was released. The main skill and its
+companion each get one top-level directory.
 
 The unit layer proves the build *directory*; this file proves the artifact npm would
 install - the packed tarball, unpacked where npm puts it. It also pins the skill's
@@ -25,6 +26,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 BUILD = ROOT / "scripts" / "build_pi_package.py"
 SKILL = "tw"
+COMPANION = "tw-learn"
 
 
 def pack(tmp_path: Path) -> tuple[Path, Path]:
@@ -58,16 +60,17 @@ def pack(tmp_path: Path) -> tuple[Path, Path]:
     return tarballs[0], installed / "package"
 
 
-def test_installed_package_exposes_exactly_one_skill_named_teamwork(tmp_path: Path) -> None:
+def test_installed_package_exposes_both_skills_once_each(tmp_path: Path) -> None:
     _tarball, installed = pack(tmp_path)
 
     skills = sorted(p.name for p in (installed / "skills").iterdir() if p.is_dir())
-    assert skills == [SKILL], f"the installed package ships exactly one skill: {skills}"
+    assert skills == [SKILL, COMPANION], f"the installed package ships both skills once: {skills}"
 
     manifests = sorted(p.relative_to(installed).as_posix() for p in installed.rglob("SKILL.md"))
-    assert manifests == [f"skills/{SKILL}/SKILL.md"], (
-        f"exactly one SKILL.md in the installed tree, at one depth: {manifests}"
-    )
+    assert manifests == [
+        f"skills/{COMPANION}/SKILL.md",
+        f"skills/{SKILL}/SKILL.md",
+    ], f"one SKILL.md per skill in the installed tree, at one depth: {manifests}"
 
     manifest = json.loads((installed / "package.json").read_text(encoding="utf-8"))
     assert manifest["pi"]["skills"] == ["./skills"], manifest["pi"]["skills"]
@@ -85,3 +88,11 @@ def test_installed_skill_declares_the_directory_that_holds_it(tmp_path: Path) ->
         if line.startswith("name:")
     ]
     assert names == [SKILL], f"the declared skill name is the directory name: {names}"
+
+
+def test_installed_companion_declares_the_directory_that_holds_it(tmp_path: Path) -> None:
+    _tarball, installed = pack(tmp_path)
+    text = (installed / "skills" / COMPANION / "SKILL.md").read_text(encoding="utf-8")
+    header = text.split("---", 2)[1]
+
+    assert f"name: {COMPANION}" in header, "the companion's declared name is its directory"

@@ -1103,9 +1103,8 @@ Any matched token that is not illustrative-marked must name a tag in
 
 ### 11.3 Bundled payload and its digest (frozen)
 
-The **bundled payload** is the shipped set, and it is exactly
-`teamwork.bundle.BUNDLE_FILES` + `teamwork.bundle.BUNDLE_TREES` as asserted by
-`scripts/build_pi_package.py`: the files `SKILL.md`, `AGENTS.md` and the trees
+The **bundled payload** is the shipped set, and it is exactly the `SKILL_FILES`
+and `SKILL_TREES` declared by `scripts/build_pi_package.py`: the files `SKILL.md`, `AGENTS.md` and the trees
 `roles/`, `references/`, `templates/`, `scripts/`, `src/`. Nothing else ships -
 not `tests/`, not `docs/`, not the community files, not build output.
 

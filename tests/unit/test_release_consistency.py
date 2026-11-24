@@ -872,13 +872,13 @@ def test_r6_release_asset_url_naming_no_tag_is_drift(tmp_path):
 
 
 def _install_guide(pin: str) -> str:
-    """A console block that pins a revision and never spells the project name.
+    """An npm console block that pins a revision and never spells the project name.
 
     That is the measured shape of ``docs/guide/install.md:87``: the fence holds
-    only ``$ teamwork refresh --branch v1.1.2`` in surrounding prose that names no
-    project, so the project-context gate never read the line at all.
+    only a ``--tag`` pin, with the package name left to a variable, so R6 reads
+    the pin baseline and the project-context gate never reads the line at all.
     """
-    return f"# Install\n\n```console\n$ refresh --branch {pin}\n```\n"
+    return f'# Install\n\n```console\n$ npm install "$PKG" --tag {pin}\n```\n'
 
 
 def test_r6_pin_naming_an_older_tag_is_drift(tmp_path):
@@ -982,7 +982,7 @@ def test_r6_illustrative_marker_still_exempts_a_pin(tmp_path):
         "1.1.4",
         {
             "docs/guide/install.md": (
-                f"# Install\n\n{ILLUSTRATIVE}\n```console\n$ refresh --branch v1.0.0\n```\n"
+                f'# Install\n\n{ILLUSTRATIVE}\n```console\n$ npm install "$PKG" --tag v1.0.0\n```\n'
             ),
             "CHANGELOG.md": ("# Changelog\n\n## [1.1.4]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
         },

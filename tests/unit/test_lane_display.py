@@ -4,7 +4,7 @@ Why: the renderer that draws the live wave ships inside the bundle, and a
 skill-only install therefore *carries* it while the host never loads it - a host
 reads extensions from its own ``extensions/`` directory and its ``settings.json``,
 never from a skills directory. The gap is silent: 60 lane runs on record, no
-widget, and ``refresh --check`` reporting the bundle as in sync.
+widget, and a skill-install check that only compared bundle bytes.
 
 Pinned here: the install copies the shipped file and registers it once, the
 settings file keeps every other key, a second run changes nothing, a broken

@@ -110,9 +110,9 @@ def test_the_package_declares_no_third_party_package(tmp_path: Path) -> None:
     )
 
     skills = sorted(p.name for p in (pkg / "skills").iterdir() if p.is_dir())
-    assert skills == ["tw"], f"the package ships exactly one skill: {skills}"
+    assert skills == ["tw", "tw-learn"], f"the package ships both skills: {skills}"
     manifests = sorted(p.relative_to(pkg).as_posix() for p in (pkg / "skills").rglob("SKILL.md"))
-    assert manifests == ["skills/tw/SKILL.md"], manifests
+    assert manifests == ["skills/tw-learn/SKILL.md", "skills/tw/SKILL.md"], manifests
     assert manifest["pi"]["skills"] == ["./skills"]
     portable = (pkg / "skills" / "tw" / "SKILL.md").read_text(encoding="utf-8")
     for tool in ("subagent(", "schedule.create"):

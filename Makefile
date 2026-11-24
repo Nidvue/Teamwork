@@ -11,7 +11,7 @@ HERE   := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 .DEFAULT_GOAL := help
 
 .PHONY: help install dev lint format typecheck test test-unit test-integration \
-        test-acceptance test-fast test-scope selftest build verify package sync-skill sync-check privacy \
+        test-acceptance test-fast test-scope selftest build verify package privacy \
         docs links identity clean release-consistency release-consistency-online \
         release-check ci ci-fast python-floor
 
@@ -69,12 +69,6 @@ verify: ## Build, assert the wheel payload and smoke-test it in a throwaway venv
 package: ## Assemble the pi package (@nidvue/teamwork) under dist/.
 	$(PYTHON) scripts/build_pi_package.py
 
-sync-skill: ## Mirror this checkout into the installed skill directory.
-	$(PYTHON) scripts/sync_skill.py
-
-sync-check: ## Fail when the installed skill differs from this checkout (run `make sync-skill` first).
-	$(PYTHON) scripts/sync_skill.py --check
-
 privacy: ## Scan the tree, the full git history and the team memory stores for private data.
 	$(PYTHON) scripts/privacy_scan.py --tree --history --stores --allow .github/privacy-allow.txt
 
@@ -101,7 +95,7 @@ clean: ## Remove build artefacts and local tool caches (keeps .venv).
 		-type d -name __pycache__ -exec rm -rf {} +
 	@printf 'clean: removed build output and caches\n'
 
-release-check: lint test selftest sync-check verify release-consistency privacy docs links identity ## Run every local gate CI runs, plus the offline selftest and skill-sync check.
+release-check: lint test selftest verify release-consistency privacy docs links identity ## Run every local gate CI runs, plus the offline selftest.
 	@printf 'release-check: all gates passed\n'
 
 python-floor: ## Fail when $(PYTHON) is below the supported 3.11 floor.

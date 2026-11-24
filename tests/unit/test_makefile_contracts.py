@@ -524,7 +524,6 @@ def test_release_check_chains_the_gates_it_claims():
         "lint",
         "test",
         "selftest",
-        "sync-check",
         "verify",
         "release-consistency",
         "privacy",
@@ -607,13 +606,23 @@ def modules_run_by(text: str, target: str = "release-check") -> set[str]:
 def test_every_makefile_target_is_declared_phony():
     """A target shadowed by a file of the same name silently does nothing.
 
-    `.PHONY` listed 20 of the 23 targets: `package`, `sync-skill` and `sync-check`
-    were missing, so a directory called `package` (which `make package` creates)
-    would have turned the target into a no-op.
+    `package` creates a directory called `package`, so it must stay in `.PHONY`.
     """
     text = makefile_text()
     undeclared = sorted(set(make_targets(text)) - phony_targets(text))
     assert undeclared == [], f"targets missing from .PHONY: {undeclared}"
+
+
+def test_the_sync_targets_are_gone_and_packaging_stays():
+    """npm is the only install path; the package gate is still shipped."""
+    text = makefile_text()
+    targets = make_targets(text)
+    phony = phony_targets(text)
+    stem = "sync"
+    for gone in (f"{stem}-skill", f"{stem}-check"):
+        assert gone not in targets, f"{gone} still has a Makefile recipe"
+        assert gone not in phony, f"{gone} is still declared .PHONY"
+    assert "package" in targets and "package" in phony
 
 
 def test_every_module_the_release_gate_runs_is_in_the_dev_extra():
@@ -669,7 +678,7 @@ def test_mutant_a_gate_pointed_at_another_script_is_reported(tmp_path):
     text = makefile_text()
     assert line in text, "the verify gate recipe line was not found"
     problems = uncovered_gates(
-        _tree(tmp_path, text.replace(line, "\t$(PYTHON) scripts/sync_skill.py\n"))
+        _tree(tmp_path, text.replace(line, "\t$(PYTHON) scripts/ghost_gate.py\n"))
     )
     assert ("verify_release.py",) in problems, problems
 

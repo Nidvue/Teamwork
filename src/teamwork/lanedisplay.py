@@ -32,7 +32,10 @@ import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from . import bundle
+HOST_DEFAULTS = {
+    "pi": Path("~/.pi/agent/skills/tw"),
+    "agents": Path("~/.agents/skills/tw"),
+}
 
 EXT_FILES = ("tw-status.ts", "teamwork-bus.ts")
 
@@ -94,6 +97,14 @@ def bundled(skill_dir: Path) -> Path:
     return files[0] if files else skill_dir / BUNDLED
 
 
+def _resolve_dest(host: str = "pi", skills: str = "") -> Path:
+    target = Path(skills).expanduser() if skills else HOST_DEFAULTS.get(host, HOST_DEFAULTS["pi"])
+    target = target.expanduser()
+    if not target.is_absolute():
+        target = (Path.cwd() / target).resolve()
+    return target
+
+
 def agent_dir(host: str = "pi", skills: str = "") -> Path | None:
     """The host's own directory, derived from where its skills live.
 
@@ -101,7 +112,7 @@ def agent_dir(host: str = "pi", skills: str = "") -> Path | None:
     directory is one level up from ``skills``. A ``--dest`` outside that shape
     (a scratch directory, a wheel) has no host to register with.
     """
-    installed = bundle.resolve_dest(host, skills)
+    installed = _resolve_dest(host, skills)
     if installed.parent.name != "skills":
         return None
     return installed.parent.parent
