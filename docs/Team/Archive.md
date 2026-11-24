@@ -9172,4 +9172,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 1747bcab
 - reviewer evidence: pytest -q tests/unit/test_always_on_cap_guard.py tests/unit/test_docs_contracts.py tests/unit/test_skill_contracts.py @a363dc84 -> 134 passed; guard 4 passed, discovery=6 pages, stale-value repro 1 failed/3 passed; cap 106496 B/104 KiB on all 6 pages; status --json schema 5 = engine.py:12777; AGENTS markers intact; no src/teamwork/config.py change (default 104); links 0, harness lint 0, harness budget cap 106496 all ok
 - findings history: 
-- branch / merge: architect/t-0001-correct-always-on-cap-and-status-schema / pending
+- branch / merge: architect/t-0001-correct-always-on-cap-and-status-schema / 1747999f
