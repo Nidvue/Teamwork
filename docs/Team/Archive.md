@@ -9030,3 +9030,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: verified @2621e4ad73f1: diff=only tests/unit/test_autostar.py (1 file,+12/-15); two skipif(os.name=="nt") markers with explicit reason on exactly the two real-spawn tests; GH_CMD_STUB removed; POSIX gh stub + /usr/bin/python3 retained; 30s deadline and CHECK_ARGV/PUT_ARGV assertions unchanged; no production code change; no other skips. Worktree gates: pytest -v -> 20 passed, 0 skipped, both real-spawn tests PASSED on Linux; ruff check All checks passed; ruff format --check already formatted; mypy Success: no issues; check_comments 0 commentary. TS-0025 acceptance/autostar re-run at this rev -> 2 passed, 18 deselected. No creditable non-author record at this rev (TS-0023 is author-owned).
 - findings history: 
 - branch / merge: developer/t-0007-make-real-spawn-autostar-tests-posix-onl / a0e55a67
+
+## T-0009 · Add explicit timeout-minutes to docs and release CI jobs  (developer)
+- date: 2026-11-24
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: ci
+- self-check: [pass] Scope: exactly 7 lines added (git diff: 7 insertions, 0 deletions) across 2 workflow files - docs.yml check=20 deploy=15, release.yml consistency=20 build=30 attest=15 release=20 npm=20. No trigger, step or required-check name changed. Boundary/empty/duplicate: each of the 7 jobs had zero timeout-minutes before; YAML parse shows exactly one key per job (2/2 and 5/5), so no job is unbounded and none has a duplicate. Contract surface: timeout-minutes is a valid job-level Actions key, placed right after runs-on exactly as every job in ci.yml does. Concurrency/shared writes: only the 2 owned workflow files edited; the only other mutations are tool-managed records (CEO closed-lane authorization, test record removed, commit); no other worktree, branch or main touched. Exact failure a hostile reviewer would name: a budget too short could cut a legitimate run - mitigated by using TimeoutAudit item 11 suggested budgets; or a claim that triggers/steps changed - the 7-line diff disproves it. | test: yaml.safe_load @7de119f4 -> docs 2/2 (check=20 deploy=15), release 5/5 (consistency=20 build=30 attest=15 release=20 npm=20); pytest -m 'not slow' test_ci_contracts+test_ci_release_flow @7de119f4 -> 95 passed; full workflow consistency set @e9934117+change -> 100 passed + 72 passed | preflight: PF-4df22457037f @7de119f44c69 (10 checks, 0 failed)
+- author evidence: TimeoutAudit-20261123.md item 11; commit 7de119f4
+- reviewer evidence: verified @7de119f44c690cc14cae844d96a285145d50954f -> diff main...HEAD = 2 files, 7 insertions, 0 deletions (only 7 timeout-minutes lines; no trigger/step/check-name change); yaml.safe_load @7de119f4 -> docs 2/2 (check=20 deploy=15), release 5/5 (consistency=20 build=30 attest=15 release=20 npm=20), all 7 jobs bounded; pytest -m not slow (ci_contracts+ci_scope+release_workflow+traceability_matrix+docs_contracts) @7de119f4 -> 197 passed, 1 skipped (gitignored team tree); ledger verify -> chain intact 825 records; CEO closed-lane authorization recorded (Ledger n=821, Developer TaskQueue T-0009); acceptance layer TS-0029 pass
+- findings history: 
+- branch / merge: developer/t-0009-add-explicit-timeout-minutes-to-docs-and / pending
