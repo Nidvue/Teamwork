@@ -9329,3 +9329,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest -q tests/unit/test_release_consistency.py -k r3 @cbf6711a -> 13 passed; diff -> TARBALL_LAYOUT adds skills/teamwork prefix + one regression test, no rule change; SSL_CERT_FILE online checker @cbf6711a -> 12 of 16 historical versions now match; board --check -> 27 tasks match; make release-check -> all gates passed | baseline: 4c42e0f4: 16 historical versions drifted because the tw rename dropped the legacy prefix | replay: pytest -q tests/unit/test_release_consistency.py -k r3
 - findings history: 
 - branch / merge: - / pending
+
+## T-0020 · Record post-publication redactions for R3  (developer)
+- date: 2026-11-24
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: release-gates
+- self-check: [pass] R3 excludes one named file from both digests only when both full sha256 pins match; all other bytes and versions remain gated. Missing record means no redactions. Architect amendment D-20261124-Architect records the scope. | test: pytest -q tests/unit/test_release_consistency.py -k 'r3 or redaction' @de0e1123 -> 16 passed; online checker @de0e1123 -> R3 ok; make release-check @de0e1123 -> all gates passed | baseline: cbf6711a: R3 DRIFT on five immutable pre-redaction tarballs blocked the release | replay: pytest -q tests/unit/test_release_consistency.py -k 'r3 or redaction' | preflight: PF-19cd185139d4 @- (8 checks, 0 failed)
+- author evidence: online checker @cbf6711a -> R3 DRIFT only on 1.5.2-1.5.6; user authorized a narrow recorded amendment; commit de0e1123
+- reviewer evidence: pytest -q tests/unit/test_release_consistency.py -k 'r3 or redaction' @de0e1123 -> 16 passed; diff adds exact two-sided sha256 pins plus tests and Architect decision, no broad suppression; online checker @de0e1123 -> R3 ok 16 npm version(s) match; board --check matches; make release-check -> all gates passed | baseline: cbf6711a: R3 DRIFT on five immutable pre-redaction tarballs blocked the release | replay: pytest -q tests/unit/test_release_consistency.py -k 'r3 or redaction'
+- findings history: 
+- branch / merge: - / pending
