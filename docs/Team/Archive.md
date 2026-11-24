@@ -9133,4 +9133,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit f7556252
 - reviewer evidence: diff main...HEAD @f7556252 -> only tests/unit/test_autostar.py (1+/2-), src/teamwork/autostar.py untouched, no test deleted/skipped; .venv/bin/python -m pytest -q tests/unit/test_autostar.py @f7556252 -> 20 passed in 1.16s; base overlay @8fade967: same cmd -k real_spawn_worker -> 2 failed, 18 deselected (AssertionError: detached worker never recorded its attempt) reproducing recorded repro pre@8fade967->post@f7556252; ruff check + ruff format --check @f7556252 -> All checks passed / 1 file already formatted; scripts/check_comments.py @f7556252 -> 0 explanatory commentary
 - findings history: 
-- branch / merge: developer-5/t-0009-use-the-real-interpreter-in-autostar-rea / pending
+- branch / merge: developer-5/t-0009-use-the-real-interpreter-in-autostar-rea / 7f25caee
