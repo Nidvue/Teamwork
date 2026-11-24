@@ -149,17 +149,16 @@ def add(root: Path, *, by: str, value: str, kind: str = "area", ttl: int | None 
         for path, record in _records(root):
             if not live(record, now) or not overlaps(record, value):
                 continue
-            if record.get("value") == value and record.get("by") == by:
+            if record.get("by") == by:
                 record["ttl"] = ttl
                 record["expires_ts"] = now + ttl * 60
                 record["expires"] = _iso(record["expires_ts"])
                 _write(path, record)
                 return record
-            if record.get("by") != by:
-                raise ValueError(
-                    f"{value} is claimed by {record.get('by')} ({record.get('id')}, "
-                    f"expires {record.get('expires')}); release it or claim another value"
-                )
+            raise ValueError(
+                f"{value} is claimed by {record.get('by')} ({record.get('id')}, "
+                f"expires {record.get('expires')}); release it or claim another value"
+            )
         record = {
             "id": next_id(root),
             "kind": kind,

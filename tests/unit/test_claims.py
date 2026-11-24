@@ -61,6 +61,24 @@ def test_the_same_holder_re_adding_refreshes_and_keeps_one_record(root, bus, mon
     assert len(list(claims.claims_dir(root).glob("C-*.json"))) == 1
 
 
+def test_a_same_holder_parent_child_overlap_refreshes_and_keeps_one_record(root, bus, monkeypatch):
+    clock(monkeypatch, 1000.0)
+    parent = claims.add(root, by="developer-1", value="src", kind="path", ttl=10)
+    child = claims.add(root, by="developer-1", value="src/foo.py", kind="path", ttl=10)
+    assert child["id"] == parent["id"]
+    assert child["expires_ts"] == 1600.0
+    assert len(list(claims.claims_dir(root).glob("C-*.json"))) == 1
+
+
+def test_a_same_holder_child_parent_overlap_refreshes_and_keeps_one_record(root, bus, monkeypatch):
+    clock(monkeypatch, 1000.0)
+    child = claims.add(root, by="developer-1", value="src/teamwork/engine.py", kind="path", ttl=10)
+    parent = claims.add(root, by="developer-1", value="src/teamwork", kind="path", ttl=10)
+    assert parent["id"] == child["id"]
+    assert parent["expires_ts"] == 1600.0
+    assert len(list(claims.claims_dir(root).glob("C-*.json"))) == 1
+
+
 def test_an_expired_claim_stops_refusing(root, bus, monkeypatch):
     clock(monkeypatch, 1000.0)
     claims.add(root, by="Developer-3", value="src/a.py", kind="path", ttl=1)
