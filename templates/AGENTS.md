@@ -97,7 +97,7 @@ deliverable naming the missing evidence or escalate capacity.
   Reviewer cites it (`--credit`).
 - **Keep the budget true.** `harness budget` = `load`'s startup plus the skill body
   and charter; `--recallable` is long memory, fixed lessons and superseded
-  knowledge. The cap is `AlwaysOnBudgetKb` (122880 B): trim the surfaces, never
+  knowledge. The cap is `AlwaysOnBudgetKb` (106496 B): trim the surfaces, never
   raise it. `preflight` warns past 6/300, 12/600, 24/1,200 files/lines.
 
 ## The intern protocol (hard)

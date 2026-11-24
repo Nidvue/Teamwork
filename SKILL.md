@@ -463,7 +463,7 @@ inside a byte budget, and `--lines`/`--full` are the verify and native fallbacks
 - **Make the first pass review-ready**, then let the Reviewer cite the Tester's run
   (`--credit`) instead of repeating it (5h).
 - **Keep the budget token-true.** `harness budget` measures what `load` prints,
-  `--recallable` what it never prints; the cap is `AlwaysOnBudgetKb` (122880 B) -
+  `--recallable` what it never prints; the cap is `AlwaysOnBudgetKb` (106496 B) -
   trim the surface, never raise the cap.
 - **Split at the slice warning.** `preflight` warns past 6 files/300 lines (`fast`),
   12/600 (`standard`), 24/1200 (`deep`).

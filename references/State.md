@@ -388,7 +388,7 @@ read the heading's role.
 
 - `harness budget` reports the **startup** read (`AGENTS.md` block + `SKILL.md` +
   the role charter + short memory + open lessons + top-10 knowledge) per
-  instance against `AlwaysOnBudgetKb` (122880 B default), and exits 1 while any
+  instance against `AlwaysOnBudgetKb` (106496 B default), and exits 1 while any
   row is over. `--recallable` reports the **recall-only** surface - long-term and
   archived memory, fixed lessons, superseded knowledge - which `load` never
   prints; it is a visibility row, not a second cap.

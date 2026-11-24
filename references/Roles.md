@@ -204,7 +204,7 @@ throughput` re-reads it):
   once.
 - **Token-true budget and right-sized slices.** `harness budget` measures
   startup; `--recallable` reports long/archive memory and fixed/superseded
-  records. The cap is `AlwaysOnBudgetKb` (122880 B); trim what `load` prints,
+  records. The cap is `AlwaysOnBudgetKb` (106496 B); trim what `load` prints,
   never raise it. `preflight` warns past 6/300, 12/600 or 24/1,200 files/lines;
   split or say why it is one contract - the warning is not a failure.
 

@@ -173,7 +173,7 @@ Additions to the original surface (no removals, no renames):
 | `teamwork coordination` | coordination health: conformity, trust, lane wars, merge rate, slot starvation |
 | `teamwork instance add\|list\|retire` | scale **any** role to N instances sharing the role's memory and queue; retire an idle one and keep the role's memory |
 | `teamwork memory claim\|release\|renew\|contest\|extend\|revoke\|status` | the role memory lease: exactly one instance of a role revises that role's memory at a time, held across a multi-entry update; a peer contests a long lease and the arbiter (CTO, folded to the CEO) extends or revokes it |
-| `teamwork status [--json] [--agent INSTANCE]` | the live-state feed for the operator panel and the pi widget. Text: `# Lanes (N)` plus one lane line, then one instance line, each <= 110 columns. `--json` schema 4 (additive to schema 3): the schema-3 keys plus `last` (the newest ledger event for the instance as `action target - detail`, clipped to 200), `last_at` and `last_seconds` (read from a 64 KiB ledger tail; a busy instance with no event of its own falls back to its role, an idle one never does), so `counts.activated` (every instance that ever ran a lane or is staffed now), `counts.retired` (directories under `Runtime/Retired/`) and `counts.lanes_live`/`lanes_ended` (every lane record, not just the six rows); the text panel prints busy rows and live lanes only, with the idle seats as one aggregate line - live first, then `created` desc with id asc as tiebreak, bounded to 6, stable across calls. `counts.lanes` equals `len(lanes)` after any `--agent` narrowing; `model`/`provider` resolve once per call from `Settings.json` -> `Models.agents[<Instance>]`, else `Models.roles[<role>]`, else `""` |
+| `teamwork status [--json] [--agent INSTANCE]` | the live-state feed for the operator panel and the pi widget. Text: `# Status (N busy, N stalled, N idle, N staffed, N retired)` then `# Lanes (N live, M ended not shown)`, each <= 110 columns. `--json` schema 5 (additive to schema 3): the schema-3 keys plus `last` (the newest ledger event for the instance as `action target - detail`, clipped to 200), `last_at` and `last_seconds` (read from a 64 KiB ledger tail; a busy instance with no event of its own falls back to its role, an idle one never does), so `counts.activated` (every instance that ever ran a lane or is staffed now), `counts.retired` (directories under `Runtime/Retired/`) and `counts.lanes_live`/`lanes_ended` (every lane record, not just the six rows); the text panel prints busy rows and live lanes only, with the idle seats as one aggregate line - live first, then `created` desc with id asc as tiebreak, bounded to 6, stable across calls. `counts.lanes` equals `len(lanes)` after any `--agent` narrowing; `model`/`provider` resolve once per call from `Settings.json` -> `Models.agents[<Instance>]`, else `Models.roles[<role>]`, else `""` |
 
 Every existing subcommand, flag and exit code is unchanged. Exit codes are part
 of the contract:
@@ -1446,7 +1446,7 @@ total       <sum_bytes>        <budget_bytes x instances>  <ok|OVER>
   charter + that role's short-term memory (`ShortTermMemory.md`, C3). The unit is **one instance**, never the roster.
 - `budget_bytes` = `AlwaysOnBudgetKb` x **1024** (KiB, frozen so the number is
   reproducible). The key lives in the workspace `Settings.json`, defaults to
-  `120` in `config.py`, and **must be listed in `config.SETTINGS_NON_PROVIDER`**:
+  `104` in `config.py`, and **must be listed in `config.SETTINGS_NON_PROVIDER`**:
   the Settings loader reads every undeclared key as a provider concurrency cap
   (`D-20261020-Architect-6`).
 - `--limit KB` overrides the workspace value for one run.
@@ -2618,7 +2618,7 @@ the id and the file; a hand edit is a defect, not a shortcut.
 
 ```
 teamwork knowledge {add,list,search,show,touch} ...
-teamwork knowledge add --by BY --topic TEXT --statement TEXT --evidence TEXT [--tags TAGS] [--importance 1-5] [--supersedes K-ID] [--task T]
+teamwork knowledge add --by BY --topic TEXT --statement TEXT --evidence TEXT [--tags TAGS] [--kind KIND] [--importance 1-5] [--supersedes K-ID] [--task T]
 teamwork knowledge list [--tag TAG] [--role ROLE] [--status active|superseded|all] [--limit N]
 teamwork knowledge search QUERY [--status active|superseded|all] [--limit N]
 teamwork knowledge show K_ID
@@ -2627,7 +2627,8 @@ teamwork knowledge touch K_ID --by BY
 
 - `add` requires `--by`, `--topic`, `--statement` and `--evidence`; `--topic` is
   at most 120 characters and `--statement` at most 500; `--importance` defaults
-  to 3; `--tags` defaults to empty; `--supersedes` and `--task` default to unset.
+  to 3; `--tags` defaults to empty; `--kind` defaults to `fact` and is one of
+  `config.KNOWLEDGE_KINDS`; `--supersedes` and `--task` default to unset.
   Tags are normalised to a lower-case kebab comma list. Ids are `K-0001` upward,
   allocated from the file maximum.
 - Duplicates are **active-only**. The key is exact:
@@ -2971,10 +2972,14 @@ the supervisor, never by the lane itself, so a lane cannot claim its own ending.
 
 ### 17.3 The outcome file and the result marker
 
-`lanerun.write_outcome` (`src/teamwork/lanerun.py:48`) writes exactly four keys
-beside the record: `state`, `exit`,
-`seconds`, `at`. The outcome file is the durable ending; the record may be
-reconciled, the outcome is not rewritten.
+`lanerun.write_outcome` (`src/teamwork/lanerun.py:52`) writes the outcome file
+beside the record. The normal path writes four keys: `state`, `exit`, `seconds`,
+`at`; `state` is `exited`, `timeout` or `interrupted` when the operator stopped
+the child (`KeyboardInterrupt`). The missing-binary branch
+(`src/teamwork/lanerun.py:104-112`, OSError on `Popen`) writes a fifth key,
+`error` = `<ExceptionType>: <message>`, with `state` `failed` and `exit`
+`MISSING_BINARY_EXIT` (127). The outcome file is the durable ending; the record
+may be reconciled, the outcome is not rewritten.
 
 The lane's own verdict is one line in its output, matched by `lanes.RESULT_RE`:
 
