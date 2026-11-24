@@ -9303,3 +9303,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: @5938220f: 2 manifest files only; git.head cc593024a40f56ca4d1807adb1f76810687e04fa dirty=false ancestor_rc=0; ledger chain intact through 695, record #691 (ledger.export 15:33:08) hash 394742db7da5f6ab... == manifest ledger.head (later records post-export); 4/4 artifact sha256sum match; teamwork links 0 issues; CEO selfcheck pass with real test @5938220f, preflight PF-f518e6c5e17a 9/9; md/json head+counts consistent
 - findings history: 
 - branch / merge: ceo/t-0004-export-m28-audit-manifest-at-the-verifie / fb70f188
+
+## T-0018 · Fix CI-only failure in display skip test  (developer)
+- date: 2026-11-24
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: tests
+- self-check: [pass] One line: clear CI in the non-pi host test so ensure() reaches the host check; the neighbouring no-home test already scrubs CI the same way. No product code, no contract surface, no second writer. Board rendered to include T-0018. | test: CI=true pytest -q tests/unit/test_lane_display.py -k display @300b21a4 -> 31 passed; pytest -q (full) @300b21a4 -> 3406 passed 5 skipped; make release-check @300b21a4 -> all gates passed | baseline: bef6ac3b: CI=true focused test fails; CI run 45466298499 red on 5 cells | replay: CI=true .venv/bin/python -m pytest -q tests/unit/test_lane_display.py -k display; export PYTHON=/home/pingz/Code/Nidvue/Teamwork/.venv/bin/python && make release-check | preflight: PF-19cd185139d4 @- (8 checks, 0 failed)
+- author evidence: CI=true pytest -q tests/unit/test_lane_display.py -k test_init_skips_the_display_outside_pi -> 1 failed; commit 300b21a4
+- reviewer evidence: CI=true pytest -q tests/unit/test_lane_display.py -k display @300b21a4 -> 31 passed; git show 300b21a4 -> 1 test line + 2 board lines, no product code; board --check -> 26 tasks match; ruff check/format clean; make release-check @300b21a4 -> all gates passed | baseline: bef6ac3b: CI run 45466298499 red on 5 cells; CI=true focused test failed on 'not pi' assertion | replay: CI=true .venv/bin/python -m pytest -q tests/unit/test_lane_display.py -k display
+- findings history: 
+- branch / merge: - / pending
