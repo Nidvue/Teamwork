@@ -3344,3 +3344,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: privacy_scan --history --allow .github/privacy-allow.txt -> 2 finding(s) at docs/Team/Decisions.md:3327 in two pushed blobs; tree scan -> 0 findings
 - falsified by: If the entry exempts any credential or any other user path, revert it.
 - consequences: One additional narrow regex; all credential rules remain armed.
+
+## D-20261124-CEO-3 - M26 systematic review: staff a second Tester lane and refresh drifted skills
+
+- date: 2026-11-24
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Add one Tester instance so the verification stage has a cross-check, and refresh both installed skill destinations from HEAD; do not weaken any gate.
+- why: coordination --strict @8fade967 reports 1 medium C-DIV-SINGLE (one Tester lane = one verification stage); sync_skill --check and refresh --check both report the installed copies 38 stale / 2 missing.
+- evidence: teamwork coordination --strict @8fade967 -> 0 high, 1 medium; sync_skill.py --check -> out of sync (2 missing, 38 stale); teamwork refresh --check -> OUT OF SYNC
+- falsified by: A re-run of coordination --strict showing no C-DIV-SINGLE, and sync_skill --check + refresh --check both reporting in sync.
+- consequences: -
+
+## D-20261124-CEO-4 - M26 low-severity security/gate findings: scrub local store, accept three CI design choices
+
+- date: 2026-11-24
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: F-04: scrubbed the two absolute home paths from the local gitignored Knowledge.md evidence lines (no allowlist change) so privacy_scan --tree --history --stores passes. F-05: keep both ci.yml and docs.yml running privacy/docs on a pull request - ci.yml supplies the required-check context for PRs, docs.yml covers prose-only pushes and tag builds; duplication is a measured cost, not a weakened gate. F-06: keep CI typecheck non-blocking - mypy is blocking locally in make ci-fast and release-check, so the gate exists and the CI status is advisory. F-07: accept PreflightCommand shell form - the value comes from a trusted local Settings.json, not external input, and no secret or remote text reaches it.
+- why: These are low-severity or local-state items; changing CI workflow triggers or the privacy allowlist would weaken or destabilise a gate to make a review green.
+- evidence: privacy_scan --tree --history --stores --allow .github/privacy-allow.txt @worktree -> PASS - 0 finding(s) refs=39; grep -n 'github.event_name' .github/workflows/ci.yml -> PR jobs unconditional; grep -n continue-on-error .github/workflows/ci.yml -> typecheck only; sed -n '17272,17275p' src/teamwork/engine.py -> /bin/sh -c on trusted local Settings.json
+- falsified by: A shipped surface carrying the scrubbed home path, an open high-severity privacy finding at CI scope, or a gate that becomes non-blocking locally.
+- consequences: -

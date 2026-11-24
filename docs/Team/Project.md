@@ -5,6 +5,30 @@ mapping to an acceptance criterion here.
 
 Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [M9Acceptance](M9Acceptance.md) | [Throughput](Throughput.md) · [Evolution](Evolution.md) · [Memory](Memory.md)
 
+## Brief
+
+Intake record P-0002 (verbatim prompt, two research rounds, enhanced prompt) is
+in the team tree; the ten parts below are its human view.
+
+### Original prompt (verbatim)
+
+- 2026-11-24 — `@tw run a comprehensive and systematic review of the project and fix issues`
+
+### Rewritten brief
+
+| # | Part | Content |
+|---|---|---|
+| 1 | Objective | Find and fix every evidence-backed defect in the project at HEAD, with no gate weakened. |
+| 2 | User and job | The owner asks for an independent systematic pass; the team's own gates already report STOP, so value is in what they do not cover. Good = a finding list with evidence and merged fixes. |
+| 3 | Deliverables | Findings table; one fix branch per confirmed issue with a fail-to-pass repro and Reviewer verdict; re-verified AC-5..AC-8; this brief and its decision record; synced installed skills. |
+| 4 | Acceptance criteria | AC-5 full gate battery at final HEAD; AC-6 installed skill in sync; AC-7 every finding fixed+merged or closed by a recorded decision; AC-8 loop STOP with audit at zero problems. |
+| 5 | Non-goals | No new features, no engine redesign, no gate weakening, no external or network actions, no history rewrite. |
+| 6 | Constraints and invariants | stdlib-only runtime; Python >= 3.11; two-stage gate; Reviewer-only merge; no secrets; lane work on its own branch. |
+| 7 | Interfaces to freeze | The CLI surface and record schemas are already frozen in `Architecture.md`; this brief adds no new interface. |
+| 8 | Lanes | Four read-only review lanes (Architect, Developer, Tester, Security Auditor) fan out in parallel; fix lanes are created per confirmed finding; Reviewer lanes own the verdict. |
+| 9 | Unknowns and assumptions | "The project" = this checkout plus its installed skill copies (owner: ceo; settled by `refresh --check`). "Issues" = defects with executed evidence, not style preferences. |
+| 10 | Evidence plan | Tester runs the gates (AC-5); Release Engineer syncs the installed skill (AC-6); Reviewer verifies each fix (AC-7); CEO reads `loop` and `audit` (AC-8). |
+
 ## Objective
 
 Turn the private `tw` skill into a self-contained, reusable,
