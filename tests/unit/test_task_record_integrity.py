@@ -165,7 +165,7 @@ def test_a_task_with_an_open_branch_cannot_be_dropped_without_a_force_reason(cli
     root = init(cli, project)
     assert cli("--project", project, "task", "add", "developer", "live branch") == 0
     assert (
-        cli("--project", project, "branch", "start", "--agent", "Developer", "--task", "T-0001")
+        cli("--project", project, "branch", "start", "--agent", "Developer-1", "--task", "T-0001")
         == 0
     )
     (project / "README.md").write_text("base\nwork\n", encoding="utf-8")
