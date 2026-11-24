@@ -9185,4 +9185,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 2882e96d
 - reviewer evidence: in tree under review @2882e96d: only docs/Team/AuditManifest.json + AuditManifest.md changed vs main; git.status clean (dirty false); git.head 744836cb2559c65a765314532a43590fea435051 = current main HEAD; git merge-base --is-ancestor 744836cb HEAD -> rc 0; ledger verify -> 414 records chain intact, record #410 hash f890f1a886d502cc3139791b404d469337e53afd7f6d2e223b1d23157f1cbb68 = manifest ledger.head (410 records), #411-414 are post-export work; sha256sum -c artifacts -> 4/4 OK (Architecture/Decisions/Plan/Project); links -> # issues: 0; full selfcheck @2882e96 -> git.head 744836cb, dirty False, ancestor_rc 0, preflight PF-9ea2d56307dd (9 checks, 0 failed). local_state Reviews.md/CEO TaskQueue digests drifted post-export (expected: review mutates those files; manifest labels them hidden working state).
 - findings history: 
-- branch / merge: ceo/t-0002-export-m26-audit-manifest-at-the-verifie / pending
+- branch / merge: ceo/t-0002-export-m26-audit-manifest-at-the-verifie / 64ed98d9
