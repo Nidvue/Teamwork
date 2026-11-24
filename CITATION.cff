@@ -10,8 +10,8 @@ abstract: >-
 authors:
   - name: "Nidvue"
 type: software
-version: 1.5.15
-date-released: "2026-11-13"
+version: 1.7.0
+date-released: "2026-11-24"
 url: "https://github.com/Nidvue/Teamwork"
 repository-code: "https://github.com/Nidvue/Teamwork"
 license: AGPL-3.0-or-later
