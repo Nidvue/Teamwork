@@ -108,6 +108,7 @@ under two roles is two tasks.
 | developer | T-0018 | tests | done | - | - |
 | developer | T-0019 | release-gates | done | - | - |
 | developer | T-0020 | release-gates | done | - | - |
+| developer | T-0021 | release-gates | done | P-0024 | ba8c9b7e |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
