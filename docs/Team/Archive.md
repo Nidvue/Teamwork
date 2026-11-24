@@ -9068,4 +9068,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt @6e0b90f2 -> 0 findings; PYTHONPATH=src .venv/bin/python -m pytest -q tests/unit/test_privacy_scan.py tests/unit/test_hard_timeouts.py @6e0b90f2 -> 204 passed; git log main..@6e0b90f2 -> e3b14e9b + 6e0b90f2
 - reviewer evidence: privacy_scan --tree --history @6e0b90f2 -> 0 findings; pytest -q tests/unit/test_privacy_scan.py tests/unit/test_hard_timeouts.py @6e0b90f2 -> 204 passed; narrowness test @6e0b90f2 -> 1 passed; TS-0031 acceptance @6e0b90f2 -> 14 checks, 0 failed; auth D-20261124-CEO recorded; no credit (none at rev)
 - findings history: 
-- branch / merge: developer/t-0010-fix-ci-portability-and-privacy-defects-i / pending
+- branch / merge: developer/t-0010-fix-ci-portability-and-privacy-defects-i / 1dcba7d1
