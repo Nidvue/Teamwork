@@ -9198,4 +9198,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 0af4024b
 - reviewer evidence: git diff --name-status main...HEAD @0af4024b -> exactly 12 declared files, clean tree; grep -E sync_skill|refresh --check|sync-skill|sync-check in 12 files -> only CHANGELOG.md:272 frozen 1.5.8 entry; install.md -> npm install @nidvue/teamwork@latest replaces refresh section, SKILL.md 5e -> npm update/no checkout mirror, AGENTS.md markers BEGIN 1/END 476 intact, Architecture 17.5 refresh row deleted+supervisor=pulse, ui status kept, Project/Decisions/Archive untouched; teamwork links -> 0 issues; teamwork harness lint -> 0 problems; pytest -q tests/unit/test_docs_contracts.py tests/unit/test_skill_contracts.py @0af4024b -> 130 passed; check_release_consistency.py --offline @0af4024b -> 0 problem(s)
 - findings history: 
-- branch / merge: architect/t-0002-replace-checkout-sync-docs-with-npm-inst / pending
+- branch / merge: architect/t-0002-replace-checkout-sync-docs-with-npm-inst / 1b3f4577
