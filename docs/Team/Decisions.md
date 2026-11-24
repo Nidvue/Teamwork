@@ -3312,3 +3312,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: user @tw prompt recorded as P-0004; prior D-20261123-CEO-5 authorized the external action; gh api -i /user/starred/Nidvue/Teamwork -> 204 (already starred on this machine)
 - falsified by: If the hook runs outside init, probes or requires login, opens a browser, prints, blocks, or stars when the repo is already starred, stop and revert.
 - consequences: At most one star PUT on Nidvue/Teamwork per fresh init when the repo is unstarred and non-interactive credentials exist.
+
+## D-20261124-CEO - Allowlist one fabricated home-path literal from immutable blobs
+
+- date: 2026-11-24
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0010
+- context: -
+- options considered: -
+- decision: Add exactly one escaped, anchored allowlist entry ^/home/agent$ to .github/privacy-allow.txt, with a justification comment, and update the pinned list in tests/unit/test_privacy_scan.py. Scope: the fabricated path used by a hard-timeout test; no real credential or real user home is exempted.
+- why: The literal reached a pushed ancestor commit (b4e8088d) before the source fix; rewriting pushed history would invalidate SHAs cited in Archive.md/Decisions.md. This matches the existing precedent for C:/Users/x and /home/operator.
+- evidence: privacy_scan --tree --history --allow .github/privacy-allow.txt @a91ff031 -> commit:9a91f4d10083:12 and tests/unit/test_hard_timeouts.py:49 [high/home-path]
+- falsified by: If the entry matches any real home prefix or any credential, revert it.
+- consequences: One additional narrow regex; credential rules stay armed for every other line.
