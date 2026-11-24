@@ -9147,3 +9147,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest -q tests/unit/test_ci_contracts.py tests/unit/test_grades.py @39521fa6 -> 120 passed | verify_t0005.py @39521fa6 -> noise w/o force exit=2/pending, w/ force exit=0/passing+forced recorded, strong exit=0/passing, empty refused, forced-noise creditable=[] + refusal explains, strong creditable=[TS-0001] | base 8fade967 bypass reproduced (noise accepted+creditable; repro 2 failed/3 passed) | ruff check/format/check_comments/mypy @39521fa6 all green | clean tree, 3 files only, identity Developer | pre-existing red test_task_record_integrity.py::test_a_task_with_an_open_branch_cannot_be_dropped_without_a_force_reason (bare Developer ambiguity from dd5cfa1c, outside 3-file scope, T-0010) noted, not held
 - findings history: 
 - branch / merge: developer-2/t-0005-grade-evidence-on-tests-run-pass-so-nois / 1f8d2dfd
+
+## T-0010 · Update task-integrity test to name an explicit Developer instance  (developer)
+- date: 2026-11-24
+- priority: P0
+- owner: developer role (work by: Developer-2)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] One-file, one-line change: bare --agent Developer to Developer-1 in test_a_task_with_an_open_branch_cannot_be_dropped_without_a_force_reason only. Contract surface unchanged: validate_actor and the CLI's ambiguity refusal are untouched; the single-instance case still accepts a bare name in every other test, and the duplicate-instance case is why this fixture must name the acting instance. No production code, no shared writes, no concurrency. The test still proves a task with an open branch cannot be dropped without a force reason; nothing was weakened or deleted. | test: pytest -q tests/unit/test_task_record_integrity.py @9f2b2784 -> 9 passed | preflight: PF-f14e0b23852f @9f2b2784952a (9 checks, 0 failed)
+- author evidence: commit 9f2b2784
+- reviewer evidence: pytest -q tests/unit/test_task_record_integrity.py @9f2b2784 -> 9 passed; base @44a749d2 -> 1 failed/8 passed (bare Developer ambiguous: name one acting); ruff check+format clean; diff=1 file/1 line (Developer->Developer-1), validate_actor untouched, ambiguity refusal in force
+- findings history: 
+- branch / merge: developer-2/t-0010-update-task-integrity-test-to-name-an-ex / pending
