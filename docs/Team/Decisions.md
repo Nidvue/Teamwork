@@ -3376,3 +3376,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: privacy_scan --tree --history --stores --allow .github/privacy-allow.txt @worktree -> PASS - 0 finding(s) refs=39; grep -n 'github.event_name' .github/workflows/ci.yml -> PR jobs unconditional; grep -n continue-on-error .github/workflows/ci.yml -> typecheck only; sed -n '17272,17275p' src/teamwork/engine.py -> /bin/sh -c on trusted local Settings.json
 - falsified by: A shipped surface carrying the scrubbed home path, an open high-severity privacy finding at CI scope, or a gate that becomes non-blocking locally.
 - consequences: -
+
+## D-20261124-CEO-5 - M27: remove checkout-to-skills sync; npm is the only install/update path
+
+- date: 2026-11-24
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Delete scripts/sync_skill.py, the 'refresh' CLI command and helpers, src/teamwork/bundle.py mirroring helpers and the lane stale-bundle warning; keep 'ui install|status' as the separate host-extension gate; move BUNDLE_FILES/BUNDLE_TREES into the npm packaging script and include the companion tw-learn skill in the npm tarball; document npm install/update in place of the refresh section. CEO authorizes deletion of the named sync-only files; historical Archive.md/Decisions.md entries are not rewritten.
+- why: The owner installs and updates the skill mainly through npm, so a git-checkout mirror is a second, stale update path; the sync --check gate must be replaced, not dropped.
+- evidence: P-0004 two research rounds; explore inventory @366a052a file:line; docs/guide/install.md:162-179 npm path; scripts/build_pi_package.py:35-39 shared constants; release.yml:717-778 npm publish
+- falsified by: A shipped surface still invokes a checkout mirror, an npm tarball missing skills/tw-learn, or a gate silently lost with no replacement.
+- consequences: -

@@ -5,7 +5,7 @@ mapping to an acceptance criterion here.
 
 Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [M9Acceptance](M9Acceptance.md) | [Throughput](Throughput.md) · [Evolution](Evolution.md) · [Memory](Memory.md)
 
-## Brief
+## Brief (M26 - systematic review)
 
 Intake record P-0002 (verbatim prompt, two research rounds, enhanced prompt) is
 in the team tree; the ten parts below are its human view.
@@ -28,6 +28,30 @@ in the team tree; the ten parts below are its human view.
 | 8 | Lanes | Four read-only review lanes (Architect, Developer, Tester, Security Auditor) fan out in parallel; fix lanes are created per confirmed finding; Reviewer lanes own the verdict. |
 | 9 | Unknowns and assumptions | "The project" = this checkout plus its installed skill copies (owner: ceo; settled by `refresh --check`). "Issues" = defects with executed evidence, not style preferences. |
 | 10 | Evidence plan | Tester runs the gates (AC-5); Release Engineer syncs the installed skill (AC-6); Reviewer verifies each fix (AC-7); CEO reads `loop` and `audit` (AC-8). |
+
+## Brief (M27 - npm-only install/update)
+
+Intake record P-0004 (verbatim prompt, two research rounds, enhanced prompt) is
+in the team tree; the ten parts below are its human view.
+
+### Original prompt (verbatim)
+
+- 2026-11-24 — `@tw completely remove the repo sync function from teamwork since that we install and update them mainly through npm`
+
+### Rewritten brief
+
+| # | Part | Content |
+|---|---|---|
+| 1 | Objective | No git-checkout-to-installed-skill sync function remains in the shipped product at HEAD. |
+| 2 | User and job | The owner installs and updates the skill mainly through npm; a second mirror-from-checkout path is stale surface. Good = one update path, documented, with all gates green. |
+| 3 | Deliverables | Deleted `scripts/sync_skill.py`, `refresh` command and `bundle.py` mirroring; rewritten tests, docs, Makefile and team records; npm package ships the companion skill; re-exported manifest and final report. |
+| 4 | Acceptance criteria | AC-9 no sync implementation or reference remains; AC-10 npm install/update is the documented path and packaging proves it; AC-2/AC-5 reworded around the remaining gates; AC-8 loop STOP with audit at zero. |
+| 5 | Non-goals | No new features, no history rewrite, no weakening or deletion of a gate (the lane-display check is replaced by `ui status`, not dropped), no external publish. |
+| 6 | Constraints and invariants | stdlib-only runtime; Python >= 3.11; two-stage gate; Reviewer-only merge; deletion requires a recorded CEO authorization; no secrets. |
+| 7 | Interfaces to freeze | The CLI surface minus `refresh` is frozen in `Architecture.md` by the Architect lane before doc/tests land; no new command added. |
+| 8 | Lanes | Lane A removes implementation; Lane B refactors shared packaging and `ui`; Lane C rewrites tests; Lane D rewrites docs; CEO updates criteria; Reviewer lanes own verdicts. |
+| 9 | Unknowns and assumptions | "Repo sync" = every checkout-to-skills-dir mirror, including `refresh` and `bundle.py` helpers (owner: ceo; settled by the file:line inventory). npm stays the update path; `ui status` stays as the separate host-extension gate. |
+| 10 | Evidence plan | Developer runs focused suites; Tester runs the full gate battery and release consistency; Reviewer verdicts each deliverable; CEO reads `loop` and `audit`. |
 
 ## Objective
 
