@@ -9107,4 +9107,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 9c5defff
 - reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_skill_sync.py @9c5defff -> 15 passed; new tests overlaid on base 8fade967 -> 1 failed (unmanaged notes/ deleted), repro genuine; the managed-stale-prune regression test passes on both, so legitimate cleanup intact; ruff check / ruff format --check src/teamwork/bundle.py tests/unit/test_skill_sync.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; git merge-tree --write-tree main <branch> -> rc 0; delta vs merge-base = only bundle.py + test_skill_sync.py (+41/-2), no test deleted/skipped, no gate weakened
 - findings history: 
-- branch / merge: developer-4/t-0007-stop-bundle-sync-deleting-unmanaged-empt / pending
+- branch / merge: developer-4/t-0007-stop-bundle-sync-deleting-unmanaged-empt / 3c82fecd
