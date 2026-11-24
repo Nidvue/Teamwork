@@ -89,9 +89,9 @@ under two roles is two tasks.
 | developer | T-0004 | claims | done | P-0006 | 823dc743 |
 | developer | T-0005 | tests | doing | - | - |
 | developer | T-0006 | messages | done | P-0009 | 73404e80 |
-| developer | T-0007 | bundle | review | P-0007 | - |
+| developer | T-0007 | bundle | done | P-0007 | 3c82fecd |
 | developer | T-0008 | records | review | P-0008 | - |
-| developer | T-0009 | tests | review | - | - |
+| developer | T-0009 | tests | review | P-0010 | - |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -112,7 +112,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | architect | T-0001 · Correct always-on cap and status schema drift in docs | P1 | doing | - |
 | developer | T-0005 · Grade evidence on 'tests run pass' so noise cannot be credited | P0 | doing | - |
-| developer | T-0007 · Stop bundle.sync deleting unmanaged empty directories | P1 | review | - |
 | developer | T-0008 · Reject a bare role name when the role has multiple instances | P1 | review | - |
 | developer | T-0009 · Use the real interpreter in autostar real-spawn tests | P1 | review | - |
 
