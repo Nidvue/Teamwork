@@ -82,6 +82,7 @@ under two roles is two tasks.
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
 | architect | T-0001 | always-on-cap | done | P-0013 | 1747999f |
+| architect | T-0002 | install-docs | done | P-0015 | 1b3f4577 |
 | ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
 | ceo | T-0002 | records | done | P-0014 | 64ed98d9 |
 | developer | T-0001 | evidence-staleness | done | P-0003 | 4f46b4be |
@@ -94,6 +95,9 @@ under two roles is two tasks.
 | developer | T-0008 | records | done | P-0008 | dd5cfa1c |
 | developer | T-0009 | tests | done | P-0010 | 7f25caee |
 | developer | T-0010 | records | done | P-0012 | 32ea1a5f |
+| developer | T-0011 | - | doing | - | - |
+| developer | T-0012 | - | dropped | - | - |
+| developer | T-0013 | - | dropped | - | - |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -112,6 +116,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0011 · Remove all repo-sync code and tests; keep npm packaging and ui status | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
