@@ -83,6 +83,7 @@ under two roles is two tasks.
 |---|---|---|---|---|---|
 | architect | T-0001 | always-on-cap | done | P-0013 | 1747999f |
 | ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
+| ceo | T-0002 | records | done | P-0014 | 64ed98d9 |
 | developer | T-0001 | evidence-staleness | done | P-0003 | 4f46b4be |
 | developer | T-0002 | team-records | done | P-0002 | f9e0fab2 |
 | developer | T-0003 | lanes | done | P-0004 | c41880f0 |
