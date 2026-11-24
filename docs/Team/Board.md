@@ -81,36 +81,18 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
-| ceo | T-0001 | records | done | P-0001 | 070513da |
-| ceo | T-0002 | gate | done | P-0002 | b6d7240f |
-| ceo | T-0003 | widget | done | P-0004 | a5064c31 |
-| ceo | T-0004 | gate | done | P-0003 | 9a42ac63 |
-| ceo | T-0005 | review | done | P-0005 | 37e42174 |
-| ceo | T-0006 | privacy | done | P-0006 | 7bf336f5 |
-| ceo | T-0007 | skill | done | P-0007 | 94447969 |
-| ceo | T-0008 | records | done | P-0008 | 689b120b14879e3ca850c4c8aa95e58e0ab50f75 |
-| ceo | T-0009 | records | done | P-0009 | a6bd1f6c |
-| ceo | T-0010 | bus | done | P-0010 | 9c3acd36 |
-| ceo | T-0011 | engine | done | P-0013 | 1d069dda |
-| ceo | T-0012 | bus | done | P-0016 | 05016a59 |
-| ceo | T-0013 | skill | done | P-0015 | 797deb89 |
-| developer | T-0001 | engine | done | P-0011 | df1ec6d1 |
-| developer | T-0002 | records | done | P-0012 | ed809422 |
-| developer | T-0003 | engine | done | P-0014 | 6dba0ef0 |
-| developer | T-0004 | autostar | done | P-0017 | 2d6fcc9c |
-| developer | T-0005 | duplication | done | P-0018 | 7a00ede8 |
-| developer | T-0006 | autostar | done | P-0019 | 0abdcc31 |
-| developer | T-0007 | autostar | done | P-0020 | a0e55a67 |
-| developer | T-0008 | timeouts | done | P-0022 | 48f2996f |
-| developer | T-0009 | ci | done | P-0021 | 56e29bd9 |
-| developer | T-0010 | privacy | done | P-0023 | 1dcba7d1 |
-| reviewer | T-0001 | lanes | dropped | - | - |
-| reviewer | T-0002 | lanes | dropped | - | - |
-| reviewer | T-0003 | lanes | dropped | - | - |
-| reviewer | T-0004 | lanes | dropped | - | - |
-| reviewer | T-0005 | lanes | dropped | - | - |
-| reviewer | T-0006 | lanes | dropped | - | - |
-| reviewer | T-0007 | engine | done | - | - |
+| architect | T-0001 | always-on-cap | doing | - | - |
+| ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
+| developer | T-0001 | evidence-staleness | done | P-0003 | 4f46b4be |
+| developer | T-0002 | team-records | done | P-0002 | f9e0fab2 |
+| developer | T-0003 | lanes | done | P-0004 | c41880f0 |
+| developer | T-0004 | claims | done | P-0006 | 823dc743 |
+| developer | T-0005 | tests | doing | - | - |
+| developer | T-0006 | messages | review | P-0009 | - |
+| developer | T-0007 | bundle | review | P-0007 | - |
+| developer | T-0008 | records | review | P-0008 | - |
+| developer | T-0009 | - | doing | - | - |
+| tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -128,6 +110,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| architect | T-0001 · Correct always-on cap and status schema drift in docs | P1 | doing | - |
+| developer | T-0005 · Grade evidence on 'tests run pass' so noise cannot be credited | P0 | doing | - |
+| developer | T-0006 · Enforce message TTL at take/finish, not only at inbox display | P0 | review | - |
+| developer | T-0007 · Stop bundle.sync deleting unmanaged empty directories | P1 | review | - |
+| developer | T-0008 · Reject a bare role name when the role has multiple instances | P1 | review | - |
+| developer | T-0009 · Use the real interpreter in autostar real-spawn tests | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
