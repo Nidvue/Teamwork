@@ -123,7 +123,12 @@ def execute(script: str, env: dict) -> dict:
         capture_output=True,
         text=True,
         cwd=ROOT,
-        env={**os.environ, "TW_EXTENSION": EXTENSION.as_uri(), **env},
+        env={
+            **os.environ,
+            "TEAMWORK_AGENT_HOST": "pi",
+            "TW_EXTENSION": EXTENSION.as_uri(),
+            **env,
+        },
         timeout=120,
     )
     assert result.returncode == 0, result.stderr

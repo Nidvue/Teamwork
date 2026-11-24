@@ -175,6 +175,7 @@ def observed(tmp_path_factory: pytest.TempPathFactory) -> dict:
         cwd=ROOT,
         env={
             **os.environ,
+            "TEAMWORK_AGENT_HOST": "pi",
             "TW_EXTENSION": EXTENSION.as_uri(),
             "TW_CWD": str(project),
             "TW_STALE": "This extension ctx is stale after session replacement or reload.",
