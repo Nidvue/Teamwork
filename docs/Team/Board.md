@@ -105,7 +105,7 @@ under two roles is two tasks.
 | developer | T-0015 | display | done | P-0018 | 1cce01e9 |
 | developer | T-0016 | tests | done | P-0021 | 77feee0d |
 | developer | T-0017 | tests | done | P-0022 | 236e2d7e |
-| developer | T-0018 | - | todo | - | - |
+| developer | T-0018 | tests | done | - | - |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -124,7 +124,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0018 · Fix CI-only failure in display skip test | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
