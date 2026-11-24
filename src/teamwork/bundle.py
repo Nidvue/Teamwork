@@ -112,8 +112,16 @@ def sync(source: Path, dest: Path, *, dry_run: bool, quiet: bool = False) -> int
         (dest / rel).unlink()
     for path in sorted(dest.rglob("__pycache__"), reverse=True):
         shutil.rmtree(path, ignore_errors=True)
-    for directory in sorted((p for p in dest.rglob("*") if p.is_dir()), reverse=True):
-        if not any(directory.iterdir()):
+    emptied: set[Path] = set()
+    for rel in removed:
+        parent = (dest / rel).parent
+        while parent != dest:
+            if not managed(parent.relative_to(dest)):
+                break
+            emptied.add(parent)
+            parent = parent.parent
+    for directory in sorted(emptied, key=lambda path: len(path.parts), reverse=True):
+        if directory.is_dir() and not any(directory.iterdir()):
             directory.rmdir()
     if not quiet:
         print(f"# {len(added)} added, {len(updated)} updated, {len(removed)} removed -> {dest}")

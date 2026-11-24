@@ -130,6 +130,37 @@ def test_an_unmanaged_file_in_the_skills_directory_is_never_deleted(tmp_path: Pa
     assert note.read_text(encoding="utf-8") == "operator notes\n"
 
 
+def test_empty_directories_the_sync_did_not_empty_survive(tmp_path: Path) -> None:
+    """Cleanup touches only managed trees, and only directories this sync emptied."""
+    source = make_source(tmp_path)
+    dest = tmp_path / "installed"
+    sync_skill.sync(source, dest, dry_run=False, quiet=True)
+
+    (dest / "notes").mkdir()
+    (dest / "src" / "keep").mkdir()
+    sync_skill.sync(source, dest, dry_run=False, quiet=True)
+
+    assert (dest / "notes").is_dir(), "an unmanaged empty dir is never deleted"
+    assert (dest / "src" / "keep").is_dir(), "a managed dir the sync never emptied survives"
+
+
+def test_a_managed_directory_emptied_by_the_sync_is_removed(tmp_path: Path) -> None:
+    """Stale managed files are still pruned, along with the directory they emptied."""
+    source = make_source(tmp_path)
+    dest = tmp_path / "installed"
+    sync_skill.sync(source, dest, dry_run=False, quiet=True)
+
+    stale_dir = dest / "roles" / "old"
+    stale_dir.mkdir()
+    (stale_dir / "gone.txt").write_text("stale\n", encoding="utf-8")
+
+    _added, _updated, removed = sync_skill.plan(source, dest)
+    assert removed == [Path("roles/old/gone.txt")]
+    sync_skill.sync(source, dest, dry_run=False, quiet=True)
+    assert not (stale_dir / "gone.txt").exists()
+    assert not stale_dir.exists(), "a managed dir the sync emptied should be removed"
+
+
 def test_check_reports_drift_and_writes_nothing(tmp_path: Path, capsys) -> None:
     source = make_source(tmp_path)
     dest = tmp_path / "installed"
