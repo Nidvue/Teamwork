@@ -9290,3 +9290,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git show --stat cf482bea -> 2 files +7/-1, only tests/unit/test_pi_status_contract.py + tests/acceptance/test_widget_survives_session_replacement.py; TEAMWORK_AGENT_HOST=pi placed before **env so caller override survives; no test deleted/skipped, product/extension code untouched; pytest -q two files @569e883b -> 1 failed 3 errors (repro), @cf482bea -> 9 passed 1 skipped; full pytest -q @cf482bea -> 3399 passed 12 skipped; ruff/format/mypy/check_comments/links/release-consistency --offline @cf482bea -> green; tests.repro #0656 recorded; TS-0019 acceptance run recorded
 - findings history: 
 - branch / merge: developer-4/t-0017-set-pi-host-override-in-remaining-widget / 236e2d7e
+
+## T-0004 · Export M28 audit manifest at the verified final head  (ceo)
+- date: 2026-11-24
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: two manifest files only, exported from the main checkout at the verified STOP head. Manifest git.head is an ancestor of this commit, dirty false, ledger checkpoint verified. Concurrency: no other lane writes these files. Scope: no src, tests or other docs touched. | test: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python -c 'import json,subprocess; m=json.load(open("docs/Team/AuditManifest.json")); print(m["git"]); print(subprocess.call(["git","merge-base","--is-ancestor",m["git"]["head"],"HEAD"]))' @5938220f -> git.head cc593024, dirty False, ancestor_rc 0; ledger verify -> chain intact | preflight: PF-f518e6c5e17a @5938220ff135 (9 checks, 0 failed)
+- author evidence: commit 5938220f
+- reviewer evidence: @5938220f: 2 manifest files only; git.head cc593024a40f56ca4d1807adb1f76810687e04fa dirty=false ancestor_rc=0; ledger chain intact through 695, record #691 (ledger.export 15:33:08) hash 394742db7da5f6ab... == manifest ledger.head (later records post-export); 4/4 artifact sha256sum match; teamwork links 0 issues; CEO selfcheck pass with real test @5938220f, preflight PF-f518e6c5e17a 9/9; md/json head+counts consistent
+- findings history: 
+- branch / merge: ceo/t-0004-export-m28-audit-manifest-at-the-verifie / pending
