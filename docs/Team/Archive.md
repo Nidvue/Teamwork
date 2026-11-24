@@ -9342,3 +9342,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest -q tests/unit/test_release_consistency.py -k 'r3 or redaction' @de0e1123 -> 16 passed; diff adds exact two-sided sha256 pins plus tests and Architect decision, no broad suppression; online checker @de0e1123 -> R3 ok 16 npm version(s) match; board --check matches; make release-check -> all gates passed | baseline: cbf6711a: R3 DRIFT on five immutable pre-redaction tarballs blocked the release | replay: pytest -q tests/unit/test_release_consistency.py -k 'r3 or redaction'
 - findings history: 
 - branch / merge: - / pending
+
+## T-0021 · Bump version to 1.7.0 for release  (developer)
+- date: 2026-11-24
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: release-gates
+- self-check: [pass] Boundary: git diff --stat shows exactly 3 files (version.py:9, CHANGELOG.md, CITATION.cff); no generated file, no docs/Team edit, no review/merge/push/tag/publish. Single version source: version.py is the single source for hatch, npm manifest, wheel metadata and tag assertions; CITATION.cff version/date follow it, so all version surfaces agree (R1/R2/R10 ok). Changelog history: [1.6.0] and all older sections byte-unchanged; the 3 Changed + 1 Removed bullets moved verbatim into the new [1.7.0] - 2026-11-24 section; links intact (links check 0 issues). Empty case: [Unreleased] is now empty - no bullet dropped or duplicated; R7 confirms every tagged version has exactly one section. Concurrency/shared writes: these 3 files have one writer (this lane); no peer edits them; no shared state touched. Hostile-review failure: a stray version token in docs/Team intake records would drift R9 - none added (CEO marked them illustrative); R9 ok. Full suite on this patch: 3403 passed, 12 skipped; ruff/mypy/check_comments/links/harness lint and verify_release green. | test: scripts/check_release_consistency.py --offline @c1c53b7 -> 0 problem(s); R1/R2/R6/R7/R9/R10 ok; R3/R4/R5/R8 SKIP | preflight: PF-953c4476851b @c1c53b7ed44c (9 checks, 0 failed)
+- author evidence: commit c1c53b7e
+- reviewer evidence: check_release_consistency.py --offline @c1c53b7ed44c -> 0 problem(s) (R1/R2/R6/R7/R9/R10 ok); pytest -q @c1c53b7 -> 3403 passed, 12 skipped; ruff check+format --check @c1c53b7 -> all passed, 394 formatted; mypy src/teamwork @c1c53b7 -> no issues (36 files); check_comments.py @c1c53b7 -> 0 commentary; teamwork links + harness lint @c1c53b7 -> 0 problems; verify_release.py @c1c53b7 -> OK, wheel reports teamwork 1.7.0; git diff main...HEAD -> exactly 3 files (version.py/CITATION.cff=1.7.0, CITATION date 2026-11-24, CHANGELOG [Unreleased] empty then [1.7.0] - 2026-11-24 with 3 Changed + 1 Removed bullets byte-identical to base, [1.6.0] and older untouched); no docs/Team or generated-file edits; pyproject dynamic version from version.py
+- findings history: 
+- branch / merge: developer/t-0021-bump-version-to-1-7-0-for-release / pending
