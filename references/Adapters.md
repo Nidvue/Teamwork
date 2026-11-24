@@ -30,17 +30,21 @@ model) so a host can *show* the wave. The shipped pi package carries one such
 renderer, `extensions/tw-status.ts`: a widget above the editor and a footer
 status, polling that command every 2 s. It reads and draws only - it never starts,
 steers or stops a lane, so the engine stays the single source of truth and a host
-without it loses nothing but the picture. `TEAMWORK_ROOT` pins the repository,
-`TEAMWORK_PYTHON` the interpreter, and the widget is drawn once per live lane.
+without it loses nothing but the picture. The widget is installed and rendered only
+in the pi host; other hosts get no widget, and `ui status` remains a read-only
+diagnostic on every host. `TEAMWORK_AGENT_HOST=pi` pins host detection when the
+markers are ambiguous. `TEAMWORK_ROOT` pins the repository, `TEAMWORK_PYTHON` the
+interpreter, and the widget is drawn once per live lane.
 
 **Shipped is not loaded.** A host reads extensions from its own `extensions/`
 directory and its `settings.json`, never from a skills directory, so a skill-only
-install carries the renderer and still draws nothing. `teamwork.py ui install`
+install carries the renderer and still draws nothing. In pi, `teamwork.py ui install`
 copies the shipped file to `<agent>/extensions/` and appends
 `extensions/tw-status.ts` to `<agent>/settings.json` once; `ui status`
 reports both halves without writing and fails when the host would draw nothing.
-An npm install or update only refreshes the skill files: run `teamwork ui install`
-once on a host that needs the display registered, then use `ui status` to check.
+An npm install or update only refreshes the skill files: in pi only, run
+`teamwork ui install` once to register the display, then use `ui status` to check;
+outside pi no widget is installed or rendered and `ui status` is read-only.
 `pi install npm:@nidvue/teamwork` needs none of this: the package declares
 `pi.extensions`, so the host loads it from the tarball.
 
@@ -191,10 +195,11 @@ The package ships the `tw` bundle and the companion `tw-learn` skill together,
 so one update moves both. Reload the skill in the host after an update. Measured
 failure this prevents: a host copy with an old `SKILL.md` and eight engine
 modules missing - the engine imported `config`/`gitutil`/`records` fine from the
-checkout and failed from the installed copy. For a host that needs the lane
-display registered, `teamwork ui status` reports both halves without writing and
-exits non-zero when the host would draw nothing; `teamwork ui install` registers
-it once.
+checkout and failed from the installed copy. Only the pi host registers the
+display: `TEAMWORK_AGENT_HOST=pi` pins detection, `teamwork ui install` registers
+the widget once there, and `teamwork ui status` reports both halves without
+writing on every host and exits non-zero when the host would draw nothing; other
+hosts get no widget.
 
 ## Rules that cost us real time
 

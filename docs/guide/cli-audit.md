@@ -263,7 +263,10 @@ own API, so the model is a property of the **agent**, not of the project.
   reason in the ledger as `model.auto`. It never invents a model id: a lane with
   nothing available is reported `unset` together with the variable to set
   (`TEAMWORK_MODEL_STRONG`, `TEAMWORK_MODEL_ECONOMY`).
-  `TEAMWORK_AGENT_HOST` pins host detection when the markers are ambiguous.
+  `TEAMWORK_AGENT_HOST` pins host detection when the markers are ambiguous. It
+  also pins the widget gate: the status widget is installed and rendered only in
+  the host that resolves `pi.extensions`; on other hosts `ui status` stays a
+  read-only diagnostic.
 
 Automatic routing policy: [references/Concurrency.md](https://github.com/Nidvue/Teamwork/blob/main/references/Concurrency.md).
 

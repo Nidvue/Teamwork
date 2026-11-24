@@ -823,11 +823,11 @@ heartbeat (`Runtime/Pulse.json`, written by every `pulse` wake) reads as
 `dispatching` - the loop is its work - and it leaves the idle count while the
 pulse is live. No line is wider than 110 columns.
 
-`--json` emits schema 4, additive to schema 3:
+`--json` emits schema 5:
 
 ```json
 {
-  "schema": 4,
+  "schema": 5,
   "generated": "2026-11-12T19:00:00",
   "count": 17,
   "counts": {"busy": 8, "idle": 9, "ready": 0, "review": 2, "lanes": 6,
@@ -837,6 +837,9 @@ pulse is live. No line is wider than 110 columns.
                  "progress": "attempt 1/2, 60% of 25m", "progress_pct": 60,
                  "model": "deepseek-chat", "provider": "deepseek", "lane": "L-0383",
                  "lane_state": "running", "elapsed": 720,
+                 "elapsed_seconds": 720, "budget_seconds": 1500,
+                 "remaining_seconds": 780, "remaining_text": "13m",
+                 "activity": "attempt 1/2, 60% of 25m", "stalled": false,
                  "last": "tests.run TS-0214 - 76 passed in 35s",
                  "last_at": "2026-11-12T18:59:41", "last_seconds": 19}],
   "lanes": [{"id": "L-0383", "instance": "Developer-1", "role": "developer",
@@ -845,9 +848,12 @@ pulse is live. No line is wider than 110 columns.
 }
 ```
 
-`last` is the newest ledger event for that instance rendered as
-`action target - detail`, clipped to 200 characters; `last_at` is its timestamp
-and `last_seconds` its age. It is read from a 64 KiB tail of `Ledger.jsonl`, so a
+Schema 5 adds `elapsed_seconds`, `budget_seconds`, `remaining_seconds`,
+`remaining_text`, `activity` and `stalled` to schema 4, all read by name from
+the same rows; the text form above is unchanged. `last` is the newest ledger
+event for that instance rendered as `action target - detail`, clipped to 200
+characters; `last_at` is its timestamp and `last_seconds` its age. It is read
+from a 64 KiB tail of `Ledger.jsonl`, so a
 long history costs one seek per call; an instance with no event in that tail
 carries `""` and `null` rather than a guess, and a busy instance with no event of
 its own falls back to its role's newest event (an idle instance never does - the
@@ -870,22 +876,25 @@ change. `model` and `provider` resolve once per call from
 teamwork ui [install|status] [--host NAME] [--dest PATH] [--dry-run]
 ```
 
-The host extension that draws the live wave from `lane list --json`. A host loads
-extensions from its own directory and `settings.json`, never from a skills
-directory, so shipping the file draws nothing: `install` copies the renderer and
-registers it once, and `status` is the report the operator reads.
+The widget host is the one that resolves `pi.extensions` from the package; only
+that host installs and renders the extension that draws the live wave from
+`status --json`. A host loads extensions from its own directory and
+`settings.json`, never from a skills directory, so shipping the file draws
+nothing: in the widget host `install` copies the renderer and registers it once,
+and `status` is the read-only report the operator reads on every host.
 
 `status` exits `1` when the host would draw nothing (`lane display missing`,
 `not registered`), which is what makes the check scriptable; `install` exits `0`
-once the copy and the registration are in place. `--dry-run` prints what it would
-write and writes nothing. The default action is the report, and `--dest` points
-at the agent directory when it is not the default one.
+once the copy and the registration are in place and is refused on other hosts.
+`--dry-run` prints what it would write and writes nothing. The default action is
+the report, and `--dest` points at the agent directory when it is not the default
+one. `TEAMWORK_AGENT_HOST` pins host detection when the markers are ambiguous.
 
 An npm install or update writes the skill files but does not register the lane
-display there: `teamwork ui install` does it once, and `teamwork ui status`
-reports both halves without writing, exiting `1` when the host would draw
-nothing. A host that resolves `pi.extensions` from the npm tarball needs no
-extra step.
+display there: in the widget host `teamwork ui install` does it once, and
+`teamwork ui status` reports both halves without writing on every host, exiting
+`1` when the host would draw nothing. Other hosts install and render no widget.
+A host that resolves `pi.extensions` from the npm tarball needs no extra step.
 
 ## Memory
 

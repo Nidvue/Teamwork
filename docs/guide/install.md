@@ -91,15 +91,16 @@ message, schedule) is in
     because a number printed here goes stale the day it is tagged.
 
     After an update, **reload the skill** (restart the host session, or re-scan
-    skills) so the new `SKILL.md` is read. The **lane display** is a separate host surface: `swarm run` starts
-    every lane as a detached process, so the live wave is drawn by a host
-    extension that polls `lane list --json`. A host reads extensions from its own
-    directory and its `settings.json`, never from a skills directory - shipping
-    the file is therefore not the same as loading it. `teamwork ui install`
-    copies and registers it once, and `teamwork ui status` reports both halves
-    without writing, exiting non-zero when the host would draw nothing. Run
-    `ui status` on hosts that need the lane display registered; hosts that
-    resolve `pi.extensions` from the npm tarball need no extra step.
+    skills) so the new `SKILL.md` is read. The **lane display** is a host-specific
+    surface: `swarm run` starts every lane as a detached process, so in the host
+    that resolves `pi.extensions` the live wave is drawn by an extension that
+    polls `status --json`. A host reads extensions from its own directory and its
+    `settings.json`, never from a skills directory - shipping the file is
+    therefore not the same as loading it. In that host `teamwork ui install`
+    copies and registers the widget once. `teamwork ui status` is a read-only
+    diagnostic on any host and exits non-zero when that host would draw nothing;
+    other hosts install and render no widget. `TEAMWORK_AGENT_HOST`
+    pins host detection when the markers are ambiguous.
 
 ## Optional: install the engine on PATH
 

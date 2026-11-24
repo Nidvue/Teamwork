@@ -172,7 +172,7 @@ idle.
 ```console
 $ teamwork status                      # every instance, plus the recent lanes
 $ teamwork status --agent Reviewer-1   # one instance
-$ teamwork status --json               # the stable feed (schema 3)
+$ teamwork status --json               # the stable feed (schema 5)
 ```
 
 The panel prints each instance's state (`busy`/`idle`), its current task, the
@@ -180,15 +180,22 @@ task title, elapsed time and progress, plus a `# Lanes` block for the recent lan
 (live first, then newest). The JSON feed carries `schema`, `generated`, `count`,
 `counts` (`busy`, `idle`, `ready`, `review`, `lanes`), an `instances` array and a
 `lanes` array; every row names the `model` and `provider` it runs with, so a
-routing mistake is visible in the feed rather than inferred from a log.
+routing mistake is visible in the feed rather than inferred from a log. Schema 5
+also carries `busy`/`stalled`/`idle` counts, `activated`, `retired`,
+`lanes_live`, `lanes_ended`, the used/left clocks (`elapsed_seconds`,
+`budget_seconds`, `remaining_seconds`, `remaining_text`), `activity`, `stalled`
+and the newest ledger event (`last`, `last_at`, `last_seconds`) on each row.
 
 The packaged status extension (`extensions/tw-status.ts`) renders that feed as a
 bounded widget - at most 12 lines and 100 columns, one line per lane, busy rows
 before idle, every idle instance collapsed into one counted line - and a footer
-status line with the busy/total count. It refreshes every 5 s, is silent when no
+status line with the busy/total count. It refreshes every 2 s, is silent when no
 engine is found, and `/tw-status` toggles it. It imports only `node:`
 built-ins and the host's own packages, so installing it adds no dependency, and
-removing it changes nothing in the protocol.
+removing it changes nothing in the protocol. The widget is installed and rendered
+only in the host that resolves `pi.extensions`; other hosts get no widget, and
+`status` stays a read-only diagnostic there. `TEAMWORK_AGENT_HOST` pins detection
+when the markers are ambiguous.
 
 ## 7. The agent mailbox
 

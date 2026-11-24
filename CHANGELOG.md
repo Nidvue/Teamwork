@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The live agent-state widget is Pi-only** - the display is installed and
+  rendered only in the Pi host; other hosts install and render no widget, and
+  `ui status` stays a read-only diagnostic there. `TEAMWORK_AGENT_HOST` pins host
+  detection. The widget polls `status --json` every 2 s and reads schema 5; CLI
+  status text is unchanged.
 - **Automatic model routing is off by default** - the model the user configured in
   `Settings.json` is kept, and `model auto --apply` now refuses to write unless the
   user explicitly demands the switch with
