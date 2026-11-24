@@ -9042,4 +9042,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: TimeoutAudit-20261123.md item 11; commit 7de119f4
 - reviewer evidence: verified @7de119f44c690cc14cae844d96a285145d50954f -> diff main...HEAD = 2 files, 7 insertions, 0 deletions (only 7 timeout-minutes lines; no trigger/step/check-name change); yaml.safe_load @7de119f4 -> docs 2/2 (check=20 deploy=15), release 5/5 (consistency=20 build=30 attest=15 release=20 npm=20), all 7 jobs bounded; pytest -m not slow (ci_contracts+ci_scope+release_workflow+traceability_matrix+docs_contracts) @7de119f4 -> 197 passed, 1 skipped (gitignored team tree); ledger verify -> chain intact 825 records; CEO closed-lane authorization recorded (Ledger n=821, Developer TaskQueue T-0009); acceptance layer TS-0029 pass
 - findings history: 
-- branch / merge: developer/t-0009-add-explicit-timeout-minutes-to-docs-and / pending
+- branch / merge: developer/t-0009-add-explicit-timeout-minutes-to-docs-and / 56e29bd9
