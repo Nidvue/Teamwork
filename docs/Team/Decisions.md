@@ -3408,3 +3408,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: P-0006 two research rounds; engine.py:20016-20059 AGENT_HOSTS/detect_agent_host; lanedisplay.py:260-288 ensure; extensions/tw-status.ts and teamwork-bus.ts hook pi-only package
 - falsified by: A non-pi host registers tw-status.ts or renders a widget, or a pi host loses the display.
 - consequences: -
+
+## D-20261124-Architect - R3 admits recorded post-publication redactions by exact hash
+
+- date: 2026-11-24
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0020
+- context: User authorized a narrow recorded amendment after being shown that the checker forbids exceptions for versions that have a tag (release-exceptions.json entries for 1.5.2-1.5.6 were rejected by _stale_exceptions).
+- options considered: A) broad exception list (rejected: checker forbids traceable versions and it would hide other content); B) republish npm versions (impossible: immutable); C) exact two-sided hash allowance (chosen)
+- decision: Add release-redactions.json and a narrow R3 allowance: for a named (version, file), exclude that path from both the tarball and tag payload digests only when each side's full sha256 equals its recorded value. All other content still fails. Applies to npm 1.5.2-1.5.6, the one file src/teamwork/config.py.
+- why: The operator-directed 2026-11-19 redaction changed the tag trees after those npm tarballs were published; npm versions are immutable and the original gitHead commits were rewritten away, so the published/tag mismatch is a recorded fact, not a fixable drift. Full-history R3 otherwise blocks every future release.
+- evidence: SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt check_release_consistency.py --online before -> R3 DRIFT on 16 versions; after the TARBALL_LAYOUT fix -> drift on 1.5.2-1.5.6 only; byte-diff of v1.5.2 tarball vs git archive -> 84/85 files identical, sole difference src/teamwork/config.py; both sides pinned to sha256 2ca248b7.../c5250e54...; after the redaction record -> R3 ok 16 npm version(s) match
+- falsified by: Any npm version other than 1.5.2-1.5.6 passes R3 with a differing file, or any of those five has any second differing file, or either pinned hash no longer matches.
+- consequences: Architecture.md 11.4 amended; R3 still compares every other byte; the personal identity already published in those tarballs stays an irreversible historical fact (R-16).

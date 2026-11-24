@@ -2401,6 +2401,74 @@ def test_a_forge_pull_request_merge_ref_is_skipped_not_evaluated(tmp_path: Path)
     assert "pull-request merge ref" in result.detail, result.detail
 
 
+def _redaction_record(version, file, published: bytes, tagged: bytes) -> dict[str, str]:
+    return {
+        "version": version,
+        "file": file,
+        "published_sha256": hashlib.sha256(published).hexdigest(),
+        "tag_sha256": hashlib.sha256(tagged).hexdigest(),
+        "reason": "published before a recorded source redaction",
+        "evidence": "unit fixture pinning both sides",
+        "recorded": "2026-11-24",
+    }
+
+
+def test_r3_a_recorded_redaction_matches_both_hashes(tmp_path: Path) -> None:
+    root = make_repo(tmp_path / "repo", files=PAYLOAD)
+    git(root, "tag", "v1.1.0")
+    published = {**PAYLOAD, "SKILL.md": "# published before redaction\n"}
+    record = _redaction_record(
+        "1.1.0", "SKILL.md", published["SKILL.md"].encode(), PAYLOAD["SKILL.md"].encode()
+    )
+    fetch = fake_http({crc.NPM_REGISTRY: npm_registry({"1.1.0": "x"})})
+
+    result = crc.rule_r3_npm_payloads(
+        root, [], fetch, lambda url: tarball(published), redactions=[record]
+    )
+
+    assert result.status == "ok", result
+    assert "1 npm version(s) match" in result.detail
+    assert "redacted after publication" in result.detail
+
+
+def test_r3_a_redaction_with_a_wrong_hash_is_drift(tmp_path: Path) -> None:
+    root = make_repo(tmp_path / "repo", files=PAYLOAD)
+    git(root, "tag", "v1.1.0")
+    published = {**PAYLOAD, "SKILL.md": "# published before redaction\n"}
+    record = _redaction_record(
+        "1.1.0", "SKILL.md", published["SKILL.md"].encode(), PAYLOAD["SKILL.md"].encode()
+    )
+    record["published_sha256"] = "0" * 64
+    fetch = fake_http({crc.NPM_REGISTRY: npm_registry({"1.1.0": "x"})})
+
+    result = crc.rule_r3_npm_payloads(
+        root, [], fetch, lambda url: tarball(published), redactions=[record]
+    )
+
+    assert result.status == "DRIFT", result
+    assert any(
+        "recorded redaction does not match the published SKILL.md" in f for f in result.findings
+    )
+
+
+def test_load_redactions_validates_the_record(tmp_path: Path) -> None:
+    path = tmp_path / "release-redactions.json"
+    path.write_text("[]", encoding="utf-8")
+    assert crc.load_redactions(path) == []
+    record = _redaction_record("1.1.0", "SKILL.md", b"a", b"b")
+
+    record["published_sha256"] = "not-a-digest"
+    path.write_text(json.dumps([record]), encoding="utf-8")
+    with pytest.raises(crc.InputError, match="published_sha256"):
+        crc.load_redactions(path)
+
+    record["published_sha256"] = "a" * 64
+    record["file"] = "../outside.py"
+    path.write_text(json.dumps([record]), encoding="utf-8")
+    with pytest.raises(crc.InputError, match="relative payload path"):
+        crc.load_redactions(path)
+
+
 def test_a_detached_single_parent_checkout_is_still_evaluated(tmp_path: Path) -> None:
     """The scope is the host's merge ref, not detachment: a tag checkout still counts."""
     root = make_repo(tmp_path / "tagged", version="1.0.0")

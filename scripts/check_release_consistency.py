@@ -198,6 +198,16 @@ ILLUSTRATIVE = "<!-- release-consistency: illustrative -->"
 CHANNEL_UNAVAILABLE = "<!-- release-consistency: channel-unavailable -->"
 
 EXCEPTION_KEYS = ("version", "reason", "evidence", "recorded")
+REDACTION_KEYS = (
+    "version",
+    "file",
+    "published_sha256",
+    "tag_sha256",
+    "reason",
+    "evidence",
+    "recorded",
+)
+SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
 R2_NOT_THE_DEFAULT_BRANCH = "not the default branch: the published line is evaluated on main only"
 R2_HOST_MERGE_REF = (
@@ -630,9 +640,9 @@ def _materialise_links(links: Sequence[tarfile.TarInfo], destination: Path) -> N
         pending = deferred
 
 
-def _digest_of_tree(root: Path) -> str:
+def _digest_of_tree(root: Path, exclude: Iterable[str] = ()) -> str:
     """The 11.3 digest of the payload found at ``root``."""
-    return _digest_of_files(_payload_paths(root), root)
+    return _digest_of_files(_payload_paths(root), root, exclude)
 
 
 def _payload_paths(root: Path) -> list[Path]:
@@ -655,11 +665,12 @@ def _payload_paths(root: Path) -> list[Path]:
     return paths
 
 
-def _digest_of_files(paths: Sequence[Path], root: Path) -> str:
+def _digest_of_files(paths: Sequence[Path], root: Path, exclude: Iterable[str] = ()) -> str:
+    excluded = frozenset(exclude)
     lines: list[str] = []
     for path in paths:
         rel = path.relative_to(root)
-        if rel.as_posix() in PAYLOAD_EXCLUDES or _payload_skip(rel):
+        if rel.as_posix() in PAYLOAD_EXCLUDES or rel.as_posix() in excluded or _payload_skip(rel):
             continue
         try:
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -671,7 +682,7 @@ def _digest_of_files(paths: Sequence[Path], root: Path) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
 
 
-def payload_digest(root: Path, rev: str | None) -> str:
+def payload_digest(root: Path, rev: str | None, exclude: Iterable[str] = ()) -> str:
     """Digest of the bundled payload of a *commit* (11.3).
 
     The payload is always read from a git object: ``git archive <rev>`` is
@@ -700,10 +711,10 @@ def payload_digest(root: Path, rev: str | None) -> str:
                 _extract_tar(archive, destination)
         except (tarfile.TarError, OSError) as exc:
             raise InputError(f"git archive {rev}: {exc}") from exc
-        return _digest_of_tree(destination)
+        return _digest_of_tree(destination, exclude)
 
 
-def _tarball_payload_digest(blob: bytes) -> str:
+def _tarball_payload_digest(blob: bytes, exclude: Iterable[str] = ()) -> str:
     """Digest of an npm tarball's shipped payload, on the payload's own paths.
 
     11.2.3 publishes the tarball as ``package/skills/tw/`` and
@@ -732,6 +743,7 @@ def _tarball_payload_digest(blob: bytes) -> str:
             raise InputError("npm tarball: no package/ subtree")
         staged = Path(tmp) / "payload"
         staged.mkdir()
+        excluded = frozenset(exclude)
         mapped = 0
         for source_prefix, payload_prefix in TARBALL_LAYOUT:
             base = package / source_prefix
@@ -740,13 +752,42 @@ def _tarball_payload_digest(blob: bytes) -> str:
             for path in sorted(base.rglob("*")):
                 if not path.is_file():
                     continue
-                target = staged / payload_prefix / path.relative_to(base)
+                rel = (Path(payload_prefix) / path.relative_to(base)).as_posix()
+                if rel in excluded:
+                    continue
+                target = staged / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(path.read_bytes())
                 mapped += 1
         if not mapped:
             raise InputError("npm tarball: none of the shipped payload paths are present")
         return _digest_of_tree(staged)
+
+
+def _tarball_payload_file_bytes(blob: bytes, rel: str) -> bytes | None:
+    """The published bytes at one payload path, using 11.3.1's reverse map."""
+    with tempfile.TemporaryDirectory(prefix="release-npm-file-") as tmp:
+        archive_path = Path(tmp) / "package.tgz"
+        archive_path.write_bytes(blob)
+        destination = Path(tmp) / "unpacked"
+        destination.mkdir()
+        try:
+            with tarfile.open(archive_path) as archive:
+                _extract_tar(archive, destination)
+        except (tarfile.TarError, OSError) as exc:
+            raise InputError(f"npm tarball: {exc}") from exc
+        package = destination / "package"
+        for source_prefix, payload_prefix in TARBALL_LAYOUT:
+            if payload_prefix:
+                tail = rel.removeprefix(payload_prefix.rstrip("/") + "/")
+                if tail == rel:
+                    continue
+            else:
+                tail = rel
+            candidate = package / source_prefix / tail
+            if candidate.is_file():
+                return candidate.read_bytes()
+    return None
 
 
 def _version_tuple(version: str) -> tuple[int, int, int] | None:
@@ -1052,6 +1093,69 @@ def load_exceptions(path: Path) -> list[dict[str, str]]:
     return entries
 
 
+def load_redactions(path: Path) -> list[dict[str, str]]:
+    """Read the recorded post-publication redactions; any problem is exit 2.
+
+    A redaction admits exactly one file of one published version whose bytes
+    were changed in the source tree after publication. Both sides' full SHA-256
+    values are pinned, so the allowance cannot hide any other content change.
+    """
+    where = str(path)
+    try:
+        raw = Path(path).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        raise InputError(f"{where}: {exc}") from exc
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise InputError(f"{where}: invalid JSON: {exc}") from exc
+    if not isinstance(data, list):
+        raise InputError(f"{where}: top level must be a JSON array")
+    entries: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for index, entry in enumerate(data):
+        label = f"{where}: entry {index}"
+        if not isinstance(entry, dict):
+            raise InputError(f"{label}: must be a JSON object")
+        keys = set(entry)
+        extra = sorted(keys - set(REDACTION_KEYS))
+        missing = [key for key in REDACTION_KEYS if key not in keys]
+        if extra:
+            raise InputError(f"{label}: unknown key(s) {', '.join(extra)}")
+        if missing:
+            raise InputError(f"{label}: missing key(s) {', '.join(missing)}")
+        version = entry["version"]
+        if not isinstance(version, str) or not PUBLISHED_VERSION.match(version):
+            raise InputError(f"{label}: version {version!r} is not an npm version")
+        file = entry["file"]
+        if (
+            not isinstance(file, str)
+            or not file
+            or file.startswith("/")
+            or any(part in ("", ".", "..") for part in file.split("/"))
+        ):
+            raise InputError(f"{label}: file {file!r} is not a relative payload path")
+        for key in ("published_sha256", "tag_sha256"):
+            value = entry[key]
+            if not isinstance(value, str) or not SHA256_HEX.match(value):
+                raise InputError(f"{label}: {key} {value!r} is not a full sha256 hex digest")
+        for key in ("reason", "evidence"):
+            value = entry[key]
+            if not isinstance(value, str) or not value.strip():
+                raise InputError(f"{label}: {key} is empty - a reviewer cannot judge it")
+        recorded = entry["recorded"]
+        if not isinstance(recorded, str) or not ISO_DATE.match(recorded):
+            raise InputError(f"{label}: recorded {recorded!r} is not YYYY-MM-DD")
+        key = (version, file)
+        if key in seen:
+            raise InputError(f"{label}: duplicate redaction for {version} {file}")
+        seen.add(key)
+        entries.append({key_: str(entry[key_]) for key_ in REDACTION_KEYS})
+    return entries
+
+
 def _exception_notes(exceptions: Iterable[dict[str, str]]) -> list[str]:
     return [f"{entry['version']} admitted by exception ({entry['reason']})" for entry in exceptions]
 
@@ -1159,12 +1263,20 @@ def rule_r3_npm_payloads(
     exceptions: Sequence[dict[str, str]] = (),
     fetch: Callable[[str], Any] | None = None,
     fetch_bytes: Callable[[str], bytes] | None = None,
+    redactions: Sequence[dict[str, str]] = (),
 ) -> RuleResult:
     """Every npm version must equal a tagged payload digest, or be admitted (11.2.3)."""
     tags = _version_tags(repo_root)
     admitted = {entry["version"] for entry in exceptions}
     notes = _exception_notes(exceptions)
     findings = _stale_exceptions(exceptions, tags)
+    by_version: dict[str, list[dict[str, str]]] = {}
+    for entry in redactions:
+        by_version.setdefault(entry["version"], []).append(entry)
+    notes += [
+        f"{entry['version']} {entry['file']} redacted after publication ({entry['reason']})"
+        for entry in redactions
+    ]
 
     if fetch is None:
         notes = ["offline: npm registry not queried"] + notes
@@ -1199,7 +1311,7 @@ def rule_r3_npm_payloads(
             findings.append(f"{version}: npm record has no dist.tarball")
             continue
         try:
-            digest = _tarball_payload_digest(get_bytes(tarball))
+            blob = get_bytes(tarball)
         except HttpError as exc:
             if exc.status == 404:
                 findings.append(f"{version}: tarball {tarball} is missing: {exc}")
@@ -1211,10 +1323,37 @@ def rule_r3_npm_payloads(
             continue
         tag = f"v{version}"
         if tag not in tags:
+            try:
+                digest = _tarball_payload_digest(blob)
+            except InputError as exc:
+                unreadable.append(f"{version}: {exc}")
+                continue
             findings.append(f"{version}: no tag {tag} to compare; tarball payload digest {digest}")
             continue
+        exclude: set[str] = set()
+        for entry in by_version.get(str(version), ()):
+            rel = entry["file"]
+            published = _tarball_payload_file_bytes(blob, rel)
+            if (
+                published is None
+                or hashlib.sha256(published).hexdigest() != entry["published_sha256"]
+            ):
+                findings.append(f"{version}: recorded redaction does not match the published {rel}")
+                continue
+            try:
+                tagged = _git_bytes(repo_root, "show", f"{tag}:{rel}")
+            except InputError as exc:
+                findings.append(
+                    f"{version}: recorded redaction file {rel} is absent at {tag}: {exc}"
+                )
+                continue
+            if hashlib.sha256(tagged).hexdigest() != entry["tag_sha256"]:
+                findings.append(f"{version}: recorded redaction does not match the tagged {rel}")
+                continue
+            exclude.add(rel)
         try:
-            local = payload_digest(repo_root, tag)
+            digest = _tarball_payload_digest(blob, exclude)
+            local = payload_digest(repo_root, tag, exclude)
         except InputError as exc:
             unreadable.append(f"{version}: {exc}")
             continue
@@ -1953,6 +2092,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="exception record (default: <repo-root>/release-exceptions.json)",
     )
     parser.add_argument(
+        "--redactions",
+        metavar="PATH",
+        default=None,
+        help="recorded post-publication redactions (default: <repo-root>/release-redactions.json)",
+    )
+    parser.add_argument(
         "--repo-root",
         metavar="PATH",
         default=None,
@@ -1995,6 +2140,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     except InputError as exc:
         exceptions_error = str(exc)
 
+    redactions_path = (
+        Path(args.redactions)
+        if args.redactions and Path(args.redactions).is_absolute()
+        else repo_root / (args.redactions or "release-redactions.json")
+    )
+    redactions: list[dict[str, str]] = []
+    try:
+        redactions = load_redactions(redactions_path)
+    except InputError as exc:
+        exceptions_error = f"{exceptions_error}; {exc}" if exceptions_error else str(exc)
+
     if args.online:
         _set_github_bearer(_github_bearer_from_env())
     fetch = _http_get_json if args.online else None
@@ -2017,7 +2173,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     fatal=True,
                 )
                 if exceptions_error
-                else rule_r3_npm_payloads(repo_root, exceptions, fetch, fetch_bytes)
+                else rule_r3_npm_payloads(repo_root, exceptions, fetch, fetch_bytes, redactions)
             ),
         ),
         _run_rule("R4", lambda: rule_r4_releases_have_tags(repo_root, fetch)),

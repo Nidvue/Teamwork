@@ -1,0 +1,47 @@
+[
+  {
+    "version": "1.5.2",
+    "file": "src/teamwork/config.py",
+    "published_sha256": "2ca248b797d3227e518ed886ca31bc595110061b5fb3c9eaace05c2ba30f6e0e",
+    "tag_sha256": "c5250e545f91ef7d617e02663056b012d65dc266cb210b4288a3515eb84d01ad",
+    "reason": "published before the operator-directed identity redaction; the immutable npm tarball carries the pre-redaction file while the rewritten tag tree is redacted",
+    "evidence": "byte-diff of the npm tarball payload against git archive v1.5.2: 84 of 85 payload files identical and the sole difference is src/teamwork/config.py; the two full sha256 values above pin both sides; D-20261119-CEO records the redaction; npm versions cannot be republished",
+    "recorded": "2026-11-24"
+  },
+  {
+    "version": "1.5.3",
+    "file": "src/teamwork/config.py",
+    "published_sha256": "2ca248b797d3227e518ed886ca31bc595110061b5fb3c9eaace05c2ba30f6e0e",
+    "tag_sha256": "c5250e545f91ef7d617e02663056b012d65dc266cb210b4288a3515eb84d01ad",
+    "reason": "published before the operator-directed identity redaction; the immutable npm tarball carries the pre-redaction file while the rewritten tag tree is redacted",
+    "evidence": "same single-file difference at v1.5.3; both sides pinned by the sha256 values above; D-20261119-CEO records the redaction; npm versions cannot be republished",
+    "recorded": "2026-11-24"
+  },
+  {
+    "version": "1.5.4",
+    "file": "src/teamwork/config.py",
+    "published_sha256": "2ca248b797d3227e518ed886ca31bc595110061b5fb3c9eaace05c2ba30f6e0e",
+    "tag_sha256": "c5250e545f91ef7d617e02663056b012d65dc266cb210b4288a3515eb84d01ad",
+    "reason": "published before the operator-directed identity redaction; the immutable npm tarball carries the pre-redaction file while the rewritten tag tree is redacted",
+    "evidence": "same single-file difference at v1.5.4; both sides pinned by the sha256 values above; D-20261119-CEO records the redaction; npm versions cannot be republished",
+    "recorded": "2026-11-24"
+  },
+  {
+    "version": "1.5.5",
+    "file": "src/teamwork/config.py",
+    "published_sha256": "2ca248b797d3227e518ed886ca31bc595110061b5fb3c9eaace05c2ba30f6e0e",
+    "tag_sha256": "c5250e545f91ef7d617e02663056b012d65dc266cb210b4288a3515eb84d01ad",
+    "reason": "published before the operator-directed identity redaction; the immutable npm tarball carries the pre-redaction file while the rewritten tag tree is redacted",
+    "evidence": "same single-file difference at v1.5.5; both sides pinned by the sha256 values above; D-20261119-CEO records the redaction; npm versions cannot be republished",
+    "recorded": "2026-11-24"
+  },
+  {
+    "version": "1.5.6",
+    "file": "src/teamwork/config.py",
+    "published_sha256": "2ca248b797d3227e518ed886ca31bc595110061b5fb3c9eaace05c2ba30f6e0e",
+    "tag_sha256": "c5250e545f91ef7d617e02663056b012d65dc266cb210b4288a3515eb84d01ad",
+    "reason": "published before the operator-directed identity redaction; the immutable npm tarball carries the pre-redaction file while the rewritten tag tree is redacted",
+    "evidence": "same single-file difference at v1.5.6; both sides pinned by the sha256 values above; D-20261119-CEO records the redaction; npm versions cannot be republished",
+    "recorded": "2026-11-24"
+  }
+]

@@ -72,6 +72,7 @@ ROOT_ALLOWLIST = {
     "pyproject.toml",
     "references",
     "release-exceptions.json",
+    "release-redactions.json",
     "roles",
     "scripts",
     "site",

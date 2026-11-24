@@ -1268,6 +1268,17 @@ prints a line for it on every run. It admits one version's missing or
 mismatching tag - it does not suppress any other rule, and it cannot silence a
 DRIFT that R3 found for a *different* version.
 
+`release-redactions.json` is a second, narrower record for a different fact: a
+published file whose **source bytes changed after publication** (the operator-
+directed identity redaction of 2026-11-19). It has one entry per `(version,
+file)` and pins the full SHA-256 of both the published and the tagged bytes. R3
+excludes that one path from *both* 11.3 digests only when each side's hash equals
+its recorded value; any other content change stays DRIFT. Unlike an 11.4
+exception it may name a version that has a tag, because the tag exists but its
+tree was redacted; it cannot admit a second file or a second content change.
+Missing, malformed, duplicate or wrongly pinned entries are exit `2`, the same
+fail-closed input policy as 11.4. Recorded under `D-20261124-Architect-R3`.
+
 ### 11.5 Worked examples - three measured facts
 
 Every digest below is an **11.3 digest**: the mapping of 11.3.1 applied to the
