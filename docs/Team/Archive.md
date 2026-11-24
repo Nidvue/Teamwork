@@ -9224,4 +9224,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit dd7a0668
 - reviewer evidence: in tree under review @dd7a06688003: only docs/Team/AuditManifest.json + AuditManifest.md changed vs main; git status clean (dirty false); manifest git.head 8e5d36df52b7b753e0b7826a12edd1947f7beaef = ancestor of HEAD (git merge-base --is-ancestor -> rc 0); ledger verify 532 records chain intact, record #528 hash b4f521234244e40f43a20d570435b2e0079a684ed9cb470390258cffcf232a11 = manifest ledger.head (#529-532 are post-export work); sha256sum 4/4 artifacts match at dd7a0668 AND at export rev 8e5d36df; teamwork links -> # issues: 0; selfcheck test reproduced (git.head 8e5d36df, dirty False, ancestor_rc 0); preflight PF-3309d24e9999 @dd7a0668 -> 9 checks, 0 failed
 - findings history: 
-- branch / merge: ceo/t-0003-export-m27-audit-manifest-at-the-verifie / pending
+- branch / merge: ceo/t-0003-export-m27-audit-manifest-at-the-verifie / 563ba6a9
