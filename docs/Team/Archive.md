@@ -9225,3 +9225,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: in tree under review @dd7a06688003: only docs/Team/AuditManifest.json + AuditManifest.md changed vs main; git status clean (dirty false); manifest git.head 8e5d36df52b7b753e0b7826a12edd1947f7beaef = ancestor of HEAD (git merge-base --is-ancestor -> rc 0); ledger verify 532 records chain intact, record #528 hash b4f521234244e40f43a20d570435b2e0079a684ed9cb470390258cffcf232a11 = manifest ledger.head (#529-532 are post-export work); sha256sum 4/4 artifacts match at dd7a0668 AND at export rev 8e5d36df; teamwork links -> # issues: 0; selfcheck test reproduced (git.head 8e5d36df, dirty False, ancestor_rc 0); preflight PF-3309d24e9999 @dd7a0668 -> 9 checks, 0 failed
 - findings history: 
 - branch / merge: ceo/t-0003-export-m27-audit-manifest-at-the-verifie / 563ba6a9
+
+## T-0015 · Add defensive pi host guards to the two extensions  (developer)
+- date: 2026-11-24
+- priority: P1
+- owner: developer role (work by: Developer-2)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: display
+- self-check: [pass] Boundary: pure env predicate isPiHost() at top-level default export of both pi-only extensions; empty/duplicate/second-call: side-effect free, repeated calls identical, no state. Contract: TEAMWORK_AGENT_HOST lowercased wins when set (only 'pi' proceeds), else PI_SESSION_ID presence; otherwise early return before any pi.on/registerCommand/sendMessage. Concurrency: no shared writes, reads process.env only. Scope: exactly two files, predicate + one early return each; no rendering/polling/message/import change. Hostile-reviewer failure (override 'opencode' still registering) covered by truth-table case 5/6. | test: grep -n 'isPiHost' extensions/tw-status.ts extensions/teamwork-bus.ts @3688a5b6 -> guard lines 432-439/230-237 present; node --check both -> exit 0; registration-call diff -> no pi path removed; truth table 7/7 PASS | preflight: PF-bcdfe29ffee8 @3688a5b67f9f (9 checks, 0 failed)
+- author evidence: commit 3688a5b6
+- reviewer evidence: git diff main...HEAD --stat @3688a5b6 -> 2 files (extensions/tw-status.ts, extensions/teamwork-bus.ts), +14 only; node --check both @3688a5b6 -> exit 0; early return at tw-status.ts:439 / teamwork-bus.ts:237 before first pi.on (:512 / :238); registration grep -> pi.on, registerCommand, sendMessage, setWidget, setStatus, setInterval all present; isPiHost truth table 8/8 on both files (pi, opencode, unknown, Pi override, PI_SESSION_ID, absent, whitespace+session, host=pi); added-line comment scan -> none; preflight PF-bcdfe29ffee8 @3688a5b67f9f -> 9 checks 0 failed read in task worktree
+- findings history: 
+- branch / merge: developer-2/t-0015-add-defensive-pi-host-guards-to-the-two / pending
