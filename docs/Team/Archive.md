@@ -9120,4 +9120,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 05479235
 - reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_cli_contract.py @05479235 -> 49 passed; new test overlaid on base 8fade967 -> 1 failed (DID NOT RAISE SystemExit: bare role returned with 2 reviewers), repro genuine; single-instance and explicit-instance cases pass on both; fix routes both allow_role modes through one ambiguity die, preserving prior returns for len==1; ruff check / ruff format --check src/teamwork/engine.py tests/unit/test_cli_contract.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; git merge-tree --write-tree main <branch> -> rc 0; delta vs merge-base = only engine.py + test_cli_contract.py (+47/-5), no test deleted/skipped, no gate weakened
 - findings history: 
-- branch / merge: developer/t-0008-reject-a-bare-role-name-when-the-role-ha / pending
+- branch / merge: developer/t-0008-reject-a-bare-role-name-when-the-role-ha / dd5cfa1c
