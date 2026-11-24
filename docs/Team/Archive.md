@@ -9094,4 +9094,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 2d728f18
 - reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_messages.py @2d728f18 -> 18 passed; new tests overlaid on base 8fade967 -> 5 failed (negative ttl accepted, expired take/finish succeed, find shows expired, CLI take rc 0), repro genuine; positive-ttl round-trip test passes on both; ruff check / ruff format --check src/teamwork/messages.py tests/unit/test_messages.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; git merge-tree --write-tree main <branch> -> rc 0; delta vs merge-base = only messages.py + test_messages.py (+113/-1), no test deleted/skipped, no gate weakened
 - findings history: 
-- branch / merge: developer-3/t-0006-enforce-message-ttl-at-take-finish-not-o / pending
+- branch / merge: developer-3/t-0006-enforce-message-ttl-at-take-finish-not-o / 73404e80
