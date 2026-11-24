@@ -3392,3 +3392,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: P-0004 two research rounds; explore inventory @366a052a file:line; docs/guide/install.md:162-179 npm path; scripts/build_pi_package.py:35-39 shared constants; release.yml:717-778 npm publish
 - falsified by: A shipped surface still invokes a checkout mirror, an npm tarball missing skills/tw-learn, or a gate silently lost with no replacement.
 - consequences: -
+
+## D-20261124-CEO-6 - M28: the live status widget is pi-only; 'ui status' remains a read-only diagnostic
+
+- date: 2026-11-24
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Automatic display installation/registration (init -> lanedisplay.ensure and 'ui install') runs only when detect_agent_host()=='pi'. Outside pi (opencode, claude, unknown, etc.) it is skipped with a clear line; explicit 'ui install' outside pi is refused with a reason. 'ui status' stays read-only and available on every host. Both pi extensions get a defensive host guard. TEAMWORK_AGENT_HOST=pi is the deterministic override used by tests.
+- why: The owner wants no agent-state rendering in non-pi hosts; the running host is knowable only through detect_agent_host(), so the gate belongs at the install/register entry points, with extension guards as defence in depth.
+- evidence: P-0006 two research rounds; engine.py:20016-20059 AGENT_HOSTS/detect_agent_host; lanedisplay.py:260-288 ensure; extensions/tw-status.ts and teamwork-bus.ts hook pi-only package
+- falsified by: A non-pi host registers tw-status.ts or renders a widget, or a pi host loses the display.
+- consequences: -

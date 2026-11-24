@@ -55,6 +55,30 @@ in the team tree; the ten parts below are its human view.
 | 9 | Unknowns and assumptions | "Repo sync" = every checkout-to-skills-dir mirror, including `refresh` and `bundle.py` helpers (owner: ceo; settled by the file:line inventory). npm stays the update path; `ui status` stays as the separate host-extension gate. |
 | 10 | Evidence plan | Developer runs focused suites; Tester runs the full gate battery and release consistency; Reviewer verdicts each deliverable; CEO reads `loop` and `audit`. |
 
+## Brief (M28 - pi-only agent-state display)
+
+Intake record P-0006 (verbatim prompt, two research rounds, enhanced prompt) is
+in the team tree; the ten parts below are its human view.
+
+### Original prompt (verbatim)
+
+- 2026-11-24 — `@tw display only the pi agent state rendering for pi agent when then skill is running in the pi agent no other agents like opencode for example`
+
+### Rewritten brief
+
+| # | Part | Content |
+|---|---|---|
+| 1 | Objective | The live agent-state widget is installed, registered and rendered only when the running host is pi. |
+| 2 | User and job | The owner runs this skill in several agent hosts but wants the status display only in pi; good = no widget or registration in opencode/claude/unknown, unchanged pi behaviour. |
+| 3 | Deliverables | Host gate in `init`/`ensure` and `cmd_ui install`; defensive guards in `extensions/tw-status.ts` and `teamwork-bus.ts`; rewritten tests for pi/opencode/unknown and the `TEAMWORK_AGENT_HOST` override; corrected docs. |
+| 4 | Acceptance criteria | AC-11 the display auto-install/registration is pi-only and proven by tests; AC-12 docs state pi-only and the corrected status payload; AC-2/AC-5 remain green; AC-8 loop STOP. |
+| 5 | Non-goals | No change to CLI status text output, no new command, no history rewrite, no external publish. |
+| 6 | Constraints and invariants | stdlib-only runtime; Python >= 3.11; `ui status` stays read-only everywhere; two-stage gate; Reviewer-only merge. |
+| 7 | Interfaces to freeze | `detect_agent_host()` values (`pi`/`opencode`/`unknown`) and the `TEAMWORK_AGENT_HOST` override are the frozen contract; no new CLI flag. |
+| 8 | Lanes | Developer gates engine/ensure and rewrites tests; Developer-2 guards the two pi extensions; Architect corrects docs; Reviewer lanes own verdicts. |
+| 9 | Unknowns and assumptions | "Display" = widget and its auto-registration, not CLI command output (owner: ceo; settled by the explore inventory). Outside pi, auto-install is skipped with a clear line and explicit `ui install` is refused; `ui status` stays available. |
+| 10 | Evidence plan | Developer runs focused tests; Tester runs the full gate battery; Reviewer verdicts each deliverable; CEO verifies criteria and closes. |
+
 ## Objective
 
 Turn the private `tw` skill into a self-contained, reusable,
