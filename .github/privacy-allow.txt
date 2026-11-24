@@ -57,6 +57,15 @@
 # exempted; anything secret on such a line is still caught by its own rule.
 ^/home/operator$
 
+# ^/home/agent$ - opened by T-0010 under D-20261124-CEO. It exempts one fabricated
+# test path that a unit test quoted twice while proving that an exact path value
+# still terminates; no account is named and the value is not a real user home.
+# The source is fixed at HEAD to use a path-shaped non-home token, so this entry
+# covers only immutable history (the pre-fix ancestor blob and its commit
+# metadata), never a shipped surface. Narrowness is pinned in
+# tests/unit/test_privacy_scan.py.
+^/home/agent$
+
 # ^C:\\Users\\operator$ - the same operator user name on the Windows host, opened by
 # T-0018 under D-20261101-CEO-3 (ceo T-0011), which amends D-20261019-CEO-8/-15
 # and AuditReport F-P1 rather than being re-argued here: that ruling assumed the

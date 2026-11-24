@@ -867,6 +867,7 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
         r"^\.pi/agent/npm$",
         r"^\.pi/agent/settings\.json$",
         r"^/home/operator$",
+        r"^/home/agent$",
         r"^C:\\Users\\operator$",
         r"^sk-live-0123456789abcdef0123456789abcdef$",
         r"^hunter2 passphrase$",
@@ -878,6 +879,7 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
         assert _is_one_escaped_literal(entry), f"{entry!r} is not one escaped literal"
     assert any("T-0001" in ln for ln in lines if ln.startswith("#"))
     assert any("T-0034" in ln or "archived" in ln for ln in lines if ln.startswith("#"))
+    assert any("T-0010" in ln for ln in lines if ln.startswith("#"))
     assert any("D-20261019-CEO" in ln for ln in lines if ln.startswith("#"))
 
 

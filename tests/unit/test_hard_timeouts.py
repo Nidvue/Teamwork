@@ -7,6 +7,7 @@ Each test here proves one of those bounds on its own seam.
 
 from __future__ import annotations
 
+import ctypes
 import importlib.util
 import io
 import os
@@ -46,15 +47,37 @@ def test_an_empty_search_value_terminates() -> None:
 
 
 def test_an_exact_path_value_still_terminates() -> None:
-    assert engine._every_occurrence_is_a_path("a path: /home/agent and /home/agent", "/home/agent")
+    value = "Teamwork/Reports/Audit"
+    assert engine._every_occurrence_is_a_path(f"a path: {value} and {value}", value)
 
 
 def _alive(pid: int) -> bool:
+    if os.name == "nt":
+        return _windows_alive(pid)
+    return _posix_alive(pid)
+
+
+def _posix_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
     except (ProcessLookupError, PermissionError):
         return False
     return True
+
+
+def _windows_alive(pid: int) -> bool:
+    kernel32 = ctypes.windll.kernel32
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    handle = kernel32.OpenProcess(0x1000, False, pid)
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return False
+        return code.value == 259
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def test_a_hung_launcher_is_killed_and_reported_as_a_timeout(tmp_path: Path) -> None:
