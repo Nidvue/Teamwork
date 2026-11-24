@@ -103,7 +103,7 @@ under two roles is two tasks.
 | developer | T-0014 | display | done | P-0020 | e77751d2 |
 | developer | T-0015 | display | done | P-0018 | 1cce01e9 |
 | developer | T-0016 | tests | done | P-0021 | 77feee0d |
-| developer | T-0017 | - | doing | - | - |
+| developer | T-0017 | tests | done | P-0022 | 236e2d7e |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -122,7 +122,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0017 · Set pi host override in remaining widget harnesses | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
