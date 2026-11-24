@@ -9159,4 +9159,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 9f2b2784
 - reviewer evidence: pytest -q tests/unit/test_task_record_integrity.py @9f2b2784 -> 9 passed; base @44a749d2 -> 1 failed/8 passed (bare Developer ambiguous: name one acting); ruff check+format clean; diff=1 file/1 line (Developer->Developer-1), validate_actor untouched, ambiguity refusal in force
 - findings history: 
-- branch / merge: developer-2/t-0010-update-task-integrity-test-to-name-an-ex / pending
+- branch / merge: developer-2/t-0010-update-task-integrity-test-to-name-an-ex / 32ea1a5f
