@@ -28,6 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tests/unit/test_skill_contracts.py` plus `tests/unit/test_pi_package.py` pin the
   new names.
 
+### Removed
+
+- **The checkout-to-skills-directory sync function** - the `refresh` CLI command,
+  its mirroring script, the Makefile mirror targets and the bundle-mirroring
+  module in `src/teamwork/` are deleted; D-20261124-CEO-5 freezes the CLI surface
+  without `refresh`. Install and update the skill through npm
+  (`npm install @nidvue/teamwork@latest`, or your host's own package command),
+  which ships the `tw` bundle and the companion `tw-learn` skill together.
+  `teamwork ui install|status` stays as the separate lane-display check.
+
 ## [1.6.0] - 2026-11-17
 
 ### Fixed

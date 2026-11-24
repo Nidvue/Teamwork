@@ -75,53 +75,31 @@ startup and loaded on demand. The optional mapping of host operations (spawn,
 message, schedule) is in
 [references/Adapters.md](https://github.com/Nidvue/Teamwork/blob/main/references/Adapters.md).
 
-!!! note "Updating the skill: follow the remote, not a checklist"
-    The host reads the **copy** in its skills directory, so a `git pull` in a
-    checkout somewhere else changes nothing the agent sees. One command does both
-    halves - fast-forward a source checkout from the remote, then mirror it into
-    the installed directory:
+!!! note "Updating the skill: install the newer package"
+    The host reads the **copy** it resolved at install time, so a `git pull` in a
+    checkout somewhere else changes nothing the agent sees. Install and update
+    through the same package channel you installed from:
 
     ```console
-    $ teamwork refresh                 # fetch origin/main, then mirror into the host's skills directory
-    $ teamwork refresh --dest ~/.agents/skills/tw
-    $ teamwork refresh --check          # drift check: writes nothing, exits 1 when stale
-    $ teamwork refresh --dry-run        # what it would copy, deletes and writes nothing
+    $ npm install @nidvue/teamwork@latest   # or your host's own package command
     ```
 
-    It refuses to clobber a dirty checkout (it mirrors the checkout as it stands
-    instead and says so), deletes files the source no longer ships (a renamed
-    engine module must not shadow the new one), and never touches a file outside
-    the bundle trees, so an operator note in the skills directory survives. With no
-    checkout in use it keeps a tool-managed mirror beside the skills directory,
-    created once with `--repo <url>` and updated from then on. The destination
-    is resolved from the host's skills directory - `--dest` names one directly
-    and `--host` selects a host's default - and the mirror sits beside it:
-    `~/.pi/agent/skills/tw` mirrors through
-    `~/.pi/agent/.teamwork-source`, and `--host agents` uses
-    `~/.agents/.teamwork-source`:
+    The npm package ships the `tw` bundle and the companion `tw-learn` skill
+    together, so one update moves both. Pin a version instead of `@latest` when
+    you want a fixed protocol revision - read the published version with
+    `npm view @nidvue/teamwork version` rather than copying a literal from a page,
+    because a number printed here goes stale the day it is tagged.
 
-    ```console
-    $ teamwork refresh --mirror --repo https://github.com/Nidvue/Teamwork.git
-    ```
-
-    After a refresh, **reload the skill** (restart the host session, or re-scan
-    skills) so the new ``SKILL.md`` is read - the command prints that reminder
-    whenever it wrote something. The same command also **loads the lane
-    display**: `swarm run` starts every lane as a detached process, so the picture
-    of the live wave is a host extension that polls `lane list --json`. A host
-    reads extensions from its own directory and its `settings.json`, never from a
-    skills directory - shipping the file is therefore not the same as loading it.
-    `refresh` copies it next to the skills directory and registers it there once
-    (`--no-ui` skips that step), and `teamwork ui status` answers the same
-    question without writing, exiting non-zero when the host would draw nothing.
-
-    Pin a tag when you want a fixed protocol revision instead of `main` - name it
-    with `git tag -l --sort=-v:refname | head -1` rather than copying a literal,
-    because a version printed on a page goes stale the day it is tagged: the
-    checkout is then moved onto that tag's commit *detached* and the refresh
-    prints `pinned to tag <tag>`. It is a read-only mirror of that revision -
-    re-run with `--branch main` to follow the branch again, or name another tag
-    to move the pin.
+    After an update, **reload the skill** (restart the host session, or re-scan
+    skills) so the new `SKILL.md` is read. The **lane display** is a separate host surface: `swarm run` starts
+    every lane as a detached process, so the live wave is drawn by a host
+    extension that polls `lane list --json`. A host reads extensions from its own
+    directory and its `settings.json`, never from a skills directory - shipping
+    the file is therefore not the same as loading it. `teamwork ui install`
+    copies and registers it once, and `teamwork ui status` reports both halves
+    without writing, exiting non-zero when the host would draw nothing. Run
+    `ui status` on hosts that need the lane display registered; hosts that
+    resolve `pi.extensions` from the npm tarball need no extra step.
 
 ## Optional: install the engine on PATH
 
@@ -169,6 +147,7 @@ beside it and the project notices:
 ```console
 $ npm view @nidvue/teamwork version      # the version the registry serves
 $ npm install @nidvue/teamwork           # or your host's own package command
+$ npm install @nidvue/teamwork@latest    # update to the newest published revision
 ```
 
 The registry entry and the newest tag can disagree - the registry learns about a

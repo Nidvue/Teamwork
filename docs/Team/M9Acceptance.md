@@ -10,9 +10,11 @@ Related: [Project](Project.md) · [CHANGELOG](../../CHANGELOG.md) · [README](..
 closed:
 
 - **AC-REL-6 now holds.** The M9 revision was pushed, and CI run 39690418108 on
-  `aaa4457ff7590898f56804cf495e09ccd2687be9` reported **19/19 jobs success**. The installed-skill half of it is a
-  standing condition, not a fact: `refresh --check` re-measures it on every
-  revision, so read the command rather than this sentence.
+  `aaa4457ff7590898f56804cf495e09ccd2687be9` reported **19/19 jobs success**. The published-skill half of it is a
+  standing condition, not a fact: update through npm
+  (`npm install @nidvue/teamwork@latest`, or the host's package command) and check
+  the lane display with `teamwork ui status`, so read those commands rather than
+  this sentence.
 
 Every other row below stands as measured. Read "NOT YET RUN" and "FAIL" as the
 state at `37dc3dbda3`, not as the current state.
@@ -61,7 +63,7 @@ without a measurement.
 | AC-REL-5 | the CHANGELOG records the 1.1.1 anomaly | `grep -n "1\.1\.1" CHANGELOG.md` | `52:- **npm 1.1.1 has no source commit and is listed as an exception.**` (the version number is inside backticks in the file) and `86:## [1.1.1] - 2026-10-20` | **PASS** |
 | AC-REL-6 | CI runs the release-consistency gate | `grep -n "release-consistency" .github/workflows/ci.yml` | `376:  release-consistency:` - a blocking job running `python scripts/check_release_consistency.py --offline --json`, with no `continue-on-error` | **PASS** (the workflow runs the gate) |
 | AC-REL-6 | every workflow is green on the pushed M9 revision | `git rev-list --count origin/main..main` and `gh run list --limit 5` | at the audited revision the local `main` was ahead of `origin/main` and the newest runs were the pre-M9 ones | **CLOSED LATER** - the revision was pushed and CI run 39690418108 on `aaa4457ff7590898f56804cf495e09ccd2687be9` was 19/19 success; not measurable at `37dc3dbda3` |
-| AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` (exit code and the `missing:`/`stale:` rows) | at the audited revision it exited 1: files the tree ships were absent from the installed bundle and installed engine files were older than the tree (§5). The counts are not quoted - they move with every commit | **CLOSED LATER** - the bundle was refreshed and the criterion holds on the published revision; it was **FAIL** at `37dc3dbda3`. It is a standing condition: re-measure it with `python3 scripts/teamwork.py refresh --check` |
+| AC-REL-6 | the published skill matches the remote's `main` | the installed-bundle drift check (exit code and the `missing:`/`stale:` rows; the script was later deleted with the repo-sync function) | at the audited revision it exited 1: files the tree ships were absent from the installed bundle and installed engine files were older than the tree (§5). The counts are not quoted - they move with every commit | **CLOSED LATER** - the criterion holds on the published revision; it was **FAIL** at `37dc3dbda3`. It is a standing condition: re-measure it with `npm view @nidvue/teamwork version` against the tag at the pushed sha and `teamwork ui status` for hosts that need the lane display |
 
 ## 2. What "the merged tree" means here
 
@@ -203,12 +205,12 @@ revisions:
 
 ## 5. The installed skill
 
-`python3 scripts/sync_skill.py --check` exits 1 with a
-`<n> missing, <m> stale, 0 to delete` line and one `missing:`/`stale:` row per
-file. The counts are deliberately not quoted here: they move with every commit
-that touches a bundled file, and the installed copy is refreshed on the release
-lane, not on this one. The claim is the exit code and the class of drift, read
-from the run:
+The installed-bundle drift check (later removed with the repo-sync function)
+exited 1 with a `<n> missing, <m> stale, 0 to delete` line and one
+`missing:`/`stale:` row per file. The counts are deliberately not quoted here:
+they move with every commit that touches a bundled file, and the installed copy
+is now updated on the release lane through npm, not on this one. The claim is the
+exit code and the class of drift, read from the run:
 
 - the installed bundle is missing files the tree ships - including
   `scripts/check_release_consistency.py`, the gate itself, and the harness
@@ -218,21 +220,23 @@ from the run:
   from the installed copy can differ from the checkout. One measured instance:
   the installed `engine.py` lacked `_task_has_execution_evidence`, which made
   `teamwork audit` run from the installed skill report five false "done without
-  evidence" rows while the checkout reported none. The remedy is
-  `teamwork.py refresh` on the release lane, not a re-install here.
+  evidence" rows while the checkout reported none. The remedy is an npm update
+  (`npm install @nidvue/teamwork@latest`) on the release lane, not a re-install
+  here.
 
-AC-REL-6 asks the installed skill to mirror the remote's `main`. The remote's
-`main` was the pre-M9 revision, so the criterion was not measurable until the
-M9 revision was pushed, and the check above failed against the merged tree as
-well - pushing alone would not have made it pass. Both were resolved afterwards:
-the push happened, CI went green on it, and the installed skill was refreshed.
+AC-REL-6 asks the published npm package to match the remote's `main`. The
+remote's `main` was the pre-M9 revision, so the criterion was not measurable
+until the M9 revision was pushed, and the check above failed against the merged
+tree as well - pushing alone would not have made it pass. Both were resolved
+afterwards: the push happened, CI went green on it, and the skill was updated
+through npm.
 
 ## 6. What could not be verified, and why
 
 | Criterion | Status | Reason |
 |---|---|---|
 | AC-REL-6, "every workflow is green on the pushed M9 revision" | **CLOSED LATER** (was **NOT YET RUN**) | at the audited revision the M9 revision was not on the remote, so no CI run existed for it and no green CI was claimed. The revision was pushed later and CI run 39690418108 on `aaa4457ff7590898f56804cf495e09ccd2687be9` was 19/19 success. |
-| AC-REL-6, "the installed skill mirrors the remote's `main`" | **CLOSED LATER** (was **FAIL** against the merged tree) | `sync_skill.py --check` exited 1 at the audited revision. The criterion is a standing condition, so it is re-measured - not asserted - with `python3 scripts/teamwork.py refresh --check`; it held once the bundle was refreshed. |
+| AC-REL-6, "the published skill matches the remote's `main`" | **CLOSED LATER** (was **FAIL** against the merged tree) | the installed-bundle drift check exited 1 at the audited revision. The criterion is a standing condition, so it is re-measured - not asserted - with `npm view @nidvue/teamwork version` against the tag at the pushed sha and `teamwork ui status` for hosts that need the lane display; it held once the skill was updated through npm. |
 
 ## 7. The test this lane adds
 

@@ -28,7 +28,7 @@ screen.
 - 5 minutes per failure (classify + record).
 - 15 minutes per second occurrence (promote to a skill or open the code task).
 - 30 minutes per milestone close (snapshot + age the known issues).
-- 60 minutes per release (promote to the core, `refresh --check`).
+- 60 minutes per release (promote to the core, update via npm).
 - Stop at the stop condition named in each step; a routine that runs past its
   budget without a record is the defect this skill exists to prevent.
 
@@ -58,8 +58,8 @@ screen.
    single-run claim is `confounded` by definition.
 6. **Promote or roll back.** L1 -> L2 needs two occurrences, a trigger, a budget,
    a stop condition and a proof command. L2 -> L3 needs two milestones or
-   projects and a clean guardrail check, then a release and
-   `teamwork refresh --check`. Roll back on a guardrail regression or two
+   projects and a clean guardrail check, then a release and an npm update
+   (`npm install @nidvue/teamwork@latest`). Roll back on a guardrail regression or two
    unmeasured cuts.
 7. **Close the books.** Run `teamwork evolution check`: it exits 1 on a `KI-`
    row past `re_measure_by`, an `EV-` row without a valid verdict, a `PB-` row

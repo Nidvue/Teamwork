@@ -881,10 +881,11 @@ once the copy and the registration are in place. `--dry-run` prints what it woul
 write and writes nothing. The default action is the report, and `--dest` points
 at the agent directory when it is not the default one.
 
-`teamwork refresh` and `scripts/sync_skill.py` run the install as part of the
-mirror, so a refreshed skill is a loaded one; `refresh --check` fails when the
-host would not load it, and `refresh --no-ui` keeps the mirror-only behaviour for
-a host that has no extension surface.
+An npm install or update writes the skill files but does not register the lane
+display there: `teamwork ui install` does it once, and `teamwork ui status`
+reports both halves without writing, exiting `1` when the host would draw
+nothing. A host that resolves `pi.extensions` from the npm tarball needs no
+extra step.
 
 ## Memory
 

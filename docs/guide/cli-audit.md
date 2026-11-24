@@ -5,7 +5,7 @@ Owner: Technical Writer.
 Related: [Home](../index.md) · [CLI reference](cli.md)
 
 The audit trail and the controls that read it: ledger, trace, coordination,
-throughput, graph, hunt, loop, refresh, model routing and the auxiliary scripts.
+throughput, graph, hunt, loop, model routing and the auxiliary scripts.
 
 This page is one part of the [CLI reference](cli.md) set; the overview lists every group.
 
@@ -220,42 +220,6 @@ $ teamwork hunt 'flaky tests' --run './scripts/flaky.sh' --by ceo
 
 > STOP - converged after 3 round(s): 2 dry round(s) in a row
 ```
-
-### `refresh`
-
-```text
-teamwork refresh [--dest DIR] [--host HOST] [--source DIR] [--repo URL]
-                 [--remote origin] [--branch main] [--mirror]
-                 [--no-fetch] [--check] [--dry-run] [--quiet]
-```
-
-Keep the **installed** skill equal to the remote. The host loads the copy in its
-skills directory, not the checkout, so updating one without the other leaves the
-agent reading stale text - measured once on this machine as an old `SKILL.md`
-plus 8 engine modules that were simply missing.
-
-1. Resolve the source: `--source`, else `$TEAMWORK_SOURCE`, else the bundle in
-   use when it is a git checkout, else the tool-managed mirror checkout
-   `.teamwork-source` (`--mirror` forces that case). The mirror sits beside the
-   skills directory, one level higher when that directory is literally named
-   `skills`. The destination is resolved from the host's skills directory -
-   `--dest` names one directly, `--host` selects a host's default - so
-   `~/.pi/agent/skills/tw` mirrors through
-   `~/.pi/agent/.teamwork-source`, and `--host agents` uses
-   `~/.agents/.teamwork-source`.
-2. In a checkout: fetch `--remote/--branch` and fast-forward. A dirty tree is
-   never clobbered - the checkout is mirrored as it stands and the command says
-   "fast-forward skipped".
-3. Mirror into `--dest` (default the host's skills directory). Files the source
-   no longer ships are deleted, files outside the bundle trees are never touched,
-   and a stale `__pycache__` is removed.
-4. Print the reminder to reload the host when anything was written.
-
-`--check` reports drift and exits `1` without writing; `--dry-run` prints the
-file plan; `--no-fetch` mirrors the local checkout only (`--repo` is required
-just once, to create the mirror). `scripts/sync_skill.py` and `make sync-skill` /
-`make sync-check` are the same mirror for a checkout that has no `teamwork` on
-`PATH`.
 
 ### `version`
 

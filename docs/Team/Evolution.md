@@ -89,7 +89,7 @@ so.**
 | any self-check or review failure | 5 min | classify, record, assign; a T-class opens a code task with a repro | a task or an existing skill is named | author |
 | the same finding a second time | 15 min | promote `L1 -> L2`, or open the T/P task | the skill or task exists | role owner |
 | every milestone close | 30 min | snapshot §5, age §9, decide promotions and rollbacks | one row per book updated | COO |
-| every release | 60 min | promote `L2 -> L3`, `refresh --check`, changelog | new version green | CTO |
+| every release | 60 min | promote `L2 -> L3`, npm update (`npm install @nidvue/teamwork@latest`), changelog | new version green | CTO |
 | two projects reproduce a rule | half a day | generalize into `SKILL.md` / `references/` | a decision is recorded | CEO |
 
 | activity | CEO | CTO | COO | Reviewer | Security |

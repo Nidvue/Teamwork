@@ -39,10 +39,10 @@ install carries the renderer and still draws nothing. `teamwork.py ui install`
 copies the shipped file to `<agent>/extensions/` and appends
 `extensions/tw-status.ts` to `<agent>/settings.json` once; `ui status`
 reports both halves without writing and fails when the host would draw nothing.
-`refresh` and `scripts/sync_skill.py` run the same install after mirroring, and
-their `--check` fails on a display the host would not load (`refresh --no-ui`
-keeps a mirror-only run). `pi install npm:@nidvue/teamwork` needs none of this:
-the package declares `pi.extensions`, so the host loads it from the tarball.
+An npm install or update only refreshes the skill files: run `teamwork ui install`
+once on a host that needs the display registered, then use `ui status` to check.
+`pi install npm:@nidvue/teamwork` needs none of this: the package declares
+`pi.extensions`, so the host loads it from the tarball.
 
 ## Host mapping for operation 1
 
@@ -176,23 +176,25 @@ nothing unless the user's explicit demand switches it with
 `model auto --apply --allow-switch --reason '<who asked>'`. `TEAMWORK_AGENT_HOST`
 pins detection when the markers are ambiguous. Policy: [Concurrency](Concurrency.md).
 
-## The skill copy is the thing that runs
+## Update the skill copy through npm
 
 Every host reads a *copy* of this skill from its skills directory, so the copy has
-to follow the remote. One command owns that on every host:
+to follow the published revision. Install and update it through npm, or your
+host's own package command:
 
 ```sh
-teamwork refresh            # fetch origin/main, then mirror into the host's skills dir
-teamwork refresh --check    # drift only, writes nothing, exit 1 when stale
-teamwork refresh --dest ~/.agents/skills/tw   # another host's directory
-teamwork refresh --mirror --repo <url>             # no checkout yet: create the mirror once
+npm install @nidvue/teamwork          # first install
+npm install @nidvue/teamwork@latest   # update to the newest published revision
 ```
 
-Measured failure this prevents: a host copy with an old `SKILL.md` and eight
-engine modules missing - the engine imported `config`/`gitutil`/`records` fine
-from the checkout and failed from the installed copy. A dirty checkout is
-mirrored, never reset; files the source dropped are deleted; a host reload is
-required after a write and the command says so.
+The package ships the `tw` bundle and the companion `tw-learn` skill together,
+so one update moves both. Reload the skill in the host after an update. Measured
+failure this prevents: a host copy with an old `SKILL.md` and eight engine
+modules missing - the engine imported `config`/`gitutil`/`records` fine from the
+checkout and failed from the installed copy. For a host that needs the lane
+display registered, `teamwork ui status` reports both halves without writing and
+exits non-zero when the host would draw nothing; `teamwork ui install` registers
+it once.
 
 ## Rules that cost us real time
 

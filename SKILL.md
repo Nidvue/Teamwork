@@ -331,9 +331,9 @@ Both duties are evidence: `tests plan` and the task record name the local result
   actual settings and re-read them to detect drift. Per-host mapping:
   `references/Remotes.md`.
 
-### 5e. Keep the installed skill on the remote's `main`
+### 5e. Install and update through npm
 
-The host loads a **copy** of the skill, so a copy that drifts from `origin/main` silently keeps reading an old protocol. `teamwork.py refresh` fast-forwards a checkout source and mirrors the bundle into the skills directory; `--check` reports drift and exits 1 when stale, `--dry-run` prints the plan. A dirty checkout is mirrored, never reset. Run it at startup and after every push, and reload the skill afterwards. The same command also installs the **lane display** - the extension that draws the live wave - because a skills directory is never read as an extension directory, so shipping the file is not loading it. `init` does it too, by default: bootstrapping in a host that has an agent directory draws the wave without another command, and `init --no-ui` or `TEAMWORK_UI=off` opts out. `ui status` reports both halves without writing, `--no-ui` keeps a mirror-only run, and `--check` fails when the host would draw nothing. Full behaviour: `references/Adapters.md`.
+The host loads a **copy** of the skill, so a copy that drifts from the published revision silently keeps reading an old protocol. Install and update through npm (`npm install @nidvue/teamwork@latest`, or your host's own package command) rather than mirroring a checkout; the package ships the `tw` bundle and the companion `tw-learn` skill together. Reload the skill in the host after an update. The **lane display** is a separate host surface: `swarm run` starts every lane as a detached process, so the live wave is drawn by an extension that polls `lane list --json`, and a skills directory is never read as an extension directory - shipping the file is not loading it. `teamwork ui install` copies and registers it once and `teamwork ui status` reports both halves without writing, exiting non-zero when the host would draw nothing; `ui status` remains the lane-display check. `init` registers it by default in a host with an agent directory; `init --no-ui` or `TEAMWORK_UI=off` opts out. Full behaviour: `references/Adapters.md`.
 ### 5f. Keep lanes decorrelated
 
 Identical lanes make identical mistakes: same model, same context, same queue.
@@ -581,7 +581,7 @@ the one you need instead of the whole skill.
 | `references/Roles.md` | the roster, handoffs, decision rights, the intern protocol |
 | `references/Testing.md` | the role-owned test layers, dedupe, required coverage |
 | `references/Audit.md` | provenance, the ledger, internal and external audit |
-| `references/Adapters.md` | host operations, installation, refresh, degraded modes |
+| `references/Adapters.md` | host operations, installation, npm updates, degraded modes |
 | `references/Remotes.md` | git-host integrity: protection, checks, merge, tags |
 | `references/Loops.md` | loops, the task graph, failure routing, who signs off |
 
@@ -600,9 +600,9 @@ revision, records the licence before the code, forces the comparison onto one ax
 at a time, requires a decision with a falsifier, and forbids the paste. A study with
 no verdict, no contrast and no revision is a summary, not a deliverable.
 
-`skills/tw-learn/SKILL.md` in this checkout is the source; `make sync-skill`
-mirrors it to `<skills>/tw-learn` and `sync-check` fails on drift, the same
-way the main bundle is kept true.
+`skills/tw-learn/SKILL.md` in this checkout is the source, and the npm package
+ships it beside the `tw` bundle, so one npm install or update gives you both
+skills together.
 
 ## The bus and the claim register
 

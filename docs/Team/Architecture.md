@@ -42,7 +42,6 @@ Teamwork/
 │   ├── attention.py          # team-local attention items + the task stage table
 │   ├── autostar.py           # silent detached best-effort star at init; GitHub state is the idempotency source
 │   ├── board.py              # docs/Team/Board.md: render both task tables from the queues, check them
-│   ├── bundle.py             # the bundle manifest + the mirror (sync/refresh one source of truth)
 │   ├── claims.py             # the live claim register: add/check/list/release, refuses an overlap
 │   ├── cli.py                # main(argv) -> int, delegates to engine.main
 │   ├── config.py             # workspace paths, record names, caps
@@ -82,7 +81,6 @@ Teamwork/
 │   ├── check_comments.py      # the no-comment gate (make lint)
 │   ├── ci_scope.py            # classify a change set into the code/prose gate answers
 │   ├── lane_proof.py         # the repeatable plugin-free fan-out proof (T-0037)
-│   ├── sync_skill.py         # mirror this checkout into an installed skills dir (make sync-skill)
 │   ├── render_social_preview.py  # draw assets/social-preview.png from the README pitch
 │   └── privacy_scan.py       # tree + history privacy gate
 ├── tests/{unit,integration,acceptance}/  # pytest
@@ -111,7 +109,7 @@ Teamwork/
 | project-manager | `docs/Team/Plan.md`, `docs/Team/Board.md` |
 | coo | `docs/Team/Risks.md` |
 | cfo | `docs/Team/Costs.md` |
-| ceo | `SKILL.md`, `roles/**`, `references/**`, `templates/AGENTS.md`, `templates/TeamMap.md`, `templates/pi-package/**`, `.agents/skills/**`, `scripts/build_pi_package.py`, `scripts/sync_skill.py`, `docs/Team/Project.md`, `docs/Team/Pi-Packaging.md`, `docs/Team/Archive.md`, `docs/Team/AuditManifest.*`, `release-exceptions.json`, `docs/Team/Decisions.md` (governance entries) |
+| ceo | `SKILL.md`, `roles/**`, `references/**`, `templates/AGENTS.md`, `templates/TeamMap.md`, `templates/pi-package/**`, `.agents/skills/**`, `scripts/build_pi_package.py`, `docs/Team/Project.md`, `docs/Team/Pi-Packaging.md`, `docs/Team/Archive.md`, `docs/Team/AuditManifest.*`, `release-exceptions.json`, `docs/Team/Decisions.md` (governance entries) |
 
 ## 3. Resource-resolution contract (`resources.py`)
 
@@ -3046,7 +3044,6 @@ so the "budget" in the attention line named the clock, not the cause.
 | `pulse` | reconcile, then size and dispatch the next wave; `--no-spawn` reports only |
 | `slot acquire/renew/release` | the concurrency lease; a lane holds one while it runs |
 | `status` | live state of every instance: busy/idle, task, elapsed |
-| `refresh` | reconcile the records against the host: kill at the deadline, release the slot, fold a finished lane |
 | `task reclaim` | move a stranded claim; refuses a live lane |
 
 Subcommand flags, output rows and exit codes are frozen in
@@ -3062,7 +3059,7 @@ this table freezes which verb exists and what it promises, not its formatting.
   is stalled, not running: the row is reported by `status`/`board` and may be
   reclaimed to an idle instance. Reclaim moves the claim, never the work.
 - **The supervisor owns the ending.** Deadline, silence and process exit are read
-  by `refresh`, which writes the terminal state, the outcome file and the slot
+  by `pulse`, which writes the terminal state, the outcome file and the slot
   release. A lane that writes its own terminal state is a defect.
 - **A slot is released exactly once.** `slot_released` on the record is the
   marker; a lane killed by the deadline still releases through the supervisor, so

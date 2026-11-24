@@ -186,7 +186,7 @@ states the verifiable claim and the command that produces its evidence.
 | AC-REL-3 | the git tag for the published npm version points at the commit that version was published from, and its GitHub Release carries the wheel, the sdist, `SHA256SUMS` and both SBOMs | `git rev-list -n1 v1.1.2`, `gh release view v1.1.2 --json assets` | release-engineer |
 | AC-REL-4 | `README.md`, `docs/guide/install.md` and `docs/Team/Release.md` print no install command that cannot work, no version older than `src/teamwork/version.py` and no tag that does not exist | `python3 scripts/check_release_consistency.py --offline` (R6, R9), `python3 scripts/check_release_consistency.py --online` (R8), `python3 -m pytest -q tests/unit/test_release_consistency.py tests/unit/test_release_consistency_r8.py` | ceo |
 | AC-REL-5 | the version on `main` is strictly greater than every published and tagged version, and `CHANGELOG.md` records the npm-only 1.1.1 anomaly with its reason | `grep __version__ src/teamwork/version.py`, `git tag -l`, `npm view @nidvue/teamwork versions`, `grep -n '^## ' CHANGELOG.md` | ceo |
-| AC-REL-6 | CI runs the release-consistency gate, every workflow is green on the pushed revision, and the installed skill mirrors it | `gh run list --workflow=ci.yml --commit <pushed sha>`, `python3 scripts/teamwork.py refresh --check` | release-engineer |
+| AC-REL-6 | CI runs the release-consistency gate, every workflow is green on the pushed revision, and the npm package serves that revision; falsifier: a served version whose tag payload digest differs, or a red workflow on the pushed sha | `gh run list --workflow=ci.yml --commit <pushed sha>`, `python3 scripts/check_release_consistency.py --offline` (R3), `npm view @nidvue/teamwork version` | release-engineer |
 
 ## Harness^2 adoption (M9 on the published line, closed)
 
@@ -435,12 +435,12 @@ names that consumer; a bare count is the number of files naming the path.
 | `scripts/build_pi_package.py` | live | `grep -l scripts/build_pi_package.py` -> 9 (Makefile, Architecture.md, Archive.md, +6) | kept |
 | `scripts/check_release_consistency.py` | live | `grep -l scripts/check_release_consistency.py` -> 19 (ci.yml, release.yml, CHANGELOG.md, +16) | kept |
 | `scripts/privacy_scan.py` | live | `grep -l scripts/privacy_scan.py` -> 29 (PULL_REQUEST_TEMPLATE.md, privacy-allow.txt, ci.yml, +26) | kept |
-| `scripts/sync_skill.py` | live | `grep -l scripts/sync_skill.py` -> 8 (Makefile, Architecture.md, Archive.md, +5) | kept |
+| `scripts/` repo-sync script (removed) | deleted by D-20261124-CEO-5 | the checkout-to-skills mirror and its Makefile targets are gone; `D-20261124-CEO-5` names the file and npm install/update is the documented path | removed |
 | `scripts/teamwork.py` | live | `grep -l scripts/teamwork.py` -> 46 (ci.yml, docs.yml, CHANGELOG.md, +43) | kept |
 | `scripts/verify_release.py` | live | `grep -l scripts/verify_release.py` -> 20 (ci.yml, release.yml, CONTRIBUTING.md, +17) | kept |
 | `src/teamwork/__init__.py` | live | package entry point (`pyproject.toml` / `python -m teamwork`) | kept |
 | `src/teamwork/__main__.py` | live | package entry point (`pyproject.toml` / `python -m teamwork`) | kept |
-| `src/teamwork/bundle.py` | live | imported by 4 module(s): build_pi_package.py, sync_skill.py, engine.py, +1 | kept |
+| `src/teamwork/bundle.py` | deleted by D-20261124-CEO-5 | the mirroring helpers were removed with the repo-sync function; the npm package ships the bundle directly | removed |
 | `src/teamwork/cli.py` | live | imported by 4 module(s): teamwork.py, __main__.py, test_context_economy.py, +1 | kept |
 | `src/teamwork/config.py` | live | imported by 15 module(s): engine.py, harness.py, hooks.py, +12 | kept |
 | `src/teamwork/engine.py` | live | imported by 42 module(s): cli.py, harness.py, conftest.py, +39 | kept |
