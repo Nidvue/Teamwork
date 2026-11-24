@@ -31,10 +31,14 @@ against the real files, not assumed.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
+from tests.gitenv import child_env
 from workflow_yaml import parse_workflow
+
+from teamwork import engine
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CI_PATH = ".github/workflows/ci.yml"
@@ -1269,3 +1273,126 @@ def test_mutant_a_dropped_scope_flag_is_reported():
 
     problems = scope_problems(parse_workflow(mutant))
     assert any("passes --head-is-default-branch 0x" in problem for problem in problems), problems
+
+
+GRADE_ROSTER = "ceo,developer-1,tester-1,reviewer-1,reviewer-2"
+
+
+def _grade_git(project: Path, *args: str) -> str:
+    env = child_env(
+        GIT_AUTHOR_NAME="Test",
+        GIT_AUTHOR_EMAIL="test@example.com",
+        GIT_COMMITTER_NAME="Test",
+        GIT_COMMITTER_EMAIL="test@example.com",
+    )
+    result = subprocess.run(
+        ["git", "-C", str(project), *args], capture_output=True, text=True, env=env
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
+
+
+def _grade_seed(cli, project: Path) -> Path:
+    _grade_git(project, "init", "-q", "-b", "main")
+    (project / ".gitignore").write_text(".pi/\n", encoding="utf-8")
+    (project / "README.md").write_text("base\n", encoding="utf-8")
+    _grade_git(project, "add", ".")
+    _grade_git(project, "commit", "-qm", "base")
+    assert cli("--project", project, "init", "--agents", GRADE_ROSTER, "--no-git") == 0
+    _grade_git(project, "checkout", "-q", "-b", "work")
+    (project / "README.md").write_text("base\nfixed\n", encoding="utf-8")
+    _grade_git(project, "add", "README.md")
+    _grade_git(project, "commit", "-qm", "fix")
+    return (
+        project / engine.TEAM_ROOT_DIR / engine.TEAMS_SUBDIR / engine.team_slug(project)
+    ).resolve()
+
+
+def _grade_run(cli, project: Path, evidence: str, *extra: str) -> int:
+    assert (
+        cli(
+            "--project",
+            project,
+            "tests",
+            "add",
+            "--layer",
+            "integration",
+            "--area",
+            "demo",
+            "--owner",
+            "tester-1",
+            "--command",
+            "echo hi",
+        )
+        == 0
+    )
+    return cli(
+        "--project",
+        project,
+        "tests",
+        "run",
+        "TS-0001",
+        "--by",
+        "tester-1",
+        "--result",
+        "pass",
+        "--evidence",
+        evidence,
+        *extra,
+    )
+
+
+def test_a_passing_tests_run_refuses_noise_evidence(cli, project: Path, capsys) -> None:
+    root = _grade_seed(cli, project)
+    assert _grade_run(cli, project, "looks good") != 0
+    assert "cannot carry noise evidence" in capsys.readouterr().err
+    assert engine.parse_tests(engine.tests_path(root))[0]["status"] == "pending"
+
+
+def test_a_passing_tests_run_accepts_strong_evidence(cli, project: Path) -> None:
+    root = _grade_seed(cli, project)
+    assert _grade_run(cli, project, "echo hi @fa10389 -> 0 passed") == 0
+    assert engine.parse_tests(engine.tests_path(root))[0]["status"] == "passing"
+
+
+def test_a_passing_tests_run_force_records_the_deliberate_noise(cli, project: Path) -> None:
+    root = _grade_seed(cli, project)
+    assert _grade_run(cli, project, "looks good", "--force", "seed a regression fixture") == 0
+    record = engine.parse_tests(engine.tests_path(root))[0]
+    assert record["status"] == "passing"
+    assert "seed a regression fixture" in record["forced"]
+
+
+def _grade_credit_setup(cli, project: Path, root: Path, evidence: str, *extra: str) -> dict:
+    assert _grade_run(cli, project, evidence, *extra) == 0
+    rev = _grade_git(project, "rev-parse", "--short", "work")
+    records = engine.parse_tests(engine.tests_path(root))
+    records[0]["rev"] = rev
+    records[0]["epoch"] = engine.ctxepoch.epoch()
+    engine.write_tests(engine.tests_path(root), records)
+    task = engine.new_task("grade the run")
+    task.update(
+        priority="P1",
+        area="engine",
+        claimed_by="Developer-1",
+        branch="work",
+        base="main",
+        status="review",
+    )
+    engine.write_tasks(engine.task_file(root, "developer"), [task], "developer")
+    return task
+
+
+def test_a_forced_noise_record_is_never_creditable(cli, project: Path) -> None:
+    root = _grade_seed(cli, project)
+    task = _grade_credit_setup(cli, project, root, "looks good", "--force", "fixture")
+    assert engine.creditable_tests(root, "developer", task)[0] == []
+    assert "noise evidence" in engine.credit_refusal(root, "developer", task, "TS-0001")
+
+
+def test_a_strong_record_stays_creditable(cli, project: Path) -> None:
+    root = _grade_seed(cli, project)
+    task = _grade_credit_setup(cli, project, root, "echo hi @fa10389 -> 0 passed")
+    assert [record["id"] for record in engine.creditable_tests(root, "developer", task)[0]] == [
+        "TS-0001"
+    ]

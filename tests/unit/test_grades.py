@@ -60,6 +60,12 @@ def test_a_bare_revision_is_medium_not_strong() -> None:
     assert evidence_grade("@9e2955a") == "medium"
 
 
+def test_a_tests_run_result_is_strong_and_a_self_assessment_is_noise() -> None:
+    """The boundary `tests run --result pass` grades against (T-0005)."""
+    assert evidence_grade("echo hi @fa10389 -> 0 passed") == "strong"
+    assert evidence_grade("looks good") == "noise"
+
+
 def test_an_ordinary_diff_is_one_revert_away() -> None:
     assert undo_class([("src/teamwork/board.py", 4, 1)]) == ("revert", "one revert undoes it")
 

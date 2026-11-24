@@ -2812,6 +2812,16 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
             force = require_reason(force, "running another role's layer")
         if not (args.evidence or "").strip():
             die("a run needs --evidence '<command> @<rev> -> <result>'")
+        grade = grades.evidence_grade(args.evidence)
+        if args.result == "pass" and not force and grade in ("noise", "none"):
+            die(
+                f"a passing test run cannot carry {grade} evidence: {args.evidence.strip()!r}\n"
+                "  A self-assessment is produced by a failing tree just as easily as by a\n"
+                "  passing one. Record a result a program produced ('-> 12 passed',\n"
+                "  'exit 0', '# issues: 0'), a pointer ('path:line', '@<rev>', TS-nnnn),\n"
+                "  or pass --force '<why this run deliberately carries noise>'.",
+                2,
+            )
         artifacts = artifact_digests(root, getattr(args, "artifact", None))
         rec["status"] = "passing" if args.result == "pass" else "failing"
         rec["evidence"] = args.evidence.strip()
@@ -11671,12 +11681,13 @@ def creditable_tests(root: Path, role: str, task: dict) -> tuple:
     revision under review.
 
     A credit is a *result on a revision*, never an opinion: the record must be
-    passing, its revision must be the one under review, and the role that ran it
-    must not be the author's role. A record at another revision is stale and is
-    counted as such - the tree moved and the run has to follow it. A record at
-    this revision written in an earlier compaction of the *citing session* is
-    counted as context_stale: the tree did not move, but the model no longer
-    holds the output it saw, so the citation is a summary echo until it is re-run.
+    passing, its evidence must grade above noise, its revision must be the one
+    under review, and the role that ran it must not be the author's role. A
+    record at another revision is stale and is counted as such - the tree moved
+    and the run has to follow it. A record at this revision written in an earlier
+    compaction of the *citing session* is counted as context_stale: the tree did
+    not move, but the model no longer holds the output it saw, so the citation is
+    a summary echo until it is re-run.
     """
     rev = review_revision(root, task)
     if not rev:
@@ -11686,6 +11697,8 @@ def creditable_tests(root: Path, role: str, task: dict) -> tuple:
     credits, stale, context_stale = [], 0, 0
     for record in parse_tests(tests_path(root)):
         if record.get("status") != "passing":
+            continue
+        if grades.evidence_grade(record.get("evidence") or "") in ("noise", "none"):
             continue
         by_role = actor_role(root, record.get("by") or record.get("owner") or "")
         if not by_role or by_role == author_role:
@@ -11741,6 +11754,12 @@ def credit_refusal(root: Path, role: str, task: dict, handle: str) -> str:
         return f"no test record {handle} (see `teamwork.py tests list`)"
     if record.get("status") != "passing":
         return f"{record['id']} is {record.get('status') or 'pending'}, not passing"
+    grade = grades.evidence_grade(record.get("evidence") or "")
+    if grade in ("noise", "none"):
+        return (
+            f"{record['id']} carries {grade} evidence: {record.get('evidence') or '-'} - "
+            "an opinion is not a result; re-run the command and record what it produced"
+        )
     by_role = actor_role(root, record.get("by") or record.get("owner") or "")
     if by_role and by_role == author_role:
         return (
