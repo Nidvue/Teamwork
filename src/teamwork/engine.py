@@ -201,6 +201,7 @@ from .gitutil import (
     current_branch,
     ensure_lfs,
     ensure_longpaths,
+    git_timeout,
     ignored_files,
     is_binary_content,
     is_git_repo,
@@ -1972,6 +1973,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 input=rec_msg,
                 capture_output=True,
                 text=True,
+                timeout=git_timeout(),
                 env=_merge_commit_env(here, producer),
             )
             if rr.returncode != 0:
@@ -2016,6 +2018,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                         input=message,
                         capture_output=True,
                         text=True,
+                        timeout=git_timeout(),
                         env=_merge_commit_env(here, producer),
                     )
                 merged = r
@@ -2624,6 +2627,9 @@ def _inside(path: Path, base: Path) -> bool:
     return True
 
 
+MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
+
+
 def artifact_digest(root: Path, raw: str, cwd: Path | None = None) -> str:
     """``rel:sha256[:16]:bytes`` for an evidence file that must exist right now.
 
@@ -2685,7 +2691,13 @@ def artifact_digest(root: Path, raw: str, cwd: Path | None = None) -> str:
         rel = path.relative_to(holder or tree)
     except ValueError:
         die(f"artifact outside the project: {raw} - keep evidence inside the repository")
-    data = path.read_bytes()
+    with path.open("rb") as handle:
+        data = handle.read(MAX_ARTIFACT_BYTES + 1)
+    if len(data) > MAX_ARTIFACT_BYTES:
+        die(
+            f"artifact {raw} is larger than {MAX_ARTIFACT_BYTES} bytes; "
+            "evidence must name a file a reviewer can read in full"
+        )
     return f"{rel.as_posix()}:{hashlib.sha256(data).hexdigest()[:16]}:{len(data)}"
 
 
@@ -6249,6 +6261,7 @@ def _git_author(project: Path, env: dict) -> tuple:
         ["git", "-C", str(project), "var", "GIT_AUTHOR_IDENT"],
         capture_output=True,
         text=True,
+        timeout=git_timeout(),
         env=env,
     )
     match = re.match(r"^(.*?) <(.*?)> ", r.stdout.strip()) if r.returncode == 0 else None
@@ -6374,7 +6387,7 @@ def cmd_commit(args) -> int:
         return 0
 
     for cmd in adds:
-        r = subprocess.run(cmd, capture_output=True, text=True)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=git_timeout())
         if r.returncode != 0:
             die(f"git add failed: {r.stderr.strip()}")
     staged = run_git(project, "diff", "--cached", "--name-only").stdout.strip()
@@ -6420,6 +6433,7 @@ def cmd_commit(args) -> int:
         input=message,
         capture_output=True,
         text=True,
+        timeout=git_timeout(),
         env=identity_env,
     )
     if r.returncode != 0:
@@ -9250,6 +9264,7 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
             input=msg,
             capture_output=True,
             text=True,
+            timeout=git_timeout(),
             env=dict(os.environ, **git_identity_env("ceo", project)),
         )
         if r.returncode == 0 and not quiet:
@@ -15321,6 +15336,7 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
         input=message,
         capture_output=True,
         text=True,
+        timeout=git_timeout(),
         env=_merge_commit_env(repo, producer),
     )
     if committed.returncode != 0:
@@ -15425,6 +15441,8 @@ def _path_shaped(token: str) -> bool:
 
 def _every_occurrence_is_a_path(text: str, value: str) -> bool:
     """True when every occurrence of ``value`` sits inside a path-shaped token."""
+    if not value:
+        return True
     start = 0
     while True:
         index = text.find(value, start)
@@ -15674,6 +15692,7 @@ def commit_archive_merge_sha(
         input=close_msg,
         capture_output=True,
         text=True,
+        timeout=git_timeout(),
         env=_merge_commit_env(here, producer),
     )
     if committed.returncode != 0:
@@ -18011,6 +18030,7 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
         input=message,
         capture_output=True,
         text=True,
+        timeout=git_timeout(),
         env=_merge_commit_env(repo, producer),
     )
     if committed.returncode != 0:

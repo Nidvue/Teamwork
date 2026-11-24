@@ -139,6 +139,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -189,6 +190,8 @@ GITHUB_RELEASES = "https://api.github.com/repos/Nidvue/Teamwork/releases"
 PYPI_JSON = "https://pypi.org/pypi/teamwork-agents/json"
 USER_AGENT = "teamwork-release-consistency/1.0 (+https://github.com/Nidvue/Teamwork)"
 HTTP_TIMEOUT = 20
+HTTP_TOTAL_DEADLINE = 30
+HTTP_RESPONSE_MAX_BYTES = 32 * 1024 * 1024
 
 ILLUSTRATIVE = "<!-- release-consistency: illustrative -->"
 CHANNEL_UNAVAILABLE = "<!-- release-consistency: channel-unavailable -->"
@@ -403,10 +406,23 @@ def _request_headers(url: str) -> dict[str, str]:
 
 def _http_get(url: str) -> bytes:
     request = urllib.request.Request(url, headers=_request_headers(url))
+    deadline = time.monotonic() + HTTP_TOTAL_DEADLINE
     try:
         with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response:
             status = getattr(response, "status", 200)
-            body = response.read()
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                if time.monotonic() >= deadline:
+                    raise InputError(f"{url}: response exceeded {HTTP_TOTAL_DEADLINE}s")
+                chunk = response.read(min(64 * 1024, HTTP_RESPONSE_MAX_BYTES + 1 - total))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                total += len(chunk)
+                if total > HTTP_RESPONSE_MAX_BYTES:
+                    raise InputError(f"{url}: response larger than {HTTP_RESPONSE_MAX_BYTES} bytes")
+            body = b"".join(chunks)
     except urllib.error.HTTPError as exc:
         raise HttpError(url, exc.code) from exc
     except (urllib.error.URLError, OSError, ValueError) as exc:

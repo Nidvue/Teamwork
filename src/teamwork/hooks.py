@@ -87,6 +87,14 @@ CHAIN_SUFFIX = ".teamwork-foreign"
 
 SHIM_INTERPRETER = "python3"
 
+HOOK_TIMEOUT_SECONDS = 300
+
+MAX_REFSPEC_BYTES = 1024 * 1024
+
+
+class RefspecTooLarge(Exception):
+    """git handed the pre-push hook more input than it is willing to parse."""
+
 
 def chained_hook(path: Path) -> Path:
     """The preserved foreign hook that the stage at ``path`` chains, or would chain."""
@@ -112,9 +120,16 @@ if [ ! -f "$root/scripts/teamwork.py" ]; then
   echo "teamwork: @STAGE@ hook: $root/scripts/teamwork.py is missing, so the rules cannot run; refusing rather than failing open. Restore the file, run 'teamwork.py hooks uninstall', or bypass deliberately with TEAMWORK_SKIP_HOOKS=1." >&2
   exit 1
 fi
+run_bounded() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout @HOOK_TIMEOUT@ "$@"
+  else
+    "$@"
+  fi
+}
 """
 
-SHIM_EXEC = 'exec @INTERP@ "$root/scripts/teamwork.py" hook @STAGE@ "$@"\n'
+SHIM_EXEC = 'run_bounded @INTERP@ "$root/scripts/teamwork.py" hook @STAGE@ "$@"\n'
 
 SHIM_REFSPECS = """\
 # git hands pre-push the refspec list on stdin and BOTH hooks need it: copy it
@@ -125,7 +140,7 @@ refspecs=$(mktemp "${TMPDIR:-/tmp}/teamwork-@STAGE@.XXXXXX") || {
 }
 trap 'rm -f "$refspecs"' 0
 cat > "$refspecs"
-@INTERP@ "$root/scripts/teamwork.py" hook @STAGE@ "$@" < "$refspecs"
+run_bounded @INTERP@ "$root/scripts/teamwork.py" hook @STAGE@ "$@" < "$refspecs"
 """
 
 SHIM_CHAIN = """\
@@ -160,18 +175,24 @@ def shim(stage: str, chain: bool = False) -> str:
     as ``<stage>.teamwork-foreign``: the rules run first and the preserved hook
     runs after them with the same arguments - and, on ``pre-push``, with the same
     stdin, which is why git's refspec list is copied through a temporary file
-    rather than piped to a hook that would starve the other one.
+    rather than piped to a hook that would starve the other one. Every hook this
+    shim starts is capped at :data:`HOOK_TIMEOUT_SECONDS` when ``timeout(1)`` is
+    available, so a hook that never returns cannot park the push or commit.
     """
-    head = SHIM_HEAD.replace("@MARKER@", HOOK_MARKER).replace("@STAGE@", stage)
+    head = (
+        SHIM_HEAD.replace("@MARKER@", HOOK_MARKER)
+        .replace("@STAGE@", stage)
+        .replace("@HOOK_TIMEOUT@", str(HOOK_TIMEOUT_SECONDS))
+    )
     if not chain:
         tail = SHIM_EXEC
         return head + tail.replace("@INTERP@", SHIM_INTERPRETER).replace("@STAGE@", stage)
     if stage == "pre-push":
         before = SHIM_REFSPECS.replace("@INTERP@", SHIM_INTERPRETER).replace("@STAGE@", stage)
-        after = '"$chained" "$@" < "$refspecs"\n'
+        after = 'run_bounded "$chained" "$@" < "$refspecs"\n'
     else:
-        before = f'{SHIM_INTERPRETER} "$root/scripts/teamwork.py" hook {stage} "$@"\n'
-        after = '"$chained" "$@"\n'
+        before = f'run_bounded {SHIM_INTERPRETER} "$root/scripts/teamwork.py" hook {stage} "$@"\n'
+        after = 'run_bounded "$chained" "$@"\n'
     tail = SHIM_CHAIN.replace("@SUFFIX@", CHAIN_SUFFIX).replace("@STAGE@", stage)
     return head + tail.replace("@BEFORE@", before).replace("@AFTER@", after)
 
@@ -621,17 +642,23 @@ def is_ancestor(project: Path, older: str, newer: str) -> bool:
 
 
 def pushed_refspecs() -> list:
-    """git's pre-push stdin: ``<local ref> <local sha> <remote ref> <remote sha>``."""
+    """git's pre-push stdin: at most :data:`MAX_REFSPEC_BYTES`, one line at a time."""
     stream = sys.stdin
     if stream is None:
         return []
     try:
         if stream.isatty():
             return []
-        data = stream.read()
+        total = 0
+        lines: list[str] = []
+        for line in stream:
+            total += len(line)
+            if total > MAX_REFSPEC_BYTES:
+                raise RefspecTooLarge(f"refspec list larger than {MAX_REFSPEC_BYTES} bytes")
+            lines.append(line)
     except (OSError, ValueError):  # pragma: no cover
         return []
-    return [line.split() for line in data.splitlines() if line.strip()]
+    return [line.split() for line in lines if line.strip()]
 
 
 def check_push(project: Path, refspecs: list) -> int:
@@ -681,7 +708,12 @@ def cmd_hook(args) -> int:
     project = git_root(args)
     if args.hook_cmd == "pre-commit":
         return check_commit(project)
-    return check_push(project, pushed_refspecs())
+    try:
+        refspecs = pushed_refspecs()
+    except RefspecTooLarge as exc:
+        print(f"teamwork: pre-push hook: {exc}; refusing the push", file=sys.stderr)
+        return 1
+    return check_push(project, refspecs)
 
 
 def add_parsers(sub, common) -> None:

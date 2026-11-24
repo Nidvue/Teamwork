@@ -1293,8 +1293,12 @@ def refresh(root: Path, run: dict) -> dict:
             run["state"] = LOST
             run["error"] = "the process ended without writing an outcome file (crash or kill -9)"
     else:
-        deadline = float(run.get("deadline") or 0)
         minutes = int(run.get("minutes") or 0) or lane_minutes(root)
+        deadline = float(run.get("deadline") or 0)
+        if not deadline:
+            created = float(run.get("created") or 0)
+            if created:
+                deadline = created + minutes * 60
         when, cpu = activity(run, finished)
         aborted = transcript_aborted(run.get("log"))
         if cpu is not None:

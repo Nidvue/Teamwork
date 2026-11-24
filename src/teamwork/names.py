@@ -227,6 +227,7 @@ def forge_identity(project=None) -> tuple | None:
                 cwd=str(project) if project else None,
                 capture_output=True,
                 text=True,
+                timeout=30,
             ).stdout.strip()
         except OSError:
             return ""
@@ -259,6 +260,7 @@ def preset_identity(project=None) -> tuple | None:
                 cwd=str(project) if project else None,
                 capture_output=True,
                 text=True,
+                timeout=30,
             ).stdout.strip()
         except OSError:
             return ""
@@ -294,6 +296,7 @@ def declared_identity(project=None) -> tuple | None:
                 cwd=str(project) if project else None,
                 capture_output=True,
                 text=True,
+                timeout=30,
             ).stdout.strip()
         except OSError:
             return ""

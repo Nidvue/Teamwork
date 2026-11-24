@@ -29,6 +29,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+
+def git_timeout() -> float:
+    """The git budget used by the scope job, which runs without the package installed."""
+    raw = os.environ.get("TEAMWORK_GIT_TIMEOUT", "").strip()
+    try:
+        limit = float(raw)
+    except ValueError:
+        return 120.0
+    return limit if limit > 0 and limit != float("inf") else 120.0
+
+
 PROSE_PATHS = (
     "docs/**",
     "README.md",
@@ -84,6 +95,7 @@ def _git(repo: Path, *args: str) -> str | None:
         capture_output=True,
         text=True,
         check=False,
+        timeout=git_timeout(),
     )
     if result.returncode != 0:
         return None

@@ -35,6 +35,10 @@ INTERRUPTED_EXIT = 130
 
 MISSING_BINARY_EXIT = 127
 
+DEFAULT_LANE_TIMEOUT = 25 * 60
+
+UNBOUNDED_TIMEOUT = -1.0
+
 
 def outcome_path(run_path: Path) -> Path:
     """Where the wrapper records how the launcher ended."""
@@ -88,7 +92,11 @@ def _stop(child: subprocess.Popen) -> int:
 
 
 def run(run_path: Path, timeout: float, argv: list[str]) -> int:
-    """Start ``argv``, enforce ``timeout``, and return the launcher's exit code."""
+    """Start ``argv``, enforce ``timeout``, and return the launcher's exit code.
+
+    Zero and omitted budgets get the 25-minute lane default; only a negative
+    :data:`UNBOUNDED_TIMEOUT` waits forever, and the CLI documents that opt-out.
+    """
     started = time.time()
     try:
         child = subprocess.Popen(argv, stdin=subprocess.DEVNULL)
@@ -107,7 +115,8 @@ def run(run_path: Path, timeout: float, argv: list[str]) -> int:
         return MISSING_BINARY_EXIT
     state = "exited"
     try:
-        code = child.wait(timeout=timeout if timeout > 0 else None)
+        wait = None if timeout < 0 else (timeout if timeout > 0 else DEFAULT_LANE_TIMEOUT)
+        code = child.wait(timeout=wait)
     except subprocess.TimeoutExpired:
         state = "timeout"
         code = _stop(child)
@@ -133,7 +142,12 @@ def run(run_path: Path, timeout: float, argv: list[str]) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="teamwork-lanerun", description=__doc__)
     parser.add_argument("--run", required=True, help="run record path")
-    parser.add_argument("--timeout", type=float, default=0.0, help="seconds, 0 = none")
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=DEFAULT_LANE_TIMEOUT,
+        help="seconds (default 1500 = 25m); a negative value waits forever",
+    )
     parser.add_argument("launcher", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     launcher = list(args.launcher)

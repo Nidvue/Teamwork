@@ -1529,7 +1529,14 @@ if [ ! -f "$root/scripts/teamwork.py" ]; then
   echo "teamwork: pre-commit hook: $root/scripts/teamwork.py is missing, so the rules cannot run; refusing rather than failing open. Restore the file, run 'teamwork.py hooks uninstall', or bypass deliberately with TEAMWORK_SKIP_HOOKS=1." >&2
   exit 1
 fi
-exec python3 "$root/scripts/teamwork.py" hook pre-commit "$@"
+run_bounded() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 300 "$@"
+  else
+    "$@"
+  fi
+}
+run_bounded python3 "$root/scripts/teamwork.py" hook pre-commit "$@"
 ```
 
 with `pre-push` and `hook pre-push` in place of `pre-commit` in the stage lines.
@@ -1577,12 +1584,12 @@ refspecs=$(mktemp "${TMPDIR:-/tmp}/teamwork-pre-push.XXXXXX") || {
 }
 trap 'rm -f "$refspecs"' 0
 cat > "$refspecs"
-python3 "$root/scripts/teamwork.py" hook pre-push "$@" < "$refspecs"
+run_bounded python3 "$root/scripts/teamwork.py" hook pre-push "$@" < "$refspecs"
 # a refusal from the rules stops here: the chained hook must not run for a
 # commit or push that already failed
 status=$?
 if [ "$status" -ne 0 ]; then exit "$status"; fi
-"$chained" "$@" < "$refspecs"
+run_bounded "$chained" "$@" < "$refspecs"
 status=$?
 exit "$status"
 ```

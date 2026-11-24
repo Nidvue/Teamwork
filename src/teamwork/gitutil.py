@@ -250,11 +250,15 @@ def _spawn(command: list[str], out, err, env: dict | None = None, stdin=None) ->
 def _kill_tree(process: subprocess.Popen) -> None:
     """End the leader and everything it started, then reap it."""
     if os.name == "nt":
-        subprocess.run(
-            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
-            capture_output=True,
-            check=False,
-        )
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                capture_output=True,
+                check=False,
+                timeout=10,
+            )
+        except subprocess.TimeoutExpired:
+            pass
     else:
         try:
             os.killpg(os.getpgid(process.pid), signal.SIGKILL)
@@ -422,7 +426,9 @@ def ensure_lfs(project: Path, quiet: bool = False) -> dict:
     as a plain blob, silently.
     """
     result = {"available": False, "installed": False, "install_error": "", "patterns_added": 0}
-    probe = subprocess.run(["git", "lfs", "version"], capture_output=True, text=True)
+    probe = subprocess.run(
+        ["git", "lfs", "version"], capture_output=True, text=True, timeout=git_timeout()
+    )
     if probe.returncode != 0:
         if not quiet:
             print(
@@ -432,7 +438,10 @@ def ensure_lfs(project: Path, quiet: bool = False) -> dict:
         return result
     result["available"] = True
     inst = subprocess.run(
-        ["git", "-C", str(project), "lfs", "install", "--local"], capture_output=True, text=True
+        ["git", "-C", str(project), "lfs", "install", "--local"],
+        capture_output=True,
+        text=True,
+        timeout=git_timeout(),
     )
     result["installed"] = inst.returncode == 0
     if not result["installed"]:
@@ -571,7 +580,9 @@ def staged_blob_meta(project: Path, rel: str):
     the work tree only when this returns ``None``.
     """
     size = subprocess.run(
-        ["git", "-C", str(project), "cat-file", "-s", f":{rel}"], capture_output=True
+        ["git", "-C", str(project), "cat-file", "-s", f":{rel}"],
+        capture_output=True,
+        timeout=git_timeout(),
     )
     if size.returncode != 0:
         return None
@@ -580,7 +591,9 @@ def staged_blob_meta(project: Path, rel: str):
     except ValueError:
         return None
     blob = subprocess.run(
-        ["git", "-C", str(project), "cat-file", "blob", f":{rel}"], capture_output=True
+        ["git", "-C", str(project), "cat-file", "blob", f":{rel}"],
+        capture_output=True,
+        timeout=git_timeout(),
     )
     if blob.returncode != 0:
         return None
