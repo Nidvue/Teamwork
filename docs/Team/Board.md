@@ -101,6 +101,8 @@ under two roles is two tasks.
 | developer | T-0005 | duplication | done | P-0018 | 7a00ede8 |
 | developer | T-0006 | autostar | done | P-0019 | 0abdcc31 |
 | developer | T-0007 | autostar | done | P-0020 | a0e55a67 |
+| developer | T-0008 | - | doing | - | - |
+| developer | T-0009 | ci | done | P-0021 | 56e29bd9 |
 | reviewer | T-0001 | lanes | dropped | - | - |
 | reviewer | T-0002 | lanes | dropped | - | - |
 | reviewer | T-0003 | lanes | dropped | - | - |
@@ -125,6 +127,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0008 · Bound all code-level agent operations with hard timeouts | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
