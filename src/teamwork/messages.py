@@ -240,6 +240,8 @@ def send_all(
     """Queue one message per address; a broadcast fans out here, at send time."""
     if priority not in PRIORITIES:
         raise ValueError(f"priority must be one of {', '.join(PRIORITIES)}")
+    if ttl_hours < 0:
+        raise ValueError("ttl-hours must be 0 or positive")
     subject = " ".join(str(subject).split())[:SUBJECT_MAX]
     if not subject:
         raise ValueError("a message needs a subject")
@@ -394,7 +396,10 @@ def _locate(root: Path, instance: str, message_id: str, bus_keys: tuple) -> tupl
 
 def find(root: Path, instance: str, message_id: str, bus_keys: tuple = ()) -> dict | None:
     path, _ = _locate(root, instance, message_id, bus_keys)
-    return _read(path) if path else None
+    if not path:
+        return None
+    record = _read(path)
+    return None if _expired(record) else record
 
 
 def take(root: Path, instance: str, message_id: str, by: str, bus_keys: tuple = ()) -> dict:
@@ -403,6 +408,8 @@ def take(root: Path, instance: str, message_id: str, by: str, bus_keys: tuple = 
         raise KeyError(f"no message {message_id} in {instance}'s mailbox")
     with lock(lock_path):
         record = _read(path)
+        if _expired(record):
+            raise ValueError(f"{message_id} has expired")
         if record["state"] == "taken" and record.get("taken_by") not in ("", by):
             raise ValueError(
                 f"{message_id} is already taken by {record['taken_by']}; one lane processes one message"
@@ -430,6 +437,8 @@ def finish(
         raise KeyError(f"no message {message_id} in {instance}'s mailbox")
     with lock(lock_path):
         record = _read(path)
+        if _expired(record):
+            raise ValueError(f"{message_id} has expired")
         if record["state"] in ("done", "dropped"):
             raise ValueError(f"{message_id} is already {record['state']}")
         if record.get("taken_by") and record["taken_by"] != by:

@@ -19,6 +19,7 @@ already uses, so the stop, the pause and the resume run against the real runtime
 
 from __future__ import annotations
 
+import json
 import shlex
 import sys
 from pathlib import Path
@@ -292,3 +293,105 @@ def test_a_paused_task_is_in_flight_not_an_invalid_status(cli, project: Path, ca
     assert "unknown status" not in report
     assert "paused: 1" in report
     assert "1 task(s) not finished" in report
+
+
+def expire(root: Path, instance: str, message_id: str) -> None:
+    path = messages.instance_dir(root, instance) / f"{message_id}.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["expires_ts"] = 1
+    record["expires"] = "1970-01-01T00:00:01"
+    path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def test_negative_ttl_is_refused_at_send(cli, project: Path, capsys) -> None:
+    root = init(cli, project)
+    with pytest.raises(ValueError, match="ttl-hours must be 0 or positive"):
+        messages.send(root, sender="CEO", recipient="Developer-1", subject="stale", ttl_hours=-1)
+    capsys.readouterr()
+    code = cli(
+        "--project",
+        project,
+        "message",
+        "send",
+        "--from",
+        "ceo",
+        "--to",
+        "developer-1",
+        "--subject",
+        "stale",
+        "--ttl-hours",
+        "-1",
+    )
+    assert code == 2
+    assert "ttl-hours must be 0 or positive" in capsys.readouterr().out
+    assert messages.inbox(root, "Developer-1") == []
+
+
+def test_expired_message_cannot_be_taken(cli, project: Path) -> None:
+    root = init(cli, project)
+    record = messages.send(
+        root, sender="CEO", recipient="Developer-1", subject="stale", ttl_hours=24
+    )
+    expire(root, "Developer-1", record["id"])
+    with pytest.raises(ValueError, match="has expired"):
+        messages.take(root, "Developer-1", record["id"], "Developer-1")
+    path = messages.instance_dir(root, "Developer-1") / f"{record['id']}.json"
+    assert json.loads(path.read_text(encoding="utf-8"))["state"] == "pending"
+
+
+def test_expired_message_cannot_be_finished(cli, project: Path) -> None:
+    root = init(cli, project)
+    record = messages.send(
+        root, sender="CEO", recipient="Developer-1", subject="stale", ttl_hours=24
+    )
+    expire(root, "Developer-1", record["id"])
+    with pytest.raises(ValueError, match="has expired"):
+        messages.finish(root, "Developer-1", record["id"], "Developer-1", "too late")
+
+
+def test_find_hides_an_expired_message(cli, project: Path) -> None:
+    root = init(cli, project)
+    record = messages.send(
+        root, sender="CEO", recipient="Developer-1", subject="stale", ttl_hours=24
+    )
+    found = messages.find(root, "Developer-1", record["id"])
+    assert found is not None
+    assert found["id"] == record["id"]
+    expire(root, "Developer-1", record["id"])
+    assert messages.find(root, "Developer-1", record["id"]) is None
+
+
+def test_positive_ttl_message_still_takes_once_and_finishes(cli, project: Path) -> None:
+    root = init(cli, project)
+    record = messages.send(
+        root, sender="CEO", recipient="Developer-1", subject="fresh", ttl_hours=24
+    )
+    assert messages.inbox(root, "Developer-1")[0]["id"] == record["id"]
+    assert messages.take(root, "Developer-1", record["id"], "Developer-1")["state"] == "taken"
+    with pytest.raises(ValueError):
+        messages.take(root, "Developer-1", record["id"], "Developer-2")
+    assert (
+        messages.finish(root, "Developer-1", record["id"], "Developer-1", "done")["state"] == "done"
+    )
+
+
+def test_cli_refuses_to_take_an_expired_message(cli, project: Path, capsys) -> None:
+    root = init(cli, project)
+    record = messages.send(
+        root, sender="CEO", recipient="Developer-1", subject="stale", ttl_hours=24
+    )
+    expire(root, "Developer-1", record["id"])
+    capsys.readouterr()
+    code = cli(
+        "--project",
+        project,
+        "message",
+        "take",
+        record["id"],
+        "--for",
+        "developer-1",
+        "--by",
+        "developer-1",
+    )
+    assert code == 2
+    assert "has expired" in capsys.readouterr().out
