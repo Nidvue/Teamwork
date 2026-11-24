@@ -9289,4 +9289,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit cf482bea
 - reviewer evidence: git show --stat cf482bea -> 2 files +7/-1, only tests/unit/test_pi_status_contract.py + tests/acceptance/test_widget_survives_session_replacement.py; TEAMWORK_AGENT_HOST=pi placed before **env so caller override survives; no test deleted/skipped, product/extension code untouched; pytest -q two files @569e883b -> 1 failed 3 errors (repro), @cf482bea -> 9 passed 1 skipped; full pytest -q @cf482bea -> 3399 passed 12 skipped; ruff/format/mypy/check_comments/links/release-consistency --offline @cf482bea -> green; tests.repro #0656 recorded; TS-0019 acceptance run recorded
 - findings history: 
-- branch / merge: developer-4/t-0017-set-pi-host-override-in-remaining-widget / pending
+- branch / merge: developer-4/t-0017-set-pi-host-override-in-remaining-widget / 236e2d7e
