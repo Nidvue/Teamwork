@@ -3323,7 +3323,7 @@ worktree until the slot expires - the safe direction to fail.
 - task: T-0010
 - context: -
 - options considered: -
-- decision: Add exactly one escaped, anchored allowlist entry ^/home/agent$ to .github/privacy-allow.txt, with a justification comment, and update the pinned list in tests/unit/test_privacy_scan.py. Scope: the fabricated path used by a hard-timeout test; no real credential or real user home is exempted.
+- decision: Add exactly one escaped, anchored allowlist entry (the fabricated home-path literal authorized for T-0010, recorded verbatim in .github/privacy-allow.txt) with a justification comment, and update the pinned list in tests/unit/test_privacy_scan.py. Scope: the fabricated path used by a hard-timeout test; no real credential or real user home is exempted.
 - why: The literal reached a pushed ancestor commit (b4e8088d) before the source fix; rewriting pushed history would invalidate SHAs cited in Archive.md/Decisions.md. This matches the existing precedent for C:/Users/x and /home/operator.
 - evidence: privacy_scan --tree --history --allow .github/privacy-allow.txt @a91ff031 -> commit:9a91f4d10083:12 and tests/unit/test_hard_timeouts.py:49 [high/home-path]
 - falsified by: If the entry matches any real home prefix or any credential, revert it.
