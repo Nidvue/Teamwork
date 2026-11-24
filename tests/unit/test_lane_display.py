@@ -573,6 +573,7 @@ def test_init_reports_the_lane_display_and_can_skip_it(tmp_path: Path, cli, caps
 
 def test_init_skips_the_display_outside_pi(tmp_path: Path, cli, capsys, monkeypatch) -> None:
     monkeypatch.delenv("TEAMWORK_UI", raising=False)
+    monkeypatch.delenv("CI", raising=False)
     monkeypatch.setenv("TEAMWORK_AGENT_HOST", "opencode")
     project = tmp_path / "Project"
     project.mkdir()
