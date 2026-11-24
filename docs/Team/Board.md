@@ -92,7 +92,7 @@ under two roles is two tasks.
 | developer | T-0007 | bundle | done | P-0007 | 3c82fecd |
 | developer | T-0008 | records | done | P-0008 | dd5cfa1c |
 | developer | T-0009 | tests | done | P-0010 | 7f25caee |
-| developer | T-0010 | records | review | P-0012 | - |
+| developer | T-0010 | records | done | P-0012 | 32ea1a5f |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -112,7 +112,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | architect | T-0001 · Correct always-on cap and status schema drift in docs | P1 | review | - |
-| developer | T-0010 · Update task-integrity test to name an explicit Developer instance | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
