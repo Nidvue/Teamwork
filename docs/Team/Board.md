@@ -83,7 +83,7 @@ under two roles is two tasks.
 |---|---|---|---|---|---|
 | architect | T-0001 | always-on-cap | done | P-0013 | 1747999f |
 | architect | T-0002 | install-docs | done | P-0015 | 1b3f4577 |
-| architect | T-0003 | - | doing | - | - |
+| architect | T-0003 | display-docs | done | P-0019 | 00085661 |
 | ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
 | ceo | T-0002 | records | done | P-0014 | 64ed98d9 |
 | ceo | T-0003 | records | done | P-0017 | 563ba6a9 |
@@ -100,7 +100,7 @@ under two roles is two tasks.
 | developer | T-0011 | sync | done | P-0016 | 60c1bbbd |
 | developer | T-0012 | - | dropped | - | - |
 | developer | T-0013 | - | dropped | - | - |
-| developer | T-0014 | - | doing | - | - |
+| developer | T-0014 | display | review | P-0020 | - |
 | developer | T-0015 | display | done | P-0018 | 1cce01e9 |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
@@ -120,8 +120,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0003 · State pi-only display in docs and correct status payload | P1 | doing | - |
-| developer | T-0014 · Gate agent-state display install on pi host | P0 | doing | - |
+| developer | T-0014 · Gate agent-state display install on pi host | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
