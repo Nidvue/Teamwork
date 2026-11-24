@@ -9173,3 +9173,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest -q tests/unit/test_always_on_cap_guard.py tests/unit/test_docs_contracts.py tests/unit/test_skill_contracts.py @a363dc84 -> 134 passed; guard 4 passed, discovery=6 pages, stale-value repro 1 failed/3 passed; cap 106496 B/104 KiB on all 6 pages; status --json schema 5 = engine.py:12777; AGENTS markers intact; no src/teamwork/config.py change (default 104); links 0, harness lint 0, harness budget cap 106496 all ok
 - findings history: 
 - branch / merge: architect/t-0001-correct-always-on-cap-and-status-schema / 1747999f
+
+## T-0002 · Export M26 audit manifest at the verified final head  (ceo)
+- date: 2026-11-24
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: two manifest files only; the first export from the worktree resolved a different team tree and was discarded before commit. Manifest git.head is the reviewed STOP head 744836cb, dirty false, and an ancestor of this commit; ledger checkpoint verified. Concurrency: no other lane writes these files. Scope: no src, tests or other docs touched. | test: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python -c 'import json,subprocess; m=json.load(open("docs/Team/AuditManifest.json")); print(m["git"]); print(subprocess.call(["git","merge-base","--is-ancestor",m["git"]["head"],"HEAD"]))' @2882e96 -> git.head 744836cb, dirty False, ancestor_rc 0; ledger verify -> chain intact | preflight: PF-9ea2d56307dd @2882e96d8f75 (9 checks, 0 failed)
+- author evidence: commit 2882e96d
+- reviewer evidence: in tree under review @2882e96d: only docs/Team/AuditManifest.json + AuditManifest.md changed vs main; git.status clean (dirty false); git.head 744836cb2559c65a765314532a43590fea435051 = current main HEAD; git merge-base --is-ancestor 744836cb HEAD -> rc 0; ledger verify -> 414 records chain intact, record #410 hash f890f1a886d502cc3139791b404d469337e53afd7f6d2e223b1d23157f1cbb68 = manifest ledger.head (410 records), #411-414 are post-export work; sha256sum -c artifacts -> 4/4 OK (Architecture/Decisions/Plan/Project); links -> # issues: 0; full selfcheck @2882e96 -> git.head 744836cb, dirty False, ancestor_rc 0, preflight PF-9ea2d56307dd (9 checks, 0 failed). local_state Reviews.md/CEO TaskQueue digests drifted post-export (expected: review mutates those files; manifest labels them hidden working state).
+- findings history: 
+- branch / merge: ceo/t-0002-export-m26-audit-manifest-at-the-verifie / pending
