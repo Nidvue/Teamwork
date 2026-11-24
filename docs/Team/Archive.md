@@ -9134,3 +9134,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: diff main...HEAD @f7556252 -> only tests/unit/test_autostar.py (1+/2-), src/teamwork/autostar.py untouched, no test deleted/skipped; .venv/bin/python -m pytest -q tests/unit/test_autostar.py @f7556252 -> 20 passed in 1.16s; base overlay @8fade967: same cmd -k real_spawn_worker -> 2 failed, 18 deselected (AssertionError: detached worker never recorded its attempt) reproducing recorded repro pre@8fade967->post@f7556252; ruff check + ruff format --check @f7556252 -> All checks passed / 1 file already formatted; scripts/check_comments.py @f7556252 -> 0 explanatory commentary
 - findings history: 
 - branch / merge: developer-5/t-0009-use-the-real-interpreter-in-autostar-rea / 7f25caee
+
+## T-0005 · Grade evidence on 'tests run pass' so noise cannot be credited  (developer)
+- date: 2026-11-24
+- priority: P0
+- owner: developer role (work by: Developer-2)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: tests
+- self-check: [pass] tests run pass now grades evidence: noise/none refused unless --force <reason> is recorded on the record; creditable_tests and credit_refusal skip noise so a forced opinion cannot be cited. Boundaries covered: noise refused, strong accepted, force path, empty evidence, second record duplicate, positive credit control. Scope: engine.py gate plus two test files; no new interface; no other gate weakened. | test: pytest tests/unit/test_ci_contracts.py tests/unit/test_grades.py @39521fa6 -> 120 passed | preflight: PF-ea0245ccd67a @39521fa6dade (9 checks, 0 failed)
+- author evidence: commit 7cb06017
+- reviewer evidence: pytest -q tests/unit/test_ci_contracts.py tests/unit/test_grades.py @39521fa6 -> 120 passed | verify_t0005.py @39521fa6 -> noise w/o force exit=2/pending, w/ force exit=0/passing+forced recorded, strong exit=0/passing, empty refused, forced-noise creditable=[] + refusal explains, strong creditable=[TS-0001] | base 8fade967 bypass reproduced (noise accepted+creditable; repro 2 failed/3 passed) | ruff check/format/check_comments/mypy @39521fa6 all green | clean tree, 3 files only, identity Developer | pre-existing red test_task_record_integrity.py::test_a_task_with_an_open_branch_cannot_be_dropped_without_a_force_reason (bare Developer ambiguity from dd5cfa1c, outside 3-file scope, T-0010) noted, not held
+- findings history: 
+- branch / merge: developer-2/t-0005-grade-evidence-on-tests-run-pass-so-nois / pending
