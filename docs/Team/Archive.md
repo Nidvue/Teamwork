@@ -9212,3 +9212,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: reviewed @cc1f7a8bc96a (worktree clean): 6 named files deleted (sync_skill.py, bundle.py, test_skill_sync.py, test_refresh_source.py, test_refresh_flow.py, test_git_timeout_flow.py); refresh verb/cmd_refresh/stale_bundle_line absent, Makefile sync targets + release-check dep gone; cmd_ui + "ui" parser intact (engine.py:19788,22025); lanedisplay._resolve_dest matches base bundle.resolve_dest exactly (HOST_DEFAULTS, expanduser, cwd resolve); build_pi_package.py has no bundle import and npm build @cc1f7a8b -> skills/tw-learn/SKILL.md present, declared resources absent=[]; 24 touched files subset of 25 declared, no Archive/Decisions history edit; pytest -q @cc1f7a8b -> 3378 passed, 12 skipped, exit 0; ruff check -> all passed, ruff format --check -> 394 formatted; mypy -> no issues (36 files); check_comments -> 0; links -> 0 issues; check_release_consistency.py --offline -> 0 problems; living-doc grep -> 2 hits in Project.md:29,47 both pre-existing on base (file unchanged by T-0011, follow-up not a fail); NOTED not failed: preflight blocked only on 6 CEO-owned tests-plan gaps (install-docs/sync x unit/integration/acceptance) to close with real suite runs post-merge; ledger verify -> chain intact (493 records)
 - findings history: 
 - branch / merge: developer/t-0011-remove-all-repo-sync-code-and-tests-keep / 60c1bbbd
+
+## T-0003 · Export M27 audit manifest at the verified final head  (ceo)
+- date: 2026-11-24
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: two manifest files only, exported from the main checkout at the verified STOP head; the earlier worktree export resolved a different team tree and was discarded. Manifest git.head is an ancestor of this commit and dirty is false; ledger checkpoint verified. Concurrency: no other lane writes these files. Scope: no src, tests or other docs touched. | test: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python -c 'import json,subprocess; m=json.load(open("docs/Team/AuditManifest.json")); print(m["git"]); print(subprocess.call(["git","merge-base","--is-ancestor",m["git"]["head"],"HEAD"]))' @dd7a0668 -> git.head 8e5d36df, dirty False, ancestor_rc 0; ledger verify -> chain intact | preflight: PF-3309d24e9999 @dd7a06688003 (9 checks, 0 failed)
+- author evidence: commit dd7a0668
+- reviewer evidence: in tree under review @dd7a06688003: only docs/Team/AuditManifest.json + AuditManifest.md changed vs main; git status clean (dirty false); manifest git.head 8e5d36df52b7b753e0b7826a12edd1947f7beaef = ancestor of HEAD (git merge-base --is-ancestor -> rc 0); ledger verify 532 records chain intact, record #528 hash b4f521234244e40f43a20d570435b2e0079a684ed9cb470390258cffcf232a11 = manifest ledger.head (#529-532 are post-export work); sha256sum 4/4 artifacts match at dd7a0668 AND at export rev 8e5d36df; teamwork links -> # issues: 0; selfcheck test reproduced (git.head 8e5d36df, dirty False, ancestor_rc 0); preflight PF-3309d24e9999 @dd7a0668 -> 9 checks, 0 failed
+- findings history: 
+- branch / merge: ceo/t-0003-export-m27-audit-manifest-at-the-verifie / pending
