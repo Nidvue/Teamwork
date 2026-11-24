@@ -85,6 +85,7 @@ under two roles is two tasks.
 | architect | T-0002 | install-docs | done | P-0015 | 1b3f4577 |
 | ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
 | ceo | T-0002 | records | done | P-0014 | 64ed98d9 |
+| ceo | T-0003 | records | done | P-0017 | 563ba6a9 |
 | developer | T-0001 | evidence-staleness | done | P-0003 | 4f46b4be |
 | developer | T-0002 | team-records | done | P-0002 | f9e0fab2 |
 | developer | T-0003 | lanes | done | P-0004 | c41880f0 |
