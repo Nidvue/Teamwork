@@ -181,6 +181,7 @@ def observed(tmp_path_factory: pytest.TempPathFactory) -> dict:
             "TW_CWD": str(project),
             "TW_STALE": STALE,
             "TEAMWORK_PYTHON": sys.executable,
+            "TEAMWORK_AGENT_HOST": "pi",
         },
         timeout=180,
     )

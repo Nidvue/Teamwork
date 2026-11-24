@@ -117,6 +117,30 @@ console.log(JSON.stringify({
 }));
 """
 
+NOT_PI = """
+const mod = await import(process.env.TW_EXTENSION);
+const handlers = new Map();
+const paint = { widgets: [] };
+const ctx = {
+  cwd: process.env.TW_CWD,
+  ui: {
+    setWidget: (_key, lines) => { paint.widgets.push(lines); },
+    setStatus: () => {},
+    notify: () => {},
+  },
+};
+mod.default({
+  on: (name, fn) => { handlers.set(name, fn); },
+  registerCommand: () => {},
+});
+const start = handlers.get("session_start");
+if (start) await start({}, ctx);
+console.log(JSON.stringify({
+  hasSessionStart: handlers.has("session_start"),
+  widgets: paint.widgets.length,
+}));
+"""
+
 QUEUE = """# Task queue - developer
 
 ## T-0001 · Prove the widget paints from a real status run
@@ -184,10 +208,12 @@ def agent_home(base: Path) -> tuple[Path, Path]:
     return adapter, project
 
 
-def drive(cwd: Path, wait_ms: int = 8000, extension: Path = EXTENSION) -> dict:
+def run_node(
+    script: str, cwd: Path, wait_ms: int, extension: Path, host: str
+) -> subprocess.CompletedProcess[str]:
     env = {key: value for key, value in os.environ.items() if key != "TEAMWORK_ROOT"}
-    result = subprocess.run(
-        [node(), "--experimental-strip-types", "--no-warnings", "-e", DRIVE],
+    return subprocess.run(
+        [node(), "--experimental-strip-types", "--no-warnings", "-e", script],
         capture_output=True,
         text=True,
         cwd=ROOT,
@@ -197,9 +223,14 @@ def drive(cwd: Path, wait_ms: int = 8000, extension: Path = EXTENSION) -> dict:
             "TW_CWD": str(cwd),
             "TW_WAIT": str(wait_ms),
             "TEAMWORK_PYTHON": sys.executable,
+            "TEAMWORK_AGENT_HOST": host,
         },
         timeout=180,
     )
+
+
+def drive(cwd: Path, wait_ms: int = 8000, extension: Path = EXTENSION) -> dict:
+    result = run_node(DRIVE, cwd, wait_ms, extension, "pi")
     assert result.returncode == 0, f"the process died: {result.returncode}\n{result.stderr}"
     assert result.stdout.strip(), result.stderr
     return json.loads(result.stdout.strip().splitlines()[-1])
@@ -246,3 +277,14 @@ def test_a_checkout_without_the_engine_paints_nothing_and_does_not_crash(
     assert body["unhandled"] == 0, f"a rejected refresh escaped: {body}"
     assert body["commandThrew"] == 0, f"a throw escaped a handler: {body}"
     assert body["liveAfterStale"] == 0, f"a timer survived a stale ctx: {body}"
+
+
+def test_outside_pi_no_session_start_handler_is_registered_and_nothing_is_painted(
+    tmp_path: Path,
+) -> None:
+    result = run_node(NOT_PI, checkout(tmp_path), 1200, EXTENSION, "opencode")
+    assert result.returncode == 0, f"the process died: {result.returncode}\n{result.stderr}"
+    assert result.stdout.strip(), result.stderr
+    body = json.loads(result.stdout.strip().splitlines()[-1])
+    assert not body["hasSessionStart"], f"a handler was registered outside pi: {body}"
+    assert body["widgets"] == 0, f"a widget was painted outside pi: {body}"
