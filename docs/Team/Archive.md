@@ -9263,4 +9263,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 37867d35
 - reviewer evidence: repro @a3d4c10 -> 1 failed (ensure installed outside pi, ui install exit 0); @37867d35 -> all passed (ensure skipped, install exit 1, no writes); focused pytest @37867d35 -> 155 passed; full pytest -q @37867d35 -> 3398 passed, 12 skipped; acceptance test_ui_contract.py @37867d35 -> 10 passed; ruff check / format --check / mypy / check_comments / links / check_release_consistency --offline @37867d35 -> 0 problems; diff a3d4c10..37867d35 -> exactly the 6 declared files; --host still selects .agents vs .pi/agent; ui status text byte-identical to base and read-only on every host
 - findings history: 
-- branch / merge: developer/t-0014-gate-agent-state-display-install-on-pi-h / pending
+- branch / merge: developer/t-0014-gate-agent-state-display-install-on-pi-h / e77751d2
