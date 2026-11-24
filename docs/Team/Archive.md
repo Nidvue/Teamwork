@@ -9121,3 +9121,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: PYTHONPATH=<worktree>/src .venv/bin/python -m pytest -q tests/unit/test_cli_contract.py @05479235 -> 49 passed; new test overlaid on base 8fade967 -> 1 failed (DID NOT RAISE SystemExit: bare role returned with 2 reviewers), repro genuine; single-instance and explicit-instance cases pass on both; fix routes both allow_role modes through one ambiguity die, preserving prior returns for len==1; ruff check / ruff format --check src/teamwork/engine.py tests/unit/test_cli_contract.py -> All checks passed / 2 files already formatted; mypy src/teamwork -> Success, 37 files; git merge-tree --write-tree main <branch> -> rc 0; delta vs merge-base = only engine.py + test_cli_contract.py (+47/-5), no test deleted/skipped, no gate weakened
 - findings history: 
 - branch / merge: developer/t-0008-reject-a-bare-role-name-when-the-role-ha / dd5cfa1c
+
+## T-0009 · Use the real interpreter in autostar real-spawn tests  (developer)
+- date: 2026-11-24
+- priority: P1
+- owner: developer role (work by: Developer-5)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: tests
+- self-check: [pass] One-line fix in _real_spawn: replaced nonexistent hardcoded /usr/bin/python3 with module-level live sys.executable in the autostar.sys SimpleNamespace. The mocked-argv test pinning [sys.executable, -m, teamwork.autostar, --worker, ...] and both real-spawn tests remain intact and unskipped. Boundary: sys.executable is resolved at import in the running interpreter; the detached child really imported teamwork via the editable install and wrote the marker plus gh log (20 passed). Empty/duplicate/second-call: marker short-circuit unchanged, fresh-marker and stale-marker tests pass. Concurrency/shared writes: one file only, in an isolated worktree; no peer file touched, CEO docs/Team edits left alone. Scope: exactly one line in tests/unit/test_autostar.py; no src change, no gate weakened. Hostile reviewer: the test still wraps autostar.sys, but only to inject the REAL sys.executable without mutating global sys - the child is genuinely spawned, proved by the marker and gh log assertions passing. | test: .venv/bin/python -m pytest -q tests/unit/test_autostar.py @f7556252 -> 20 passed in 0.27s | preflight: PF-40574b0ebe68 @f7556252e2c2 (9 checks, 0 failed)
+- author evidence: commit f7556252
+- reviewer evidence: diff main...HEAD @f7556252 -> only tests/unit/test_autostar.py (1+/2-), src/teamwork/autostar.py untouched, no test deleted/skipped; .venv/bin/python -m pytest -q tests/unit/test_autostar.py @f7556252 -> 20 passed in 1.16s; base overlay @8fade967: same cmd -k real_spawn_worker -> 2 failed, 18 deselected (AssertionError: detached worker never recorded its attempt) reproducing recorded repro pre@8fade967->post@f7556252; ruff check + ruff format --check @f7556252 -> All checks passed / 1 file already formatted; scripts/check_comments.py @f7556252 -> 0 explanatory commentary
+- findings history: 
+- branch / merge: developer-5/t-0009-use-the-real-interpreter-in-autostar-rea / pending
