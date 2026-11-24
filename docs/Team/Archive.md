@@ -9302,4 +9302,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 5938220f
 - reviewer evidence: @5938220f: 2 manifest files only; git.head cc593024a40f56ca4d1807adb1f76810687e04fa dirty=false ancestor_rc=0; ledger chain intact through 695, record #691 (ledger.export 15:33:08) hash 394742db7da5f6ab... == manifest ledger.head (later records post-export); 4/4 artifact sha256sum match; teamwork links 0 issues; CEO selfcheck pass with real test @5938220f, preflight PF-f518e6c5e17a 9/9; md/json head+counts consistent
 - findings history: 
-- branch / merge: ceo/t-0004-export-m28-audit-manifest-at-the-verifie / pending
+- branch / merge: ceo/t-0004-export-m28-audit-manifest-at-the-verifie / fb70f188
