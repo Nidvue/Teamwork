@@ -9432,4 +9432,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 86b76806
 - reviewer evidence: in tree @86b76806: only docs/Team/AuditManifest.json + .md changed (git diff --name-status main...HEAD), worktree clean; manifest git.head ee058107d5b830d3a72552782299335041919cb5 dirty=false, git merge-base --is-ancestor ee058107 HEAD -> rc 0; recomputed sha256 chain over Ledger.jsonl -> record #976 action=ledger.export hash 766d3e9b4138d82ee3f964ddb7f0d8882d673c0594cc50f5b4d02a3d760fda16 = manifest ledger.head, chain fully intact, now 980 records (4 post-export); sha256sum 4/4 artifacts match at ee058107; teamwork links -> # issues: 0; selfcheck test reproduced (git.head ee058107, dirty False, ancestor_rc 0) + preflight PF-34ab8ab13fcf @86b7680684c4 (9 checks, 0 failed); uncommitted base manifest copies byte-identical to committed versions
 - findings history: 
-- branch / merge: ceo/t-0005-export-m31-audit-manifest-at-the-verifie / pending
+- branch / merge: ceo/t-0005-export-m31-audit-manifest-at-the-verifie / ca746b97
