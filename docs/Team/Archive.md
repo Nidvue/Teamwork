@@ -9367,4 +9367,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 738fa68a
 - reviewer evidence: @738fa68a: check_release_consistency.py --offline -> 0 problem(s), R2 ok HEAD 1.7.1 newer than 30 tags; R2-need in isolated clone: 1.7.0 + empty commit -> R2 DRIFT / 1 problem, 1.7.1 -> R2 ok / 0 problems; pytest -q -> 3403 passed, 12 skipped; ruff check + format --check clean, mypy 36 files ok, check_comments 0 commentary, links 0 issues, harness lint 0 problems, verify_release OK; extra file scrutinized: new test is a strict forward-bump contract (mutants older 1.6.9, missing [Unreleased], removed GITHUB_REF_NAME each FAIL; forward 2.0.0 passes; original assert would fail with no [1.7.1] section, so change is necessary not a suppression); no [1.7.1] CHANGELOG section, CITATION.cff stays 1.7.0 untouched, no comments; TS-0046 passing @738fa68a; identity audit 1 commit 0 problems, merge-tree rc 0, ledger chain intact
 - findings history: 
-- branch / merge: developer/t-0022-bump-version-to-1-7-1-after-the-v1-7-0-t / pending
+- branch / merge: developer/t-0022-bump-version-to-1-7-1-after-the-v1-7-0-t / 673f2b62
