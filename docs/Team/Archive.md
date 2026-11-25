@@ -9420,3 +9420,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git show 89e554ce --stat -> 1 file/1 insertion; diff is only +"plugins", in ROOT_ALLOWLIST (no assertion, wildcard, gitignore or bypass change). Independently reproduced fail at base 8285ef34 in a clean detached worktree with tracked plugins/ present: .venv/bin/python -m pytest -q tests/unit/test_hygiene.py @8285ef34 -> 1 failed, 11 passed (AssertionError: unexpected entries in the repository root: [plugins]); pass at 89e554ce -> 12 passed. Full pytest -q @89e554ce -> 3429 passed, 12 skipped (564.32s). Recorded tests repro on T-0025 (ledger n=926) confirmed. plugins/ is a real shipped root: git ls-files plugins/ -> index.ts, package.json, tui.tsx; test_the_tui_plugin_ships_at_an_opencode_discoverable_path @89e554ce -> 1 passed (npm build ships plugins/tw-status with exports ./tui). ruff check + ruff format --check + mypy src/teamwork + teamwork links + teamwork harness lint @89e554ce -> all green (0 issues/problems). Author preflight PF-c77b1daf62e5 @89e554ce -> 9 checks, 0 failed; my re-run reproduces 8/9 with the sole failing gate from out-of-scope concurrent Architect T-0004 status-display layer gaps (ledger n=935-949) plus the awaiting-review marker, not from this diff. No gate weakened.
 - findings history: 
 - branch / merge: developer-3/t-0025-allow-the-plugins-root-in-the-hygiene-ce / 10bee437
+
+## T-0005 · Export M31 audit manifest at the verified final head  (ceo)
+- date: 2026-11-25
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: two manifest files only, exported from the main checkout at the verified STOP head. git.head is an ancestor of this commit, dirty false, ledger checkpoint verified. Concurrency: no other lane writes these files. Scope: no src, tests or other docs touched. | test: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python -c 'import json,subprocess; m=json.load(open("docs/Team/AuditManifest.json")); print(m["git"]); print(subprocess.call(["git","merge-base","--is-ancestor",m["git"]["head"],"HEAD"]))' @86b76806 -> git.head ee058107, dirty False, ancestor_rc 0; ledger verify -> chain intact | preflight: PF-34ab8ab13fcf @86b7680684c4 (9 checks, 0 failed)
+- author evidence: commit 86b76806
+- reviewer evidence: in tree @86b76806: only docs/Team/AuditManifest.json + .md changed (git diff --name-status main...HEAD), worktree clean; manifest git.head ee058107d5b830d3a72552782299335041919cb5 dirty=false, git merge-base --is-ancestor ee058107 HEAD -> rc 0; recomputed sha256 chain over Ledger.jsonl -> record #976 action=ledger.export hash 766d3e9b4138d82ee3f964ddb7f0d8882d673c0594cc50f5b4d02a3d760fda16 = manifest ledger.head, chain fully intact, now 980 records (4 post-export); sha256sum 4/4 artifacts match at ee058107; teamwork links -> # issues: 0; selfcheck test reproduced (git.head ee058107, dirty False, ancestor_rc 0) + preflight PF-34ab8ab13fcf @86b7680684c4 (9 checks, 0 failed); uncommitted base manifest copies byte-identical to committed versions
+- findings history: 
+- branch / merge: ceo/t-0005-export-m31-audit-manifest-at-the-verifie / pending
