@@ -109,6 +109,9 @@ under two roles is two tasks.
 | developer | T-0019 | release-gates | done | - | - |
 | developer | T-0020 | release-gates | done | - | - |
 | developer | T-0021 | release-gates | done | P-0024 | ba8c9b7e |
+| developer | T-0022 | release-gates | done | P-0025 | 673f2b62 |
+| developer | T-0023 | - | doing | - | - |
+| developer | T-0024 | - | doing | - | - |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -127,6 +130,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0023 · Add OpenCode sidebar.content agent-state plugin | P0 | doing | - |
+| developer | T-0024 · Widen display host gate to pi and opencode | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
