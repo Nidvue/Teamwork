@@ -370,5 +370,5 @@ def ensure(skill_dir: Path, *, host: str = "", skills: str = "") -> str:
         return f"lane display: skipped (this host cannot name its home directory: {exc})"
     if not drawn.live:
         return f"lane display: not drawn - {drawn.detail or drawn.settings}"
-    ui = "the OpenCode sidebar" if host == "opencode" else "the pi UI"
+    ui = "the OpenCode status line" if host == "opencode" else "the pi UI"
     return f"lane display: installed and registered at {drawn.target} - {ui} draws the wave"

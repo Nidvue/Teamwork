@@ -601,7 +601,7 @@ def test_ensure_installs_and_registers_the_opencode_plugin(tmp_path: Path, monke
 
     line = lanedisplay.ensure(bundle, host="opencode", skills=str(dest))
 
-    assert "installed and registered" in line and "OpenCode sidebar" in line, line
+    assert "installed and registered" in line and "OpenCode status line" in line, line
     assert all((dest / name).is_file() for name in PLUGIN_FILES)
     assert "already drawn" in lanedisplay.ensure(bundle, host="opencode", skills=str(dest))
 
@@ -671,13 +671,14 @@ def test_init_draws_the_display_on_opencode(tmp_path: Path, cli, capsys, monkeyp
     home = tmp_path / "home"
     (home / ".config" / "opencode").mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setattr(engine, "SKILL_DIR", plugin_bundle(tmp_path))
     project = tmp_path / "Project"
     project.mkdir()
 
     assert cli("--project", project, "init", "--agents", "ceo,reviewer-1", "--no-git") == 0
     out = capsys.readouterr().out
-    assert "lane display:" in out and "OpenCode sidebar" in out, out
+    assert "lane display:" in out and "OpenCode status line" in out, out
     dest = home / ".config" / "opencode" / "plugins" / "tw-status"
     assert all((dest / name).is_file() for name in PLUGIN_FILES)
     assert_no_writes(home / ".config" / "opencode" / "opencode.json")
