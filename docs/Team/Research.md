@@ -626,3 +626,49 @@ measurement shows no gain, the decision stands and the trigger is re-recorded.
 **Sources.**
 
 - [The components of agent memory](https://www.anthropic.com/research/components-of-agent-memory) - accessed 2026-11-09
+
+## M31 - @HeLi8866 post on lazy tool instructions (2026-11-25)
+
+Owner: CEO. Related: [Decisions](Decisions.md) · [Architecture](Architecture.md)
+
+Target: a pasted Chinese post by @HeLi8866 (何笠同学), accessed 2026-11-25.
+No direct URL was supplied, so the post's provenance beyond the pasted text is
+`UNVERIFIED`. Question: which of its lazy-loading / filter-before-read mechanisms
+would reduce our always-on startup token surface beyond what we already do?
+
+### Mechanism extracted
+
+| Field | Content |
+|---|---|
+| invariant | Keep a small always-visible index of capabilities; load the specific body only when a task needs it; filter rows before the model sees them. |
+| mechanism | One file per tool plus an entry index; on-demand read; deterministic filter; code loops for repeated checks. |
+| precondition | The host exposes a stable entry list and a single-entry read, and the filter does not drop the needed row. |
+| price | Filter and loop code must be written and maintained; the index must be trustworthy. |
+| falsifier | A needed instruction or row is missing because the lazy load or filter skipped it. |
+
+### Comparison, one axis at a time
+
+| Post item | Theirs (pasted post) | Ours (file:line) | Verdict |
+|---|---|---|---|
+| Tools as files, open one | per-tool folder in the host | one skill file plus on-demand references, `harness.py:278-295` | `no observed effect` — host owns the tool manifest |
+| Load only what the task uses | ~150k to ~2k tokens | `context find/read` `engine.py:5608-5695`, `tw read --query` `sparse.py:168-244`, recall-only store `harness.py:711-724` | `no observed effect` — already implemented |
+| Filter before reading | 10,000-line table to ~5 rows | `read_pack` snippets with `path:line`, `sparse.py:125-165`; `archive --task` `engine.py:17760-17798` | `no observed effect` — already implemented |
+| Loops in code | repeat until confirmed without model turns | `preflight --run` `engine.py:17582`, `loop` `engine.py:15211`, `hunt` | `no observed effect` — already implemented |
+| Placeholder redaction | `[EMAIL_1]`/`[PHONE_1]`, real data stays between tools | release redactions `Architecture.md:1271-1278`, privacy scan; no generic in-flight swap | `reject` for this question — real gap, but orthogonal to token surface |
+| Skills folder reuse | save working code plus explanation | `.agents/skills/tw-*/SKILL.md`, on-demand `harness.py:291-295` | `no observed effect` — already implemented |
+
+### Measurement and decision
+
+`harness budget` at this revision: CEO **98,834 B** of a 106,496 B cap; `load ceo`
+prints **4,646 B**. The startup row is SKILL.md 48,322 B + managed AGENTS.md
+29,128 B + charter 17,046 B; about 243 kB of references and skills are already
+on demand. There is no tool-instruction folder in this repo to defer, so the
+post's headline saving has no remaining surface here. Decision
+D-20261125-CEO-3 records **reject adoption** with a falsifier; nothing was
+retired because nothing was adopted. Verdict on the study itself:
+**no observed effect** on the asked metric — measured, unchanged.
+
+### Source
+
+- Pasted post by @HeLi8866 (何笠同学), accessed 2026-11-25. No URL supplied;
+  claims beyond the pasted text are `UNVERIFIED`.
