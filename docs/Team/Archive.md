@@ -9458,4 +9458,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 5cd55d94
 - reviewer evidence: git -C <worktree> diff main...HEAD --stat @18a48b99 -> docs/Team/Research.md +46/-0 only, worktree clean; added block -> 1 H2 + 4 H3, Owner/Related present, UNVERIFIED provenance with no URL, 5/5 mechanism fields, 6/6 comparison rows with named verdict, measurement labelled no observed effect; grep docs/Team/Decisions.md -> D-20261125-CEO-3 present with falsified-by line; sed sparse.py:168-244 read_pack, engine.py:5608-5695 context find/read, harness.py:278-295 C4/C6 plus 6 further cited pointers -> all match claims; harness budget -> CEO 98834/106496 ok; harness list -> 48322+29128+17046 always-on, 242929 on-demand; teamwork links @18a48b99 -> # issues: 0; teamwork harness lint -> # problems found: 0; historical Research.md sections untouched, no code or gate changed
 - findings history: 
-- branch / merge: ceo/t-0006-study-heli8866-post-for-tool-instruction / pending
+- branch / merge: ceo/t-0006-study-heli8866-post-for-tool-instruction / d2941eca
