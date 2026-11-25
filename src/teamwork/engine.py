@@ -19786,27 +19786,38 @@ def cmd_agents_md(args) -> int:
 
 
 def cmd_ui(args) -> int:
-    """`teamwork ui install|status` - the host extension that draws the live wave."""
+    """`teamwork ui install|status` - the host adapter that draws the live wave."""
     from . import lanedisplay
 
+    running_host = detect_agent_host()
+    if args.action == "install" and running_host not in lanedisplay.SUPPORTED_HOSTS:
+        die(
+            f"ui install supports pi and opencode only (detected {running_host!r}); "
+            "ui status stays read-only"
+        )
+    if args.action == "status" and running_host not in lanedisplay.SUPPORTED_HOSTS:
+        print(f"# lane display missing: host {running_host!r} has no display; status is read-only")
+        return 1
+    target_host = args.host if running_host == "pi" else running_host
     if args.action == "install":
-        running_host = detect_agent_host()
-        if running_host != "pi":
-            die(f"ui install is pi-only (detected {running_host!r}); ui status stays read-only")
         state = lanedisplay.install(
-            SKILL_DIR, host=args.host, skills=args.dest, dry_run=args.dry_run
+            SKILL_DIR, host=target_host, skills=args.dest, dry_run=args.dry_run
         )
     else:
-        state = lanedisplay.status(SKILL_DIR, host=args.host, skills=args.dest)
+        state = lanedisplay.status(SKILL_DIR, host=target_host, skills=args.dest)
     if not state.ok:
         die(state.detail)
     drawn = "registered" if state.registered else "not registered"
     copied = "installed" if state.installed else "missing"
     if args.dry_run and not (state.installed and state.registered):
-        print(f"# would write {state.target} and register it in {state.settings}")
+        registration = f" and register it in {state.settings}" if state.settings else ""
+        print(f"# would write {state.target}{registration}")
         return 0
     print(f"# lane display {copied}: {state.target}")
-    print(f"# settings {drawn}: {state.settings}")
+    if state.settings is not None:
+        print(f"# settings {drawn}: {state.settings}")
+    if args.action == "install" and running_host == "opencode":
+        print(f"# {lanedisplay.OPENCODE_CONFIG_HINT}")
     if args.action == "install":
         return 0
     return int(not state.live)
