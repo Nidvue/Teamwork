@@ -9446,3 +9446,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: cd <scratch>@40c717e5: pytest -q tests/unit/test_opencode_status_plugin.py -> 8 passed; swap index.ts to base 12bb2c85 -> test_server_default_export_is_safe_without_a_ui_context FAILED (threw=Cannot read properties of undefined (reading slot)), restore 40c717e5 -> passed; pytest -q @40c717e5 -> 3430 passed, 12 skipped, exit 0; ruff check/format, check_comments, mypy, links, harness lint, release-consistency @40c717e5 -> all 0 problems; git diff 12bb2c85..40c717e5 -> exactly plugins/tw-status/index.ts (+1: if (!context.ui) return;) and tests/unit/test_opencode_status_plugin.py (+46), tui.tsx/SLOT/status --json/cleanup unchanged; repro record Ledger n=997 fail@12bb2c85->pass@40c717e5, TS-0047 64 passed @40c717e5; opencode.log: 0 tw-status load failures after last pre-fix 12:20:23.357Z, fresh loads 12:33:57-59Z+, installed plugin sha256 fbd40e92 == fix; commit identity Developer mailbox, subject <72
 - findings history: 
 - branch / merge: developer/t-0026-fix-tw-status-server-plugin-loading-the / 9178fdb6
+
+## T-0006 · Study @HeLi8866 post for tool-instruction lazy loading  (ceo)
+- date: 2026-11-25
+- priority: P2
+- owner: ceo role (work by: ceo)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: context
+- self-check: [pass] Boundary: one section in Research.md plus CEO decision/knowledge records already on main; no code or gates changed. Contract: the post has no URL, so its provenance is marked UNVERIFIED; every claimed mechanism is cited at file:line in our tree. Concurrency: no other lane writes Research.md. Scope: one doc section, one commit, links 0 issues after removing an unreciprocated back-link. | test: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python -m teamwork links @<branch head> -> # issues: 0; /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python -m teamwork harness budget -> CEO 98834/106496 ok; /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python -m teamwork harness lint -> 0 problems | preflight: PF-d28a006f2070 @18a48b999d8b (8 checks, 0 failed)
+- author evidence: commit 5cd55d94
+- reviewer evidence: git -C <worktree> diff main...HEAD --stat @18a48b99 -> docs/Team/Research.md +46/-0 only, worktree clean; added block -> 1 H2 + 4 H3, Owner/Related present, UNVERIFIED provenance with no URL, 5/5 mechanism fields, 6/6 comparison rows with named verdict, measurement labelled no observed effect; grep docs/Team/Decisions.md -> D-20261125-CEO-3 present with falsified-by line; sed sparse.py:168-244 read_pack, engine.py:5608-5695 context find/read, harness.py:278-295 C4/C6 plus 6 further cited pointers -> all match claims; harness budget -> CEO 98834/106496 ok; harness list -> 48322+29128+17046 always-on, 242929 on-demand; teamwork links @18a48b99 -> # issues: 0; teamwork harness lint -> # problems found: 0; historical Research.md sections untouched, no code or gate changed
+- findings history: 
+- branch / merge: ceo/t-0006-study-heli8866-post-for-tool-instruction / pending
