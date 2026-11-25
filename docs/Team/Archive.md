@@ -9406,4 +9406,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 89c6b8f3
 - reviewer evidence: at 89c6b8f3: grep stale pi-only + sidebar.content in 8 living docs -> 0 matches; teamwork links -> 0 issues; teamwork harness lint -> 0 problems; pytest -q tests/unit/test_docs_contracts.py tests/unit/test_skill_contracts.py tests/unit/test_ui_readme.py -> 135 passed; check_release_consistency.py --offline -> 0 problems; git diff main...HEAD -> exactly 8 declared files (Project.md/Decisions.md/Archive.md untouched); AGENTS.md markers BEGIN@1/END@476 intact + agents-md idempotent; SKILL.md/guides name no host, Adapters/Architecture/CHANGELOG name pi+OpenCode; frozen contract D-20261125-CEO-2 met (pi widget + home.footer.status footer, no sidebar, other hosts widget-free, ui status read-only)
 - findings history: 
-- branch / merge: architect/t-0004-document-two-host-status-display-pi-widg / pending
+- branch / merge: architect/t-0004-document-two-host-status-display-pi-widg / d7f06346
