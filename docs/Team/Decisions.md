@@ -3440,3 +3440,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: P-0008 two research rounds; user answers 2026-11-24 (version 1.7.0, channels GitHub + npm); git push --dry-run origin HEAD:main -> 8fade967..bef6ac3b; gh secret list -> no NPM_TOKEN; release.yml:748-750 id-token write for OIDC
 - falsified by: A force-push, a moved/deleted tag, a PyPI upload, or a publish without CI green on the exact tagged SHA.
 - consequences: -
+
+## D-20261125-CEO - M30: support OpenCode right-sidebar agent-state panel alongside pi
+
+- date: 2026-11-25
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: The live agent-state display is supported on two hosts: pi (existing extensions/tw-status.ts widget) and opencode (new TUI plugin rendering into the sidebar.content slot from status --json). Other hosts remain widget-free and ui status stays read-only everywhere. This supersedes D-20261124-CEO-6's pi-only clause; the feed and schema are unchanged. The v2.3.0 TUI authoring signature must be validated locally before the contract is frozen as shipped. <!-- release-consistency: illustrative -->
+- why: The owner asked to render agent state in OpenCode's right sidebar when OpenCode is detected; v2.3.0 exposes a supported sidebar.content slot, so no custom TUI build is needed. <!-- release-consistency: illustrative -->
+- evidence: P-0010 two research rounds; opencode --version v2.3.0; local plugin types tui.d.ts:355-405; https://opencode.ai/docs/plugins/ and /build/plugins/cli/ accessed 2026-11-25; user choice 2026-11-25 <!-- release-consistency: illustrative -->
+- falsified by: No widget appears in OpenCode's right sidebar on a validated host, or a non-pi/non-opencode host gets a widget, or status --json schema changes.
+- consequences: -

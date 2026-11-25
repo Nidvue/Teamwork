@@ -103,6 +103,30 @@ in the team tree. The user chose version **1.7.0** and channels **GitHub + npm**
 | 9 | Unknowns and assumptions | npm Trusted Publisher is assumed configured on npmjs.com (owner: ceo); if the npm job fails on auth, GitHub still ships and npm is reported blocked. R2 needs a `1.7.1` bump immediately after the tag. |
 | 10 | Evidence plan | `check_release_consistency`, `make release-check`, `gh run list`, `gh release view`, `npm view` provide the publish evidence. |
 
+## Brief (M30 - OpenCode right-sidebar display)
+
+Intake record P-0010 (verbatim prompt, two research rounds, enhanced prompt) is
+in the team tree. The user chose to **implement** the `sidebar.content` panel.
+
+### Original prompt (verbatim)
+
+- 2026-11-25 — `@tw if we detect that the running agent harness is opencode, can we render the agent state in the side bar panel on the right hand side of opencode`
+
+### Rewritten brief
+
+| # | Part | Content |
+|---|---|---|
+| 1 | Objective | OpenCode renders the Teamwork agent state in its right-hand sidebar when it is the detected host. |
+| 2 | User and job | The owner runs the skill in OpenCode and wants the live wave there, as in pi; good = a visible, correct panel with no change to other hosts. |
+| 3 | Deliverables | New OpenCode TUI plugin, host-aware install gate, tests including a real v2.3.0 load check, docs and a decision superseding pi-only. <!-- release-consistency: illustrative --> |
+| 4 | Acceptance criteria | AC-17 plugin renders `status --json` into `sidebar.content`; AC-18 host gate and per-host targets; AC-19 docs/tests/gates green. |
+| 5 | Non-goals | No `session.panel`, no change to the feed schema, no widget on unsupported hosts, no new version release. |
+| 6 | Constraints and invariants | stdlib-only engine; pinned plugin dependencies; two-stage gate; Reviewer-only merge; no credential read. |
+| 7 | Interfaces to freeze | `status --json` schema 5 and the OpenCode `sidebar.content` slot are the two frozen contracts; `TEAMWORK_AGENT_HOST` remains the override. |
+| 8 | Lanes | Developer builds and validates the plugin; Developer-2 widens the host gate; Architect updates docs; Reviewer verdicts each. |
+| 9 | Unknowns and assumptions | Local plugin types are v1.18.28 while the CLI is v2.3.0 (owner: ceo); the exact v2 authoring signature must be proved by a minimal plugin before it is shipped. <!-- release-consistency: illustrative --> |
+| 10 | Evidence plan | Plugin load/render probe, focused and full pytest, `ui status` host matrix, links/lint and release consistency provide the evidence. |
+
 ## Objective
 
 Turn the private `tw` skill into a self-contained, reusable,
