@@ -113,7 +113,7 @@ under two roles is two tasks.
 | developer | T-0022 | release-gates | done | P-0025 | 673f2b62 |
 | developer | T-0023 | display | done | P-0027 | 857bc45c |
 | developer | T-0024 | display | done | P-0026 | 28d6787c |
-| developer | T-0025 | tests | review | P-0028 | - |
+| developer | T-0025 | tests | done | P-0028 | 10bee437 |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -132,7 +132,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0025 · Allow the plugins root in the hygiene census | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
