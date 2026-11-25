@@ -89,6 +89,7 @@ under two roles is two tasks.
 | ceo | T-0002 | records | done | P-0014 | 64ed98d9 |
 | ceo | T-0003 | records | done | P-0017 | 563ba6a9 |
 | ceo | T-0004 | records | done | P-0023 | fb70f188 |
+| ceo | T-0005 | records | done | P-0030 | ca746b97 |
 | developer | T-0001 | evidence-staleness | done | P-0003 | 4f46b4be |
 | developer | T-0002 | team-records | done | P-0002 | f9e0fab2 |
 | developer | T-0003 | lanes | done | P-0004 | c41880f0 |
