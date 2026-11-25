@@ -32,6 +32,7 @@ PREVIEW = REPO_RAW + "assets/social-preview.png"
 SKILL_TREES = ("extensions", "references", "roles", "templates", "scripts", "src")
 SKILL_FILES = ("SKILL.md", "AGENTS.md")
 TARBALL_FILES = ("README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "SECURITY.md")
+PLUGIN_PATH = "plugins/tw-status"
 
 HOST_PACKAGES = (
     "@earendil-works/pi-ai",
@@ -80,12 +81,16 @@ def package_json(ver: str) -> dict:
             "skills",
             "prompts",
             "extensions",
+            "plugins",
             "README.md",
             "LICENSE",
             "NOTICE",
             "CHANGELOG.md",
             "SECURITY.md",
         ],
+        "exports": {
+            "./tui": "./plugins/tw-status/tui.tsx",
+        },
         "pi": {
             "skills": ["./skills"],
             "prompts": ["./prompts"],
@@ -111,6 +116,18 @@ def copy_skill(dest: Path) -> None:
         )
     shutil.copytree(ROOT / "templates" / "pi-package" / "prompts", dest / "prompts")
     shutil.copytree(ROOT / "extensions", dest / "extensions")
+
+
+def copy_opencode_plugin(dest: Path) -> None:
+    """Ship the TUI widget where OpenCode discovers a package's ./tui part."""
+    source = ROOT / PLUGIN_PATH
+    if not source.is_dir():
+        return
+    shutil.copytree(
+        source,
+        dest / PLUGIN_PATH,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "node_modules"),
+    )
 
 
 def copy_sibling_skills(dest: Path) -> None:
@@ -231,6 +248,7 @@ def main(argv: list[str]) -> int:
     )
     copy_skill(dest)
     copy_sibling_skills(dest)
+    copy_opencode_plugin(dest)
     copy_docs(dest)
     ship_readme(dest)
     manifest = json.loads((dest / "package.json").read_text(encoding="utf-8"))

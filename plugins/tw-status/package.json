@@ -1,0 +1,23 @@
+{
+  "name": "@nidvue/tw-status-opencode",
+  "version": "1.0.0",
+  "description": "OpenCode TUI home.footer.status line for teamwork status --json",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./tui": "./tui.tsx"
+  },
+  "files": [
+    "index.ts",
+    "tui.tsx"
+  ],
+  "dependencies": {
+    "@opencode/plugin": "2.3.0"
+  },
+  "peerDependencies": {
+    "@opentui/core": "0.9.9",
+    "@opentui/solid": "0.9.9",
+    "solid-js": "1.9.12"
+  }
+}
