@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **OpenCode status/footer display** - alongside the pi `extensions/tw-status.ts`
+  widget (setWidget/setStatus), OpenCode now renders a compact agent-state line
+  in its status/footer slot via the `plugins/tw-status` TUI plugin claiming
+  `home.footer.status` and polling `status --json` (schema 5). There is no
+  right-sidebar panel and no widget on any other host; `ui install` copies the
+  plugin into the host's plugin directory (`~/.config/opencode/plugins/tw-status`)
+  and prints a config hint without editing `opencode.json`/`cli.json`, and
+  `ui status` stays a read-only diagnostic everywhere. `TEAMWORK_AGENT_HOST` pins
+  detection; npm remains the install/update path.
+
 ## [1.7.0] - 2026-11-24
 
 ### Changed

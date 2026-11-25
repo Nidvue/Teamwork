@@ -876,25 +876,40 @@ change. `model` and `provider` resolve once per call from
 teamwork ui [install|status] [--host NAME] [--dest PATH] [--dry-run]
 ```
 
-The widget host is the one that resolves `pi.extensions` from the package; only
-that host installs and renders the extension that draws the live wave from
-`status --json`. A host loads extensions from its own directory and
-`settings.json`, never from a skills directory, so shipping the file draws
-nothing: in the widget host `install` copies the renderer and registers it once,
-and `status` is the read-only report the operator reads on every host.
+Two surfaces are supported, one per host, each with its own install target: the
+host whose package declares `pi.extensions` installs and renders the
+`extensions/tw-status.ts` widget (setWidget/setStatus) above the editor plus a
+footer status line, and the TUI host installs the `plugins/tw-status` plugin, which
+claims `home.footer.status` and renders a compact status/footer line - both poll
+`status --json`. There is no right-sidebar panel and no widget on any other host.
+A host loads adapters from its own
+directories, never from a skills directory, so shipping the file draws nothing:
+`install` copies the renderer into the detected host's target and registers it
+once, and `status` is the read-only report the operator reads on every host.
+
+On the host whose package declares `pi.extensions` the target is
+`<agent>/extensions/` with an entry appended to `<agent>/settings.json`; `--host`
+selects the target agent directory and `--dest` overrides the skills directory. On
+the TUI host the target is that host's plugin directory (auto-discovered from its
+config directory); `--host` is ignored, `--dest` overrides the plugin directory,
+and `install` prints a config hint only when discovery needs help - add
+`"file://<config>/plugins/tw-status"` to the `plugins` array in the host's main
+config file (or `cli.json` for TUI-only plugins) - but never edits either file. The
+exact plugin directory and config filenames are in `references/Adapters.md`.
 
 `status` exits `1` when the host would draw nothing (`lane display missing`,
 `not registered`), which is what makes the check scriptable; `install` exits `0`
-once the copy and the registration are in place and is refused on other hosts.
+once the copy and registration are in place and is refused on unsupported hosts.
 `--dry-run` prints what it would write and writes nothing. The default action is
-the report, and `--dest` points at the agent directory when it is not the default
-one. `TEAMWORK_AGENT_HOST` pins host detection when the markers are ambiguous.
+the report. `TEAMWORK_AGENT_HOST` pins host detection when the markers are
+ambiguous.
 
-An npm install or update writes the skill files but does not register the lane
-display there: in the widget host `teamwork ui install` does it once, and
-`teamwork ui status` reports both halves without writing on every host, exiting
-`1` when the host would draw nothing. Other hosts install and render no widget.
-A host that resolves `pi.extensions` from the npm tarball needs no extra step.
+npm stays the install/update path: an npm install or update writes the skill
+files but does not register the lane display; run `teamwork ui install` once on
+the detected host and use `teamwork ui status` to check, which reports without
+writing and exits `1` when the host would draw nothing. A host whose package
+declares `pi.extensions` needs no extra step; `ui status` stays read-only on every
+host.
 
 ## Memory
 

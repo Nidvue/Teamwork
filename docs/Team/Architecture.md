@@ -56,7 +56,7 @@ Teamwork/
 │   ├── hunt.py               # a bounded discovery loop: dry rounds, seen set, a page on a stall
 │   ├── imaging.py            # offline image-model probe
 │   ├── io.py                 # atomic writes, the lock, die()
-│   ├── lanedisplay.py        # pi-only extension: draws the live wave; other hosts get read-only `ui status`
+│   ├── lanedisplay.py        # host display adapters: pi widget + OpenCode footer plugin; other hosts get read-only `ui status`
 │   ├── lanerun.py            # one lane's detached child: budget + outcome file
 │   ├── lanes.py              # the engine's own lane runtime: spawn, supervise, dynamic waves
 │   ├── layout.py             # team tree paths and cross-links

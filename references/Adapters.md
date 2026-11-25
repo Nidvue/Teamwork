@@ -26,27 +26,34 @@ host-private teammate tool.
 
 **A display adapter is optional and one-way.** `status --json` emits the reconciled
 table (instance, role, busy/idle, the task and lane it holds, elapsed, progress,
-model) so a host can *show* the wave. The shipped pi package carries one such
-renderer, `extensions/tw-status.ts`: a widget above the editor and a footer
-status, polling that command every 2 s. It reads and draws only - it never starts,
-steers or stops a lane, so the engine stays the single source of truth and a host
-without it loses nothing but the picture. The widget is installed and rendered only
-in the pi host; other hosts get no widget, and `ui status` remains a read-only
-diagnostic on every host. `TEAMWORK_AGENT_HOST=pi` pins host detection when the
-markers are ambiguous. `TEAMWORK_ROOT` pins the repository, `TEAMWORK_PYTHON` the
-interpreter, and the widget is drawn once per live lane.
+model) so a host can *show* the wave. Two hosts are supported: in **pi** the
+renderer is `extensions/tw-status.ts` (setWidget/setStatus), a widget above the
+editor and a footer status; in **OpenCode** it is the `plugins/tw-status` TUI
+plugin, which claims `home.footer.status` and renders a compact status/footer
+line. Both poll that command every 2 s. They read and draw only - they never
+start, steer or stop a lane, so the engine stays the single source of truth and a
+host without one loses nothing but the picture. There is no right-sidebar panel
+and no widget on any other host; `ui status` remains a read-only diagnostic on
+every host. `TEAMWORK_AGENT_HOST` pins host detection when the markers are
+ambiguous. `TEAMWORK_ROOT` pins the repository, `TEAMWORK_PYTHON` the
+interpreter, and the display is drawn once per live lane.
 
-**Shipped is not loaded.** A host reads extensions from its own `extensions/`
-directory and its `settings.json`, never from a skills directory, so a skill-only
-install carries the renderer and still draws nothing. In pi, `teamwork.py ui install`
-copies the shipped file to `<agent>/extensions/` and appends
-`extensions/tw-status.ts` to `<agent>/settings.json` once; `ui status`
-reports both halves without writing and fails when the host would draw nothing.
-An npm install or update only refreshes the skill files: in pi only, run
-`teamwork ui install` once to register the display, then use `ui status` to check;
-outside pi no widget is installed or rendered and `ui status` is read-only.
-`pi install npm:@nidvue/teamwork` needs none of this: the package declares
-`pi.extensions`, so the host loads it from the tarball.
+**Shipped is not loaded.** A host reads adapters from its own directories, never
+from a skills directory, so a skill-only install carries the renderer and still
+draws nothing. In **pi**, `teamwork.py ui install` copies the shipped file to
+`<agent>/extensions/` and appends `extensions/tw-status.ts` to
+`<agent>/settings.json` once; `ui status` reports both halves without writing and
+fails when the host would draw nothing. In **OpenCode**, `ui install` copies the
+`plugins/tw-status` files into the host's plugin directory
+(`~/.config/opencode/plugins/tw-status`) and prints a config hint only when
+auto-discovery needs help - add `"file://<config>/plugins/tw-status"` to the
+`plugins` array in `~/.config/opencode/opencode.jsonc` (or `cli.json` for TUI-only
+plugins) - but never edits either file. An npm install or update only refreshes
+the skill files: run `teamwork ui install` once on the detected host to register
+the display, then use `ui status` to check; on any other host no display is
+installed or rendered and `ui status` is read-only. `pi install npm:@nidvue/teamwork`
+needs none of this: the package declares `pi.extensions`, so the host loads it from
+the tarball.
 
 ## Host mapping for operation 1
 
@@ -195,11 +202,11 @@ The package ships the `tw` bundle and the companion `tw-learn` skill together,
 so one update moves both. Reload the skill in the host after an update. Measured
 failure this prevents: a host copy with an old `SKILL.md` and eight engine
 modules missing - the engine imported `config`/`gitutil`/`records` fine from the
-checkout and failed from the installed copy. Only the pi host registers the
-display: `TEAMWORK_AGENT_HOST=pi` pins detection, `teamwork ui install` registers
-the widget once there, and `teamwork ui status` reports both halves without
-writing on every host and exits non-zero when the host would draw nothing; other
-hosts get no widget.
+checkout and failed from the installed copy. The two supported hosts register the
+display: `TEAMWORK_AGENT_HOST` pins detection, `teamwork ui install` registers it
+once on the detected host, and `teamwork ui status` reports it without writing on
+every host and exits non-zero when the host would draw nothing; no other host
+installs or renders a display.
 
 ## Rules that cost us real time
 

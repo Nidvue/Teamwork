@@ -264,9 +264,11 @@ own API, so the model is a property of the **agent**, not of the project.
   nothing available is reported `unset` together with the variable to set
   (`TEAMWORK_MODEL_STRONG`, `TEAMWORK_MODEL_ECONOMY`).
   `TEAMWORK_AGENT_HOST` pins host detection when the markers are ambiguous. It
-  also pins the widget gate: the status widget is installed and rendered only in
-  the host that resolves `pi.extensions`; on other hosts `ui status` stays a
-  read-only diagnostic.
+  also pins the display gate: the host whose package declares `pi.extensions`
+  draws the `extensions/tw-status.ts` widget (setWidget/setStatus) and the TUI
+  host draws the `plugins/tw-status` status/footer line via `home.footer.status`.
+  There is no right-sidebar panel and no widget on any other host, where
+  `ui status` stays a read-only diagnostic; npm remains the install/update path.
 
 Automatic routing policy: [references/Concurrency.md](https://github.com/Nidvue/Teamwork/blob/main/references/Concurrency.md).
 

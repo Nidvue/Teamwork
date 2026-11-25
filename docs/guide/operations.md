@@ -186,16 +186,19 @@ also carries `busy`/`stalled`/`idle` counts, `activated`, `retired`,
 `budget_seconds`, `remaining_seconds`, `remaining_text`), `activity`, `stalled`
 and the newest ledger event (`last`, `last_at`, `last_seconds`) on each row.
 
-The packaged status extension (`extensions/tw-status.ts`) renders that feed as a
+Two surfaces are supported, one per host. The host whose package declares
+`pi.extensions` uses the packaged status extension (`extensions/tw-status.ts`,
+setWidget/setStatus) to render that feed as a
 bounded widget - at most 12 lines and 100 columns, one line per lane, busy rows
-before idle, every idle instance collapsed into one counted line - and a footer
-status line with the busy/total count. It refreshes every 2 s, is silent when no
-engine is found, and `/tw-status` toggles it. It imports only `node:`
-built-ins and the host's own packages, so installing it adds no dependency, and
-removing it changes nothing in the protocol. The widget is installed and rendered
-only in the host that resolves `pi.extensions`; other hosts get no widget, and
-`status` stays a read-only diagnostic there. `TEAMWORK_AGENT_HOST` pins detection
-when the markers are ambiguous.
+before idle, every idle instance collapsed into one counted line - plus a footer
+status line with the busy/total count; it refreshes every 2 s, is silent when no
+engine is found, and `/tw-status` toggles it. The TUI host uses the
+`plugins/tw-status` plugin, which claims `home.footer.status` and renders a compact
+status/footer line from the same `status --json` feed. Both import only `node:`
+built-ins and the host's own packages, so installing them adds no dependency, and
+removing them changes nothing in the protocol. There is no right-sidebar panel and
+no widget on any other host; `ui status` stays a read-only diagnostic on every
+host. `TEAMWORK_AGENT_HOST` pins detection when the markers are ambiguous.
 
 ## 7. The agent mailbox
 

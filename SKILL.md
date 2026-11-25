@@ -43,9 +43,12 @@ that loads a skill directory, or that can run `teamwork.py` and read `AGENTS.md`
 and against GitHub, GitLab, Bitbucket, Gitea/Forgejo, Azure DevOps or a bare
 server. The protocol is identical; only the six host operations and the integrity
 settings are adapted (`references/Adapters.md`, `references/Remotes.md`). The live
-agent-state widget is **host-specific**: it is installed and rendered only in the
-host that resolves `pi.extensions` from the package; other hosts get no widget,
-and `ui status` stays a read-only diagnostic there. `TEAMWORK_AGENT_HOST` pins
+agent-state display supports two surfaces: the host whose package declares
+`pi.extensions` draws a widget in `extensions/tw-status.ts` (setWidget/setStatus)
+plus a footer status line, and the TUI host draws a compact status/footer line
+with the `plugins/tw-status` plugin, which claims `home.footer.status` and polls
+`status --json`. There is no right-sidebar panel and no widget on any other host;
+`ui status` is a read-only diagnostic on every host. `TEAMWORK_AGENT_HOST` pins
 host detection.
 
 ## Non-negotiable contract
@@ -337,7 +340,7 @@ Both duties are evidence: `tests plan` and the task record name the local result
 
 ### 5e. Install and update through npm
 
-The host loads a **copy** of the skill, so a copy that drifts from the published revision silently keeps reading an old protocol. Install and update through npm (`npm install @nidvue/teamwork@latest`, or your host's own package command) rather than mirroring a checkout; the package ships the `tw` bundle and the companion `tw-learn` skill together. Reload the skill in the host after an update. The **lane display** is a host-specific surface: `swarm run` starts every lane as a detached process, so in the host that resolves `pi.extensions` the live wave is drawn by an extension that polls `status --json`, and a skills directory is never read as an extension directory - shipping the file is not loading it. `teamwork ui install` copies and registers the widget in that host once and `teamwork ui status` reports both halves without writing, exiting non-zero when the host would draw nothing; on other hosts no widget is installed or rendered, and `ui status` stays a read-only diagnostic on every host. `TEAMWORK_AGENT_HOST` pins detection; `init` registers the widget by default only in that host, and `init --no-ui` or `TEAMWORK_UI=off` opts out. Full behaviour: `references/Adapters.md`.
+The host loads a **copy** of the skill, so a copy that drifts from the published revision silently keeps reading an old protocol. Install and update through npm (`npm install @nidvue/teamwork@latest`, or your host's own package command) rather than mirroring a checkout; the package ships the `tw` bundle and the companion `tw-learn` skill together. Reload the skill in the host after an update. The **lane display** has two supported surfaces: `swarm run` starts every lane as a detached process, so the host whose package declares `pi.extensions` draws the live wave with the `extensions/tw-status.ts` widget (setWidget/setStatus) and the TUI host draws it with the `plugins/tw-status` plugin claiming `home.footer.status`, both polling `status --json`; a skills directory is never read as an extension or plugin directory - shipping the file is not loading it. `teamwork ui install` copies and registers the display on the detected host once and `teamwork ui status` reports it without writing, exiting non-zero when the host would draw nothing; there is no right-sidebar panel and no widget on any other host, where `ui status` stays a read-only diagnostic. `TEAMWORK_AGENT_HOST` pins detection; `init` registers the display by default on supported hosts, and `init --no-ui` or `TEAMWORK_UI=off` opts out. Full behaviour: `references/Adapters.md`.
 ### 5f. Keep lanes decorrelated
 
 Identical lanes make identical mistakes: same model, same context, same queue.
