@@ -1131,7 +1131,12 @@ def test_release_tag_matches_the_package_version(root):
     assert declaration is not None, "version.py declares no __version__: " + text
     version = declaration.group(1)
     changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert f"## [{version}]" in changelog, f"CHANGELOG has no [{version}] section"
+    released = re.findall(r"^## \[(\d+\.\d+\.\d+)\]", changelog, re.MULTILINE)
+    if f"## [{version}]" not in changelog:
+        assert "## [Unreleased]" in changelog, f"CHANGELOG has no [{version}] section"
+        assert all(
+            tuple(map(int, version.split("."))) > tuple(map(int, r.split("."))) for r in released
+        ), f"{version} is not a forward bump past the released section(s)"
     release = (root / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
     assert "Assert the tag matches the package version" in release
     assert "GITHUB_REF_NAME" in release
