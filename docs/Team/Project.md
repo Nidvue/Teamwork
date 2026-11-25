@@ -103,10 +103,13 @@ in the team tree. The user chose version **1.7.0** and channels **GitHub + npm**
 | 9 | Unknowns and assumptions | npm Trusted Publisher is assumed configured on npmjs.com (owner: ceo); if the npm job fails on auth, GitHub still ships and npm is reported blocked. R2 needs a `1.7.1` bump immediately after the tag. |
 | 10 | Evidence plan | `check_release_consistency`, `make release-check`, `gh run list`, `gh release view`, `npm view` provide the publish evidence. |
 
-## Brief (M30 - OpenCode right-sidebar display)
+## Brief (M30 - OpenCode display)
 
 Intake record P-0010 (verbatim prompt, two research rounds, enhanced prompt) is
-in the team tree. The user chose to **implement** the `sidebar.content` panel.
+in the team tree. The user chose to implement an OpenCode agent-state display.
+**Superseded by M31 / P-0011:** the chosen surface is a pi-style status/footer
+line, not the right sidebar (decision D-20261125-CEO-2). AC-17 was reworded
+accordingly; T-0023's plugin was redirected before merge.
 
 ### Original prompt (verbatim)
 

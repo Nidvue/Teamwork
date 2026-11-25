@@ -3453,6 +3453,22 @@ worktree until the slot expires - the safe direction to fail.
 - options considered: -
 - decision: The live agent-state display is supported on two hosts: pi (existing extensions/tw-status.ts widget) and opencode (new TUI plugin rendering into the sidebar.content slot from status --json). Other hosts remain widget-free and ui status stays read-only everywhere. This supersedes D-20261124-CEO-6's pi-only clause; the feed and schema are unchanged. The v2.3.0 TUI authoring signature must be validated locally before the contract is frozen as shipped. <!-- release-consistency: illustrative -->
 - why: The owner asked to render agent state in OpenCode's right sidebar when OpenCode is detected; v2.3.0 exposes a supported sidebar.content slot, so no custom TUI build is needed. <!-- release-consistency: illustrative -->
-- evidence: P-0010 two research rounds; opencode --version v2.3.0; local plugin types tui.d.ts:355-405; https://opencode.ai/docs/plugins/ and /build/plugins/cli/ accessed 2026-11-25; user choice 2026-11-25 <!-- release-consistency: illustrative -->
+- evidence: P-0010 two research rounds; opencode --version v2.3.0; local plugin types tui.d.ts:355-405; [Plugins](https://opencode.ai/docs/plugins/) and [Building TUI plugins](https://opencode.ai/docs/build/plugins/cli/) - accessed 2026-11-25; user choice 2026-11-25 <!-- release-consistency: illustrative -->
 - falsified by: No widget appears in OpenCode's right sidebar on a validated host, or a non-pi/non-opencode host gets a widget, or status --json schema changes.
+- consequences: -
+
+## D-20261125-CEO-2 - M31: OpenCode agent state renders as a pi-style status line, not a sidebar panel
+
+- date: 2026-11-25
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: D-20261125-CEO's OpenCode surface is changed: when detect_agent_host()=='opencode', render the same compact agent-state summary as pi into OpenCode's status/footer slot (home.footer.status, or prompt.footer.status if evidence shows that is the status line), never sidebar.content or session.panel. Pi keeps its existing widget; other hosts stay widget-free; ui status stays read-only.
+- why: The owner explicitly rejected the right sidebar and asked for the same rendering as the pi agent; the status/footer slot is the documented OpenCode analogue.
+- evidence: P-0011 two research rounds; user message 2026-11-25; [Building TUI plugins](https://opencode.ai/docs/build/plugins/cli/) - accessed 2026-11-25 (slots home.footer.status, prompt.footer.status); pi widget extensions/tw-status.ts:464-467 setStatus
+- falsified by: Any sidebar.content/session.panel claim in the shipped OpenCode plugin, no status/footer rendering on a validated opencode host, or a widget on an unsupported host.
 - consequences: -
