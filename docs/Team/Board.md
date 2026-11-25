@@ -115,6 +115,7 @@ under two roles is two tasks.
 | developer | T-0023 | display | done | P-0027 | 857bc45c |
 | developer | T-0024 | display | done | P-0026 | 28d6787c |
 | developer | T-0025 | tests | done | P-0028 | 10bee437 |
+| developer | T-0026 | display | done | P-0031 | 9178fdb6 |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
