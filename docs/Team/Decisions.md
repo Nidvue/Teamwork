@@ -3472,3 +3472,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: P-0011 two research rounds; user message 2026-11-25; [Building TUI plugins](https://opencode.ai/docs/build/plugins/cli/) - accessed 2026-11-25 (slots home.footer.status, prompt.footer.status); pi widget extensions/tw-status.ts:464-467 setStatus
 - falsified by: Any sidebar.content/session.panel claim in the shipped OpenCode plugin, no status/footer rendering on a validated opencode host, or a widget on an unsupported host.
 - consequences: -
+
+## D-20261125-CEO-3 - tw-learn: @HeLi8866 post on lazy tool instructions - reject adoption
+
+- date: 2026-11-25
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Adopt nothing from the pasted @HeLi8866 post for the asked metric (always-on startup token surface). Items 1, 3, 4, 6 are already implemented here; item 2's target surface (tool-instruction folder) belongs to the host and is not ours to restructure; item 5 (in-flight placeholder redaction) is orthogonal to token surface. The only real lever is shrinking/splitting always-on content, which is a content decision, not lazy loading.
+- why: Measured: harness budget CEO 98,834 B of 106,496 B cap, of which SKILL.md 48,322 B + managed AGENTS.md 29,128 B + charter 17,046 B are fixed always-on; ~243 kB of references/skills are ALREADY on demand via context find/read and tw read --query (sparse.py:168-244, engine.py:5608-5695, harness.py:278-295). The post's 150k->2k saving has no remaining surface here.
+- evidence: harness budget @worktree -> CEO 98834/106496 ok, load ceo -> 4646 B; sparse.py:168-244 read_pack with query/path:line; harness.py:278-295 C4/C6 on-demand; user-pasted post accessed 2026-11-25 (no URL - UNVERIFIED provenance beyond text)
+- falsified by: A measured startup-row drop after a change that merely defers loading an instruction already on demand, or a gate silently skipped because its body was not loaded.
+- consequences: -
