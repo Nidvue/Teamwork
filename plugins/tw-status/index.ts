@@ -192,6 +192,7 @@ export function defineStatusPlugin(
     id: ID,
     setup(context) {
       if (!hostAllows(env)) return;
+      if (!context.ui) return;
       const view = createView(context);
       let payload: Status | null = null;
       const unclaim = context.ui.slot({ append: SLOT, render: () => view.element() });

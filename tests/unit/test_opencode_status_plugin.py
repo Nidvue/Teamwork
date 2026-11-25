@@ -86,6 +86,28 @@ HARNESS = """
 });
 """
 
+SERVER_HARNESS = """
+(async () => {
+  const mod = await import(process.env.TW_PLUGIN);
+  const calls = { slots: [] };
+  const ctx = new Proxy({}, {
+    get(_target, prop) {
+      if (prop === "ui") return undefined;
+      return undefined;
+    },
+  });
+  let threw = null;
+  try {
+    mod.default.setup(ctx);
+  } catch (error) {
+    threw = String((error && error.message) || error);
+  }
+  console.log(JSON.stringify({ threw, slots: calls.slots, id: mod.default.id }));
+})().catch((error) => {
+  console.log(JSON.stringify({ harnessError: String(error && error.message) }));
+});
+"""
+
 PAYLOAD = {
     "schema": 5,
     "generated": "2026-11-25T09:54:22",
@@ -169,6 +191,23 @@ def drive(payload: dict, host: str = "") -> dict:
     return body
 
 
+def drive_server() -> dict:
+    if not INDEX.is_file():
+        pytest.skip("the plugin source is not present in this checkout")
+    result = subprocess.run(
+        [node(), "--experimental-strip-types", "--no-warnings", "-e", SERVER_HARNESS],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env={**os.environ, "TW_PLUGIN": INDEX.as_uri(), "TEAMWORK_AGENT_HOST": "opencode"},
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    body = json.loads(result.stdout)
+    assert "harnessError" not in body, body["harnessError"]
+    return body
+
+
 def test_setup_claims_footer_status_and_renders_the_schema5_summary() -> None:
     got = drive(PAYLOAD)
     assert got["id"] == "tw-status", got
@@ -214,6 +253,13 @@ def test_a_non_schema5_payload_draws_nothing() -> None:
     got = drive(legacy)
     assert got["slots"] == [{"append": "home.footer.status", "hasRender": True}], got
     assert got["lines"] == [], got
+
+
+def test_server_default_export_is_safe_without_a_ui_context() -> None:
+    got = drive_server()
+    assert got["id"] == "tw-status", got
+    assert got["threw"] is None, got
+    assert got["slots"] == [], got
 
 
 def build(tmp_path: Path) -> Path:
