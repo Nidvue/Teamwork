@@ -84,6 +84,7 @@ under two roles is two tasks.
 | architect | T-0001 | always-on-cap | done | P-0013 | 1747999f |
 | architect | T-0002 | install-docs | done | P-0015 | 1b3f4577 |
 | architect | T-0003 | display-docs | done | P-0019 | 00085661 |
+| architect | T-0004 | status-display | done | P-0029 | d7f06346 |
 | ceo | T-0001 | team-records | done | P-0001 | 8cc5ac7e |
 | ceo | T-0002 | records | done | P-0014 | 64ed98d9 |
 | ceo | T-0003 | records | done | P-0017 | 563ba6a9 |
@@ -112,7 +113,7 @@ under two roles is two tasks.
 | developer | T-0022 | release-gates | done | P-0025 | 673f2b62 |
 | developer | T-0023 | display | done | P-0027 | 857bc45c |
 | developer | T-0024 | display | done | P-0026 | 28d6787c |
-| developer | T-0025 | - | doing | - | - |
+| developer | T-0025 | tests | review | P-0028 | - |
 | tester | T-0001 | pi-package | done | P-0005 | 366a4cdd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -131,7 +132,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0025 · Allow the plugins root in the hygiene census | P0 | doing | - |
+| developer | T-0025 · Allow the plugins root in the hygiene census | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
