@@ -9485,3 +9485,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: awk 'NR==193||NR==195||NR==211||NR==217{print NR}' /tmp/opencode/tw-learn/llms.txt -> 193,195,211,217 (195 staggered waves, 211 controller pushes prompt every 3-5 min, 217 1000-agent burst + 500-1000 req/min rate limits); grep -n '_claim(root, item)\|run = spawn(' src/teamwork/lanes.py -> 2614 then 2625 (claim before spawn); sed -n '2247p' lanes.py + 632p messages.py -> preempt docstrings; sed -n '226,240p' messages.py -> send_all fans out at send time; sed -n '30,34p' report -> all five block labels; grep -c 'falsified by' D-20261127-CEO-3 block -> 1 | baseline: unverified study | replay: awk 'NR==193||NR==195||NR==211||NR==217{print NR}' /tmp/opencode/tw-learn/llms.txt && grep -n '_claim(root, item)\|run = spawn(' src/teamwork/lanes.py
 - findings history: 
 - branch / merge: - / pending
+
+## T-0016 · Study scaling-swarms for private eval honesty  (ceo)
+- date: 2026-11-27
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: -
+- self-check: [pass] Boundary: one pinned target (d118a679, CC BY 4.0, access date), four separate questions, each with five probes and a five-line mechanism extraction; no source text or identifier copied. Empty/duplicate/second call: a missing probe leaves a table row unfilled, so no verdict is written; repeated searches return the same records; the four verdicts name what each rejects so a second study does not re-run it. Contract surface: no CLI, schema or gate changed. Concurrency and shared writes: one CEO pen wrote the local knowledge, decisions and one report artifact; no lane's file was touched. Exact scope: team-local records plus one CEO report; production code is T-0011. | test: python scripts/teamwork.py knowledge search 'learn:scaling-swarms' -> 20 records; grep -c '^| ' /home/pingz/Storage/Projects/Nidvue/Teamwork/.pi/Teamwork/Teams/Teamwork/Agents/CEO/Reports/scaling-swarms-study.md -> 16 table rows; python scripts/teamwork.py decision list -> 4 decisions D-20261127-CEO..-4 | baseline: no pinned target, no research rounds, no comparison tables | replay: python scripts/teamwork.py knowledge search 'learn:scaling-swarms' | preflight: PF-19cd185139d4 @- (8 checks, 0 failed)
+- author evidence: 
+- reviewer evidence: awk 'NR==157||NR==161{print NR}' /tmp/opencode/tw-learn/llms.txt -> 157 (every PR must beat main on the swarm-written deck, reviewers rerun), 161 (eval hidden from controllers/prompts/files, run on separate HF Jobs, even steering agent unaware); grep -c 'deck of realistic conversations' llms.txt -> 1 (deck is their own term); grep -c 'designs, develops and executes its own tests' AGENTS.md -> 1 (our ownership rule); sed -n '44,48p' report -> all five block labels; grep -c 'falsified by' D-20261127-CEO-4 -> 1 | baseline: unverified study | replay: awk 'NR==157||NR==161{print NR}' /tmp/opencode/tw-learn/llms.txt && grep -c 'falsified by' docs/Team/Decisions.md
+- findings history: 
+- branch / merge: - / pending
