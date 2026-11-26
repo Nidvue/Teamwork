@@ -3568,3 +3568,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: awk "NR==227||NR==239{print NR\": \"\$0}" /tmp/opencode/tw-learn/llms.txt -> 227: "followed how many PRs per hour the swarm merged"; 239: "Git server PR and merge-queue event log" - accessed 2026-11-27
 - falsified by: If article line 227 or 239 does not contain those sentences at SHA d118a679, this correction is wrong and the study must be re-opened.
 - consequences: -
+
+## D-20261127-CEO-6 - User authorization: push local main to origin/main
+
+- date: 2026-11-27
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: AUTHORIZED by the user on 2026-11-27 with the instruction "commit and push code". Push the local main tip fast-forward to origin/main (Nidvue/Teamwork); no force-push, no history rewrite, no tag or public release. Execution is delegated to the Release Engineer per the push policy.
+- why: The nine local commits are all from the completed tw-learn run: reviewed code commit 49b6fb17, merge-generated board/archive commits, and the CEO decisions record ba8d153e. Remote main is at 31c7f5ef, the reviewed base; the push is a fast-forward.
+- evidence: git status --short -> empty; git status -sb -> main...origin/main [ahead 9]; git ls-remote origin refs/heads/main -> 31c7f5ef5dd1e67981af53f58cbe600a73dc6ee9; audit --no-gates -> 0 problems; pr list --open -> none
+- falsified by: If origin/main is not an ancestor of the local tip at push time, or a gate is red on that tip, the push is cancelled and reported instead of forced.
+- consequences: -
