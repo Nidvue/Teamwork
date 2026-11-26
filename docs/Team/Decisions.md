@@ -3488,3 +3488,83 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: harness budget @worktree -> CEO 98834/106496 ok, load ceo -> 4646 B; sparse.py:168-244 read_pack with query/path:line; harness.py:278-295 C4/C6 on-demand; user-pasted post accessed 2026-11-25 (no URL - UNVERIFIED provenance beyond text)
 - falsified by: A measured startup-row drop after a change that merely defers loading an instruction already on demand, or a gate silently skipped because its body was not loaded.
 - consequences: -
+
+## D-20261127-CEO - Adapt: time-resolved merge throughput in coordination
+
+- date: 2026-11-27
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: ADAPT from HuggingFaceSwarms/scaling-swarms@d118a679 (CC BY 4.0, accessed 2026-11-27): report merge throughput over time from the timestamped pr.merge ledger actions in coordination, and flag a merge stall while reviews are open. It replaces the cumulative merged/total ratio as the only merge-health signal.
+- why: Their Git-server event log made PRs-merged-per-hour the signal that located the bottleneck (article line 229-247); our coordination only computes merged/total at engine.py:13824-13829, which stays above 0.5 no matter how long merges have stopped. Precondition holds: Ledger.jsonl records pr.merge with a ts on every merge (22 rows today), so no schema change is needed.
+- evidence: HuggingFaceSwarms/scaling-swarms@d118a679 (CC BY 4.0, accessed 2026-11-27)#article:229,247 via [published article](https://huggingfaceswarms-scaling-swarms.hf.space/llms.txt) - accessed 2026-11-27; src/teamwork/engine.py:13824-13829,13446 @HEAD; .pi/Teamwork/Teams/Teamwork/Ledger.jsonl pr.merge ts @HEAD
+- falsified by: Insert two pr.merge rows whose ts differ by 12 hours with an open review: coordination must name the gap. Move the timestamps back to hourly and the finding must clear. If the output is unchanged when the ledger timestamps move, the mechanism did not land.
+- consequences: One read-only section in coordination and one unit test; no gate weakened, no new ledger action, no PR schema change.
+
+## D-20261127-CEO-2 - Reject: server rebase, union driver and ordered queue
+
+- date: 2026-11-27
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: REJECT from HuggingFaceSwarms/scaling-swarms@d118a679 (CC BY 4.0, accessed 2026-11-27): do not adopt server-side rebase, an ordered merge queue, or a union merge driver. Our merge already rebases on the server at engine.py:1059/2024 and serialises under merge.lock at engine.py:1259/1758; the union driver's precondition (append-only, line-mergeable shared files) is false here, where shared files are a hash-chained Ledger.jsonl and records rendered from queues at merge.
+- why: Article lines 237-247 measured a real 11% agent-rebase success rate and 10/23 -> 1/9 conflicts, but the first two fixes exist here under our own names and the third would let two lanes' record lines combine silently. One verification per fact per revision also forbids re-running green gates at merge time.
+- evidence: HuggingFaceSwarms/scaling-swarms@d118a679 (CC BY 4.0, accessed 2026-11-27)#article:237,241,243,245,247 - accessed 2026-11-27; src/teamwork/engine.py:1059,1259,1758,2024 @HEAD; .gitattributes:1-40 @HEAD
+- falsified by: Revisit only if a union merge of two concurrent Ledger append lines still passes teamwork ledger verify, or if measured rebase failures exceed 10% of merge attempts in our own ledger.
+- consequences: No change to the merge path; the reject is recorded so the next study does not repeat it.
+
+## D-20261127-CEO-3 - Reject: staggered waves and controller-pushed notifications
+
+- date: 2026-11-27
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: REJECT from HuggingFaceSwarms/scaling-swarms@d118a679 (CC BY 4.0, accessed 2026-11-27): do not add a mid-run notification pump or an in-wave start delay. The supervisor already claims every assignment before any lane starts (lanes.py:2611-2634), so later lanes can read earlier claims; urgent messages already preempt a lane (messages.py:632, lanes.py:2247). A prompt pump needs long-lived sessions our one-shot lanes do not have.
+- why: Article lines 193-217 show the mechanism works in a harness with long-lived agent sessions, and also that unbounded fan-out hit Hub rate limits. Our pre-spawn claims solve the duplicate-context cause directly; our bus is a local file bus, so the HTTP burst precondition is absent.
+- evidence: HuggingFaceSwarms/scaling-swarms@d118a679 (CC BY 4.0, accessed 2026-11-27)#article:193,195,211,217 - accessed 2026-11-27; src/teamwork/lanes.py:1877,2247,2611-2634 @HEAD; src/teamwork/messages.py:226-240,632 @HEAD
+- falsified by: Revisit only if a wave of at least 10 simultaneously started lanes produces a duplicate-work rate above 10% that falls when starts are delayed by one board post.
+- consequences: No dispatch change; recorded as a reject with its revisit condition.
+
+## D-20261127-CEO-4 - Reject: secret eval and approach clustering
+
+- date: 2026-11-27
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: REJECT from HuggingFaceSwarms/scaling-swarms@d118a679 (CC BY 4.0, accessed 2026-11-27): do not conceal our test records from authors and do not add an LLM judge that clusters every task by approach. Layered tests here are independent by role (Tester runs the suite, Reviewer credits it at the same revision), so secrecy would break the credit gate; approach clustering over tens of tasks is dominated by coordination --strict's C-DIV-BRANCH/TASK/SHARED checks at engine.py:13657.
+- why: Article lines 157-161 hide an external scoring harness the swarm could game, and lines 265-285 sample 96 of 8500 PRs because only at that volume does clustering pay. Our authors writing their own unit tests is a deliberate ownership rule, and our duplicate detector is deterministic and testable.
+- evidence: HuggingFaceSwarms/scaling-swarms@d118a679 (CC BY 4.0, accessed 2026-11-27)#article:157,161,265,269,285 - accessed 2026-11-27; src/teamwork/engine.py:13657-13745 @HEAD; AGENTS.md 'Layered tests (hard)' @HEAD
+- falsified by: Revisit concealment only if a lane can read a score it is graded on; revisit clustering only above 100 merged PRs or when coordination --strict misses a known duplicate pair that clustering catches.
+- consequences: No test or coordination change from these two questions; recorded rejects with revisit conditions.
+
+## D-20261127-CEO-5 - Evidence correction: D-20261127-CEO cites article:227,239
+
+- date: 2026-11-27
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: SUPERSEDE the evidence pointers of D-20261127-CEO, not its verdict: the adopted merge-throughput mechanism is stated at article line 227 ("we followed how many PRs per hour the swarm merged") with its source at line 239 ("the Git server PR and merge-queue event log"), not at the section heading 229 or the merge-queue paragraph 247. D-20261127-CEO remains accepted; only its citation is corrected.
+- why: Reviewer-2 failed T-0014 because the sole adopted row and decision pointed at lines that do not contain the claim. Verified with awk NR==227||NR==239 on the pinned local copy of the article (SHA d118a679).
+- evidence: awk "NR==227||NR==239{print NR\": \"\$0}" /tmp/opencode/tw-learn/llms.txt -> 227: "followed how many PRs per hour the swarm merged"; 239: "Git server PR and merge-queue event log" - accessed 2026-11-27
+- falsified by: If article line 227 or 239 does not contain those sentences at SHA d118a679, this correction is wrong and the study must be re-opened.
+- consequences: -
