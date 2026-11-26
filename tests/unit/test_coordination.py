@@ -195,6 +195,92 @@ def test_merge_rate_below_half_is_a_merge_health_finding(cli, project: Path) -> 
     assert report["metrics"]["merge_fraction"] == 0.2
 
 
+def merge_rows(root: Path, ages_hours: list[float]) -> None:
+    now = datetime.datetime.now()
+    lines = []
+    for index, hours in enumerate(ages_hours):
+        record = {
+            "ts": (now - datetime.timedelta(hours=hours)).isoformat(timespec="seconds"),
+            "n": 100 + index,
+            "actor": "Reviewer",
+            "role": "reviewer",
+            "action": "pr.merge",
+            "target": f"P-{1000 + index:04d}",
+            "detail": "merged via review",
+            "rev": "",
+            "prev": "",
+            "hash": "",
+        }
+        lines.append(json.dumps(record, sort_keys=True))
+    engine.ledger_path(root).write_text(
+        "\n".join(lines) + ("\n" if lines else ""), encoding="utf-8"
+    )
+
+
+def merge_stall(report: dict) -> dict:
+    return next(f for f in report["findings"] if f["code"] == "C-MERGE-STALL")
+
+
+def test_merge_health_flags_a_stall_when_a_review_is_open(cli, project: Path) -> None:
+    root = init(cli, project)
+    _review_ready(cli, root, 1)
+
+    merge_rows(root, [12, 36])
+    recent = engine.merge_health(root)
+    assert recent["merges_24h"] == 1
+    assert 11.9 <= recent["hours_since_last_merge"] <= 12.2
+    assert "C-MERGE-STALL" not in codes(engine.coordination_report(root))
+
+    merge_rows(root, [30, 36])
+    stalled = engine.merge_health(root)
+    assert stalled["merges_24h"] == 0
+    assert 29.9 <= stalled["hours_since_last_merge"] <= 30.2
+
+    found = merge_stall(engine.coordination_report(root))
+    assert found["severity"] == "medium"
+    assert found["check"] == "merge"
+    assert f"{stalled['hours_since_last_merge']:.1f} hours" in found["detail"]
+    assert f"{stalled['hours_since_last_merge']:.1f}h" in found["subject"]
+    assert "0 merge(s) in the last 24h" in found["detail"]
+    assert cli("--project", project, "coordination", "--strict") == 0
+
+    edit_task(root, "developer", "T-0001", status="done", review_status="passed")
+    assert "C-MERGE-STALL" not in codes(engine.coordination_report(root))
+
+    merge_rows(root, [])
+    assert engine.merge_health(root)["hours_since_last_merge"] is None
+    edit_task(root, "developer", "T-0001", status="review", review_status="")
+    assert "infinite hours" in merge_stall(engine.coordination_report(root))["detail"]
+
+
+def test_hourly_merges_clear_the_stall(cli, project: Path) -> None:
+    root = init(cli, project)
+    merge_rows(root, [1, 2, 3])
+    engine.write_reviews(
+        engine.reviews_path(root),
+        [engine.new_pr("a change", status="open", updated="2026-01-01", branch="dev/open")],
+    )
+
+    assert engine.merge_health(root)["merges_24h"] == 3
+    assert "C-MERGE-STALL" not in codes(engine.coordination_report(root))
+
+
+def test_merge_health_tolerates_empty_and_malformed_ledger(cli, project: Path) -> None:
+    root = init(cli, project)
+    empty = {"merges_24h": 0, "hours_since_last_merge": None}
+    assert engine.merge_health(root) == empty
+    assert engine.merge_health(root) == empty
+
+    engine.ledger_path(root).write_text(
+        "not json\n"
+        '{"action": "pr.merge", "ts": "not-a-date"}\n'
+        '{"action": "pr.merge"}\n'
+        '{"action": "pr.merge", "ts": 12}\n',
+        encoding="utf-8",
+    )
+    assert engine.merge_health(root) == empty
+
+
 def test_reclaim_refuses_a_live_lane_and_force_is_recorded(cli, project: Path) -> None:
     root = init(cli, project)
     assert cli("--project", project, "task", "add", "developer", "live work") == 0

@@ -13408,6 +13408,7 @@ COORD_MERGE_FLOOR = 4
 COORD_TRUST_FLOOR = 8
 COORD_VERDICT_SHARE = 0.75
 COORD_RECLAIM_DAYS = 7
+COORD_MERGE_STALL_HOURS = 24
 
 COORD_CHECK_TITLE = {
     "diversity": "diversity - lanes that share a model, a context and a queue fail together",
@@ -13654,6 +13655,32 @@ def _recent_reclaims(root: Path) -> list:
     return rows
 
 
+def merge_health(root: Path) -> dict:
+    """Time-resolved merge signal from the append-only trail.
+
+    Unreadable rows and rows without a usable ISO timestamp are ignored: a
+    corrupt record is not evidence of a merge or of a stall.
+    """
+    now_ts = datetime.datetime.now().timestamp()
+    cutoff_ts = now_ts - COORD_MERGE_STALL_HOURS * 3600
+    recent = 0
+    latest_ts = None
+    for record in ledger_read(root):
+        if record.get("action") != "pr.merge":
+            continue
+        try:
+            stamp = datetime.datetime.fromisoformat(record.get("ts") or "")
+            stamp_ts = stamp.timestamp()
+        except (TypeError, ValueError):
+            continue
+        if stamp_ts >= cutoff_ts:
+            recent += 1
+        if latest_ts is None or stamp_ts > latest_ts:
+            latest_ts = stamp_ts
+    hours = max(0.0, (now_ts - latest_ts) / 3600) if latest_ts is not None else None
+    return {"merges_24h": recent, "hours_since_last_merge": hours}
+
+
 def coordination_report(root: Path) -> dict:
     """Measure the multi-agent failure modes the records can actually show.
 
@@ -13836,6 +13863,25 @@ def coordination_report(root: Path) -> dict:
                 "writer per file, and re-scope a PR that conflicts twice",
             )
         )
+    health = merge_health(root)
+    stalled_hours = health["hours_since_last_merge"]
+    pending_review = bool(awaiting_review(root)) or any(
+        pr.get("status") in ("open", "approved") for pr in prs
+    )
+    if pending_review and (stalled_hours is None or stalled_hours > COORD_MERGE_STALL_HOURS):
+        hours_text = f"{stalled_hours:.1f}" if stalled_hours is not None else "infinite"
+        findings.append(
+            _coord_finding(
+                "C-MERGE-STALL",
+                "merge",
+                "medium",
+                f"{hours_text}h since last merge",
+                f"{hours_text} hours since the last pr.merge; "
+                f"{health['merges_24h']} merge(s) in the last 24h while a review or PR is open",
+                "land the oldest open PR before opening more work; a merge older than "
+                "24h with work waiting means the queue is not draining",
+            )
+        )
     project = project_of(root)
     if is_git_repo(project):
         task_index = {(role, task["id"].upper()): task for role, task in tasks}
@@ -13991,6 +14037,8 @@ def coordination_report(root: Path) -> dict:
             "prs": total_prs,
             "merged": merged,
             "merge_fraction": round(merged / total_prs, 2) if total_prs else None,
+            "merges_24h": health["merges_24h"],
+            "hours_since_last_merge": health["hours_since_last_merge"],
             "verdicts": total_verdicts,
             "reviewer_lanes": len(instances_of(root, "reviewer")),
             "review_queue": len(
@@ -14041,6 +14089,9 @@ def _coordination_print(report: dict, root: Path) -> int:
         f"- PRs: {metrics['merged']}/{metrics['prs']} merged"
         + (f" ({fraction})" if fraction is not None else "")
     )
+    hours = metrics["hours_since_last_merge"]
+    hours_text = f"{hours:.1f}h ago" if hours is not None else "never"
+    print(f"- merge health: {metrics['merges_24h']} merge(s) in 24h | last merge {hours_text}")
     print(
         f"- Reviewer lanes: {metrics['reviewer_lanes']} | verdicts: "
         f"{metrics['verdicts']} | free slots: {metrics['free_slots']}"
